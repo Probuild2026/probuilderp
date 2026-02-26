@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { formatINR } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -43,6 +44,7 @@ export function PaymentSchedule({
 }) {
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<Stage | null>(null);
+  const [details, setDetails] = useState<Stage | null>(null);
 
   const totals = useMemo(() => {
     let exp = 0;
@@ -149,78 +151,225 @@ export function PaymentSchedule({
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-md border">
-        <Table className="min-w-[1100px]">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Stage</TableHead>
-              <TableHead>Scope</TableHead>
-              <TableHead className="text-right">%</TableHead>
-              <TableHead className="text-right">Expected</TableHead>
-              <TableHead className="text-right">Bank</TableHead>
-              <TableHead className="text-right">Cash</TableHead>
-              <TableHead className="text-right">Actual Bank</TableHead>
-              <TableHead className="text-right">Actual Cash</TableHead>
-              <TableHead className="text-right">Actual Total</TableHead>
-              <TableHead className="text-right">Balance</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {stages.map((s) => {
-              const expected = s.expectedAmount;
-              const actual = s.actualBank + s.actualCash;
-              const bal = expected - actual;
-              return (
-                <TableRow key={s.id}>
-                  <TableCell className="font-medium">{s.stageName}</TableCell>
-                  <TableCell className="max-w-[420px] truncate">{s.scopeOfWork ?? "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{s.percent != null ? String(s.percent) : "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatINR(s.expectedAmount)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatINR(s.expectedBank)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatINR(s.expectedCash)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatINR(s.actualBank)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatINR(s.actualCash)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatINR(actual)}</TableCell>
-                  <TableCell className={cn("text-right tabular-nums", bal <= 0 ? "text-emerald-600" : "")}>
-                    {formatINR(bal)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="inline-flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => setEditing(s)}>
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => {
-                          startTransition(async () => {
-                            try {
-                              await deletePaymentStage(s.id, projectId);
-                              toast.success("Stage deleted.");
-                            } catch (e) {
-                              toast.error(e instanceof Error ? e.message : "Delete failed.");
-                            }
-                          });
-                        }}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </TableCell>
+      <Tabs defaultValue="summary">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="summary">Summary</TabsTrigger>
+            <TabsTrigger value="full">Full breakdown</TabsTrigger>
+          </TabsList>
+          <div className="text-xs text-muted-foreground">
+            Tip: Summary fits on screen; open “Details” for bank/cash split.
+          </div>
+        </div>
+
+        <TabsContent value="summary">
+          <div className="overflow-x-auto rounded-md border">
+            <Table className="min-w-[860px]">
+              <TableHeader className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+                <TableRow>
+                  <TableHead>Stage</TableHead>
+                  <TableHead className="text-right">%</TableHead>
+                  <TableHead className="text-right">Expected</TableHead>
+                  <TableHead className="text-right">Actual</TableHead>
+                  <TableHead className="text-right">Balance</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              );
-            })}
-            {stages.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={11} className="py-10 text-center text-sm text-muted-foreground">
-                  No schedule yet. Import your CSV or add stages manually.
-                </TableCell>
-              </TableRow>
-            ) : null}
-          </TableBody>
-        </Table>
-      </div>
+              </TableHeader>
+              <TableBody>
+                {stages.map((s) => {
+                  const expected = s.expectedAmount;
+                  const actual = s.actualBank + s.actualCash;
+                  const bal = expected - actual;
+                  return (
+                    <TableRow key={s.id}>
+                      <TableCell>
+                        <div className="font-medium">{s.stageName}</div>
+                        <div className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                          {s.scopeOfWork ?? "—"}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{s.percent != null ? String(s.percent) : "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(s.expectedAmount)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(actual)}</TableCell>
+                      <TableCell className={cn("text-right tabular-nums", bal <= 0 ? "text-emerald-600" : "")}>
+                        {formatINR(bal)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="inline-flex flex-wrap justify-end gap-2">
+                          <Button size="sm" variant="outline" onClick={() => setDetails(s)}>
+                            Details
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setEditing(s)}>
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => {
+                              startTransition(async () => {
+                                try {
+                                  await deletePaymentStage(s.id, projectId);
+                                  toast.success("Stage deleted.");
+                                } catch (e) {
+                                  toast.error(e instanceof Error ? e.message : "Delete failed.");
+                                }
+                              });
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {stages.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                      No schedule yet. Import your CSV or add stages manually.
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="full">
+          <div className="overflow-x-auto rounded-md border">
+            <Table className="min-w-[1100px]">
+              <TableHeader className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+                <TableRow>
+                  <TableHead>Stage</TableHead>
+                  <TableHead>Scope</TableHead>
+                  <TableHead className="text-right">%</TableHead>
+                  <TableHead className="text-right">Expected</TableHead>
+                  <TableHead className="text-right">Bank</TableHead>
+                  <TableHead className="text-right">Cash</TableHead>
+                  <TableHead className="text-right">Actual Bank</TableHead>
+                  <TableHead className="text-right">Actual Cash</TableHead>
+                  <TableHead className="text-right">Actual Total</TableHead>
+                  <TableHead className="text-right">Balance</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {stages.map((s) => {
+                  const expected = s.expectedAmount;
+                  const actual = s.actualBank + s.actualCash;
+                  const bal = expected - actual;
+                  return (
+                    <TableRow key={s.id}>
+                      <TableCell className="font-medium">{s.stageName}</TableCell>
+                      <TableCell className="max-w-[420px] truncate">{s.scopeOfWork ?? "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{s.percent != null ? String(s.percent) : "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(s.expectedAmount)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(s.expectedBank)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(s.expectedCash)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(s.actualBank)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(s.actualCash)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(actual)}</TableCell>
+                      <TableCell className={cn("text-right tabular-nums", bal <= 0 ? "text-emerald-600" : "")}>
+                        {formatINR(bal)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="inline-flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => setEditing(s)}>
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => {
+                              startTransition(async () => {
+                                try {
+                                  await deletePaymentStage(s.id, projectId);
+                                  toast.success("Stage deleted.");
+                                } catch (e) {
+                                  toast.error(e instanceof Error ? e.message : "Delete failed.");
+                                }
+                              });
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {stages.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={11} className="py-10 text-center text-sm text-muted-foreground">
+                      No schedule yet. Import your CSV or add stages manually.
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={!!details} onOpenChange={(o) => (!o ? setDetails(null) : null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Stage details</DialogTitle>
+          </DialogHeader>
+          {details ? (
+            <div className="space-y-4 text-sm">
+              <div>
+                <div className="font-medium">{details.stageName}</div>
+                <div className="mt-1 text-muted-foreground">{details.scopeOfWork ?? "—"}</div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="rounded-md border p-3">
+                  <div className="text-xs text-muted-foreground">Expected bank</div>
+                  <div className="mt-1 font-semibold tabular-nums">{formatINR(details.expectedBank)}</div>
+                </div>
+                <div className="rounded-md border p-3">
+                  <div className="text-xs text-muted-foreground">Expected cash</div>
+                  <div className="mt-1 font-semibold tabular-nums">{formatINR(details.expectedCash)}</div>
+                </div>
+                <div className="rounded-md border p-3">
+                  <div className="text-xs text-muted-foreground">Actual bank</div>
+                  <div className="mt-1 font-semibold tabular-nums">{formatINR(details.actualBank)}</div>
+                </div>
+                <div className="rounded-md border p-3">
+                  <div className="text-xs text-muted-foreground">Actual cash</div>
+                  <div className="mt-1 font-semibold tabular-nums">{formatINR(details.actualCash)}</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="rounded-md border p-3">
+                  <div className="text-xs text-muted-foreground">Expected total</div>
+                  <div className="mt-1 font-semibold tabular-nums">{formatINR(details.expectedAmount)}</div>
+                </div>
+                <div className="rounded-md border p-3">
+                  <div className="text-xs text-muted-foreground">Actual total</div>
+                  <div className="mt-1 font-semibold tabular-nums">{formatINR(details.actualBank + details.actualCash)}</div>
+                </div>
+              </div>
+              {(details.expectedDate || details.actualDate || details.notes) && (
+                <div className="space-y-2">
+                  {details.expectedDate ? (
+                    <div className="text-muted-foreground">Expected date: {details.expectedDate}</div>
+                  ) : null}
+                  {details.actualDate ? (
+                    <div className="text-muted-foreground">Actual date: {details.actualDate}</div>
+                  ) : null}
+                  {details.notes ? <div className="text-muted-foreground">Notes: {details.notes}</div> : null}
+                </div>
+              )}
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setDetails(null)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!editing} onOpenChange={(o) => (!o ? setEditing(null) : null)}>
         <DialogContent className="max-w-2xl">
