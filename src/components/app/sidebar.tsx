@@ -30,6 +30,7 @@ export const appNav = [
   { href: "/app/inventory", label: "Inventory", icon: Boxes },
   { href: "/app/expenses", label: "Expenses", icon: ClipboardList },
   { href: "/app/reports/monthly-expenses", label: "Monthly CSV", icon: FileSpreadsheet },
+  { href: "/app/settings/business", label: "Business", icon: Building2 },
   { href: "/app/settings/account", label: "Account", icon: Settings },
 ];
 

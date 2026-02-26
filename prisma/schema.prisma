@@ -78,6 +78,7 @@ enum AttachmentEntityType {
   PAYMENT_VOUCHER
   LABOUR_PAYMENT
   TRANSACTION
+  TENANT_PROFILE
 }
 
 enum StockDirection {
@@ -173,6 +174,38 @@ model Tenant {
   txnCategories        TxnCategory[]
   transactions         Transaction[]
   projectPaymentStages ProjectPaymentStage[]
+  profile              TenantProfile?
+}
+
+model TenantProfile {
+  id       String @id @default(cuid())
+  tenantId Int    @unique @default(1)
+
+  legalName   String
+  tradeName   String?
+  phone       String?
+  email       String?
+  address     String?
+  gstin       String?
+  pan         String?
+
+  bankName      String?
+  bankAccountNo String?
+  bankIfsc      String?
+  upiId         String?
+
+  logoUrl      String?
+  logoName     String?
+  logoMimeType String?
+  logoSize     Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, gstin])
 }
 
 // --- Auth (NextAuth / Auth.js) ---

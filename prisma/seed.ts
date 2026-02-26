@@ -58,6 +58,15 @@ async function main() {
     create: { id: TENANT_ID, name: "Probuild" },
   });
 
+  await prisma.tenantProfile.upsert({
+    where: { tenantId: TENANT_ID },
+    update: {},
+    create: {
+      tenantId: TENANT_ID,
+      legalName: "Probuild",
+    },
+  });
+
   for (const account of ledgerAccounts) {
     await prisma.ledgerAccount.upsert({
       where: {
