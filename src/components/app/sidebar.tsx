@@ -11,6 +11,7 @@ const nav = [
   { href: "/app/inventory", label: "Inventory" },
   { href: "/app/expenses", label: "Expenses" },
   { href: "/app/reports/monthly-expenses", label: "Monthly CSV" },
+  { href: "/app/settings/account", label: "Account" },
 ];
 
 export function Sidebar({ className }: { className?: string }) {
