@@ -279,7 +279,7 @@ export default async function ExpenseDetailPage({ params }: { params: Promise<{ 
               </div>
             )}
             <div className="text-xs text-muted-foreground">
-              Note: uploads are stored on server disk; on Vercel this is not durable yet (we’ll move to Blob/S3).
+              Uploaded bills are stored in Vercel Blob when configured.
             </div>
           </CardContent>
         </Card>
@@ -287,4 +287,3 @@ export default async function ExpenseDetailPage({ params }: { params: Promise<{ 
     </div>
   );
 }
-

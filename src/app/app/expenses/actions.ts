@@ -6,7 +6,7 @@ import { getServerSession } from "next-auth/next";
 import { expenseCreateSchema, expenseUpdateSchema } from "@/lib/validators/expense";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
-import { saveUploadToDisk } from "@/server/storage";
+import { saveUploadToDisk, tryDeleteStoredFile } from "@/server/storage";
 
 function parseDateOnly(value: string) {
   const date = new Date(`${value}T00:00:00`);
@@ -133,12 +133,19 @@ export async function deleteExpense(id: string) {
   const session = await getServerSession(authOptions);
   if (!session?.user) throw new Error("Unauthorized");
 
+  const attachments = await prisma.attachment.findMany({
+    where: { tenantId: session.user.tenantId, entityType: "EXPENSE", entityId: id },
+    select: { id: true, storagePath: true },
+  });
+
   await prisma.attachment.deleteMany({
     where: { tenantId: session.user.tenantId, entityType: "EXPENSE", entityId: id },
   });
   await prisma.expense.delete({
     where: { id, tenantId: session.user.tenantId },
   });
+
+  await Promise.allSettled(attachments.map((a) => tryDeleteStoredFile(a.storagePath)));
 
   revalidatePath("/app/expenses");
 }

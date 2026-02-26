@@ -18,13 +18,17 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   });
   if (!attachment) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // If stored in Vercel Blob (URL), redirect to it.
+  if (attachment.storagePath.startsWith("http://") || attachment.storagePath.startsWith("https://")) {
+    return NextResponse.redirect(attachment.storagePath);
+  }
+
   try {
     await stat(attachment.storagePath);
   } catch {
     return NextResponse.json(
       {
-        error:
-          "File not found on server storage. (Uploads are not durable on Vercel yet — we’ll move this to Blob/S3.)",
+        error: "File not found on server storage.",
       },
       { status: 404 },
     );
@@ -41,4 +45,3 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     },
   });
 }
-
