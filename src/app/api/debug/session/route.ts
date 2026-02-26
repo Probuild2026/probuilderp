@@ -1,9 +1,10 @@
 import { getServerSession } from "next-auth/next";
-import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
 
 import { authOptions } from "@/server/auth";
 
-export default async function Home() {
+export async function GET() {
   const session = await getServerSession(authOptions);
-  redirect(session?.user ? "/app" : "/login");
+  return NextResponse.json({ session });
 }
+
