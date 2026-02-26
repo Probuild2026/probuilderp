@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import type { ProjectPaymentStage } from "@prisma/client";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -14,12 +13,24 @@ import { toast } from "sonner";
 
 import { deletePaymentStage, importPaymentScheduleCsv, upsertPaymentStage } from "./actions";
 
-type DecimalLike = { toFixed: (fractionDigits: number) => string };
+type Stage = {
+  id: string;
+  stageName: string;
+  scopeOfWork: string | null;
+  percent: number | null;
+  expectedAmount: number;
+  expectedBank: number;
+  expectedCash: number;
+  actualBank: number;
+  actualCash: number;
+  expectedDate: string;
+  actualDate: string;
+  notes: string;
+  sortOrder: number;
+};
 
-function money(v: DecimalLike | number | null | undefined) {
-  if (typeof v === "number") return v.toFixed(2);
-  if (v && typeof v.toFixed === "function") return v.toFixed(2);
-  return "0.00";
+function money(v: number) {
+  return v.toFixed(2);
 }
 
 export function PaymentSchedule({
@@ -27,18 +38,18 @@ export function PaymentSchedule({
   stages,
 }: {
   projectId: string;
-  stages: ProjectPaymentStage[];
+  stages: Stage[];
 }) {
   const [pending, startTransition] = useTransition();
-  const [editing, setEditing] = useState<ProjectPaymentStage | null>(null);
+  const [editing, setEditing] = useState<Stage | null>(null);
 
   const totals = useMemo(() => {
     let exp = 0;
     let act = 0;
     for (const s of stages) {
-      const ea = Number(money(s.expectedAmount));
-      const ab = Number(money(s.actualBank));
-      const ac = Number(money(s.actualCash));
+      const ea = s.expectedAmount;
+      const ab = s.actualBank;
+      const ac = s.actualCash;
       exp += ea;
       act += ab + ac;
     }
@@ -95,22 +106,18 @@ export function PaymentSchedule({
             onClick={() =>
               setEditing({
                 id: "new",
-                tenantId: 1,
                 stageName: "",
                 scopeOfWork: null,
                 percent: null,
-                expectedAmount: 0 as unknown as ProjectPaymentStage["expectedAmount"],
-                expectedBank: 0 as unknown as ProjectPaymentStage["expectedBank"],
-                expectedCash: 0 as unknown as ProjectPaymentStage["expectedCash"],
-                actualBank: 0 as unknown as ProjectPaymentStage["actualBank"],
-                actualCash: 0 as unknown as ProjectPaymentStage["actualCash"],
-                expectedDate: null,
-                actualDate: null,
-                notes: null,
-                projectId,
+                expectedAmount: 0,
+                expectedBank: 0,
+                expectedCash: 0,
+                actualBank: 0,
+                actualCash: 0,
+                expectedDate: "",
+                actualDate: "",
+                notes: "",
                 sortOrder: stages.length ? Math.max(...stages.map((s) => s.sortOrder)) + 1 : 1,
-                createdAt: new Date(),
-                updatedAt: new Date(),
               })
             }
           >
@@ -160,14 +167,14 @@ export function PaymentSchedule({
           </TableHeader>
           <TableBody>
             {stages.map((s) => {
-              const expected = Number(money(s.expectedAmount));
-              const actual = Number(money(s.actualBank)) + Number(money(s.actualCash));
+              const expected = s.expectedAmount;
+              const actual = s.actualBank + s.actualCash;
               const bal = expected - actual;
               return (
                 <TableRow key={s.id}>
                   <TableCell className="font-medium">{s.stageName}</TableCell>
                   <TableCell className="max-w-[420px] truncate">{s.scopeOfWork ?? "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{s.percent ? String(s.percent) : "—"}</TableCell>
+                  <TableCell className="text-right tabular-nums">{s.percent != null ? String(s.percent) : "—"}</TableCell>
                   <TableCell className="text-right tabular-nums">₹{money(s.expectedAmount)}</TableCell>
                   <TableCell className="text-right tabular-nums">₹{money(s.expectedBank)}</TableCell>
                   <TableCell className="text-right tabular-nums">₹{money(s.expectedCash)}</TableCell>
@@ -247,7 +254,13 @@ export function PaymentSchedule({
                 </label>
                 <label className="space-y-2 text-sm">
                   <div className="text-muted-foreground">Percent</div>
-                  <Input name="percent" type="number" inputMode="decimal" step="0.01" defaultValue={editing.percent ? String(editing.percent) : ""} />
+                  <Input
+                    name="percent"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    defaultValue={editing.percent != null ? String(editing.percent) : ""}
+                  />
                 </label>
                 <label className="space-y-2 text-sm">
                   <div className="text-muted-foreground">Sort order</div>
@@ -260,11 +273,18 @@ export function PaymentSchedule({
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="space-y-2 text-sm">
                   <div className="text-muted-foreground">Expected total</div>
-                  <Input name="expectedAmount" type="number" inputMode="decimal" step="0.01" defaultValue={money(editing.expectedAmount)} required />
+                  <Input
+                    name="expectedAmount"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    defaultValue={money(editing.expectedAmount)}
+                    required
+                  />
                 </label>
                 <label className="space-y-2 text-sm">
                   <div className="text-muted-foreground">Expected date (optional)</div>
-                  <Input name="expectedDate" type="date" defaultValue={editing.expectedDate ? editing.expectedDate.toISOString().slice(0, 10) : ""} />
+                  <Input name="expectedDate" type="date" defaultValue={editing.expectedDate} />
                 </label>
                 <label className="space-y-2 text-sm">
                   <div className="text-muted-foreground">Expected bank</div>
@@ -289,11 +309,11 @@ export function PaymentSchedule({
                 </label>
                 <label className="space-y-2 text-sm">
                   <div className="text-muted-foreground">Actual date (optional)</div>
-                  <Input name="actualDate" type="date" defaultValue={editing.actualDate ? editing.actualDate.toISOString().slice(0, 10) : ""} />
+                  <Input name="actualDate" type="date" defaultValue={editing.actualDate} />
                 </label>
                 <label className="space-y-2 text-sm">
                   <div className="text-muted-foreground">Notes (optional)</div>
-                  <Input name="notes" defaultValue={editing.notes ?? ""} />
+                  <Input name="notes" defaultValue={editing.notes} />
                 </label>
               </div>
 

@@ -18,11 +18,46 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     where: { id, tenantId: session.user.tenantId },
     include: {
       client: { select: { name: true } },
-      paymentStages: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
     },
   });
 
   if (!project) return null;
+
+  const paymentStages = await prisma.projectPaymentStage.findMany({
+    where: { tenantId: session.user.tenantId, projectId: project.id },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      stageName: true,
+      scopeOfWork: true,
+      percent: true,
+      expectedAmount: true,
+      expectedBank: true,
+      expectedCash: true,
+      actualBank: true,
+      actualCash: true,
+      expectedDate: true,
+      actualDate: true,
+      notes: true,
+      sortOrder: true,
+    },
+  });
+
+  const stages = paymentStages.map((s) => ({
+    id: s.id,
+    stageName: s.stageName,
+    scopeOfWork: s.scopeOfWork,
+    percent: s.percent ? Number(s.percent) : null,
+    expectedAmount: Number(s.expectedAmount),
+    expectedBank: Number(s.expectedBank),
+    expectedCash: Number(s.expectedCash),
+    actualBank: Number(s.actualBank),
+    actualCash: Number(s.actualCash),
+    expectedDate: s.expectedDate ? s.expectedDate.toISOString().slice(0, 10) : "",
+    actualDate: s.actualDate ? s.actualDate.toISOString().slice(0, 10) : "",
+    notes: s.notes ?? "",
+    sortOrder: s.sortOrder,
+  }));
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
@@ -53,12 +88,11 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Schedule Rows</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm font-medium">{project.paymentStages.length}</CardContent>
+          <CardContent className="text-sm font-medium">{stages.length}</CardContent>
         </Card>
       </div>
 
-      <PaymentSchedule projectId={project.id} stages={project.paymentStages} />
+      <PaymentSchedule projectId={project.id} stages={stages} />
     </div>
   );
 }
-
