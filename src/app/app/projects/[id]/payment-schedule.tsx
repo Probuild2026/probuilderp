@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { formatINR } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -129,11 +130,11 @@ export function PaymentSchedule({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-md border p-3">
           <div className="text-xs text-muted-foreground">Expected Total</div>
-          <div className="mt-1 text-lg font-semibold tabular-nums">₹{totals.expected.toFixed(2)}</div>
+          <div className="mt-1 text-lg font-semibold tabular-nums">{formatINR(totals.expected)}</div>
         </div>
         <div className="rounded-md border p-3">
           <div className="text-xs text-muted-foreground">Actual Received</div>
-          <div className="mt-1 text-lg font-semibold tabular-nums">₹{totals.actual.toFixed(2)}</div>
+          <div className="mt-1 text-lg font-semibold tabular-nums">{formatINR(totals.actual)}</div>
         </div>
         <div className="rounded-md border p-3">
           <div className="text-xs text-muted-foreground">Balance</div>
@@ -143,7 +144,7 @@ export function PaymentSchedule({
               totals.balance <= 0 ? "text-emerald-600" : "text-amber-600",
             )}
           >
-            ₹{totals.balance.toFixed(2)}
+            {formatINR(totals.balance)}
           </div>
         </div>
       </div>
@@ -175,14 +176,14 @@ export function PaymentSchedule({
                   <TableCell className="font-medium">{s.stageName}</TableCell>
                   <TableCell className="max-w-[420px] truncate">{s.scopeOfWork ?? "—"}</TableCell>
                   <TableCell className="text-right tabular-nums">{s.percent != null ? String(s.percent) : "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums">₹{money(s.expectedAmount)}</TableCell>
-                  <TableCell className="text-right tabular-nums">₹{money(s.expectedBank)}</TableCell>
-                  <TableCell className="text-right tabular-nums">₹{money(s.expectedCash)}</TableCell>
-                  <TableCell className="text-right tabular-nums">₹{money(s.actualBank)}</TableCell>
-                  <TableCell className="text-right tabular-nums">₹{money(s.actualCash)}</TableCell>
-                  <TableCell className="text-right tabular-nums">₹{actual.toFixed(2)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{formatINR(s.expectedAmount)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{formatINR(s.expectedBank)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{formatINR(s.expectedCash)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{formatINR(s.actualBank)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{formatINR(s.actualCash)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{formatINR(actual)}</TableCell>
                   <TableCell className={cn("text-right tabular-nums", bal <= 0 ? "text-emerald-600" : "")}>
-                    ₹{bal.toFixed(2)}
+                    {formatINR(bal)}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="inline-flex gap-2">

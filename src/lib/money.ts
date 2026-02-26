@@ -18,3 +18,14 @@ export function parsePercent(value: unknown) {
   return Number.isFinite(n) ? n : null;
 }
 
+const inrFormatter = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+export function formatINR(value: number) {
+  if (!Number.isFinite(value)) return inrFormatter.format(0);
+  return inrFormatter.format(value);
+}
