@@ -8,14 +8,15 @@ import { authOptions } from "@/server/auth";
 export default async function MonthlyExpensesReportPage({
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
 
+  const sp = (await searchParams) ?? {};
   const month =
-    typeof searchParams?.month === "string"
-      ? searchParams.month
+    typeof sp.month === "string"
+      ? sp.month
       : new Date().toISOString().slice(0, 7);
 
   return (

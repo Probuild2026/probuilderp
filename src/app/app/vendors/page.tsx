@@ -9,13 +9,14 @@ import { prisma } from "@/server/db";
 export default async function VendorsPage({
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
 
-  const q = typeof searchParams?.q === "string" ? searchParams.q : "";
-  const trade = typeof searchParams?.trade === "string" ? searchParams.trade : "";
+  const sp = (await searchParams) ?? {};
+  const q = typeof sp.q === "string" ? sp.q : "";
+  const trade = typeof sp.trade === "string" ? sp.trade : "";
 
   const vendors = await prisma.vendor.findMany({
     where: {

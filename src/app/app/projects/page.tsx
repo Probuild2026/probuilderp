@@ -22,14 +22,15 @@ const statusLabel: Record<string, string> = {
 export default async function ProjectsPage({
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
 
-  const q = typeof searchParams?.q === "string" ? searchParams.q : "";
-  const status = typeof searchParams?.status === "string" ? searchParams.status : "";
-  const clientId = typeof searchParams?.clientId === "string" ? searchParams.clientId : "";
+  const sp = (await searchParams) ?? {};
+  const q = typeof sp.q === "string" ? sp.q : "";
+  const status = typeof sp.status === "string" ? sp.status : "";
+  const clientId = typeof sp.clientId === "string" ? sp.clientId : "";
 
   const clients = await prisma.client.findMany({
     where: { tenantId: session.user.tenantId },

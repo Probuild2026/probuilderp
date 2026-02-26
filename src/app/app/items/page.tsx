@@ -12,13 +12,14 @@ import { ItemDialog } from "./item-dialog";
 export default async function ItemsPage({
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
 
-  const q = typeof searchParams?.q === "string" ? searchParams.q : "";
-  const type = typeof searchParams?.type === "string" ? searchParams.type : "";
+  const sp = (await searchParams) ?? {};
+  const q = typeof sp.q === "string" ? sp.q : "";
+  const type = typeof sp.type === "string" ? sp.type : "";
 
   const items = await prisma.item.findMany({
     where: {

@@ -12,13 +12,14 @@ import { NewMovementDialog } from "./new-movement-dialog";
 export default async function InventoryPage({
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
 
-  const projectId = typeof searchParams?.projectId === "string" ? searchParams.projectId : "";
-  const q = typeof searchParams?.q === "string" ? searchParams.q : "";
+  const sp = (await searchParams) ?? {};
+  const projectId = typeof sp.projectId === "string" ? sp.projectId : "";
+  const q = typeof sp.q === "string" ? sp.q : "";
 
   const projects = await prisma.project.findMany({
     where: { tenantId: session.user.tenantId },

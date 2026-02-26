@@ -3,6 +3,9 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export function uploadsRoot() {
+  // On Vercel/serverless, the filesystem is read-only except `/tmp`.
+  // Using `/tmp` avoids 500s on upload, but files are ephemeral and may not persist.
+  if (process.env.VERCEL) return path.join("/tmp", "probuild-uploads");
   return path.join(process.cwd(), "uploads");
 }
 
@@ -32,4 +35,3 @@ export async function saveUploadToDisk(params: {
     mimeType: params.file.type || "application/octet-stream",
   };
 }
-
