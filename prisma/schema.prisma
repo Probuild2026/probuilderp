@@ -77,6 +77,7 @@ enum AttachmentEntityType {
   CLIENT_INVOICE
   PAYMENT_VOUCHER
   LABOUR_PAYMENT
+  TRANSACTION
 }
 
 enum StockDirection {
@@ -96,6 +97,20 @@ enum PayeeType {
   VENDOR
   LABOURER
   OTHER
+}
+
+enum FinanceAccountType {
+  CASH
+  BANK
+  UPI
+  CARD
+  OTHER
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
 }
 
 model Tenant {
@@ -121,6 +136,9 @@ model Tenant {
   labourers            Labourer[]
   paymentVouchers      PaymentVoucher[]
   attachments          Attachment[]
+  financeAccounts      FinanceAccount[]
+  txnCategories        TxnCategory[]
+  transactions         Transaction[]
 }
 
 // --- Auth (NextAuth / Auth.js) ---
@@ -263,6 +281,7 @@ model Project {
   purchaseInvoiceLines PurchaseInvoiceLine[]
   clientInvoices       ClientInvoice[]
   ledgerEntries        LedgerEntry[]
+  transactions         Transaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -441,6 +460,79 @@ model Attachment {
   @@index([tenantId])
   @@index([tenantId, entityType, entityId])
   @@index([tenantId, projectId, createdAt])
+}
+
+model FinanceAccount {
+  id       String             @id @default(cuid())
+  tenantId Int                @default(1)
+  name     String
+  type     FinanceAccountType
+  active   Boolean            @default(true)
+
+  outgoingTransactions Transaction[] @relation("TxnFromAccount")
+  incomingTransactions Transaction[] @relation("TxnToAccount")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, type])
+  @@index([tenantId, active])
+}
+
+model TxnCategory {
+  id       String          @id @default(cuid())
+  tenantId Int             @default(1)
+  name     String
+  type     TransactionType
+  active   Boolean         @default(true)
+
+  transactions Transaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, type, name])
+  @@index([tenantId])
+  @@index([tenantId, type])
+  @@index([tenantId, active])
+}
+
+model Transaction {
+  id            String          @id @default(cuid())
+  tenantId      Int             @default(1)
+  type          TransactionType
+  date          DateTime        @db.Date
+  amount        Decimal         @db.Decimal(14, 2)
+  projectId     String?
+  categoryId    String?
+  fromAccountId String?
+  toAccountId   String?
+  note          String?
+  description   String?
+
+  project     Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  category    TxnCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  fromAccount FinanceAccount? @relation("TxnFromAccount", fields: [fromAccountId], references: [id], onDelete: SetNull)
+  toAccount   FinanceAccount? @relation("TxnToAccount", fields: [toAccountId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, date])
+  @@index([tenantId, type, date])
+  @@index([tenantId, projectId, date])
+  @@index([tenantId, fromAccountId, date])
+  @@index([tenantId, toAccountId, date])
+  @@index([tenantId, categoryId, date])
 }
 
 model PurchaseInvoice {

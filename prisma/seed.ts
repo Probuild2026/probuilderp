@@ -28,6 +28,29 @@ const ledgerAccounts: Array<Pick<Prisma.LedgerAccountCreateInput, "name" | "type
   { name: "Overhead Expense", type: "EXPENSE", group: "Overheads" },
 ];
 
+const financeAccounts: Array<Pick<Prisma.FinanceAccountCreateInput, "name" | "type">> = [
+  { name: "Cash", type: "CASH" },
+  { name: "Bank", type: "BANK" },
+  { name: "UPI (GPay)", type: "UPI" },
+  { name: "Card", type: "CARD" },
+];
+
+const txnCategories: Array<Pick<Prisma.TxnCategoryCreateInput, "name" | "type">> = [
+  { name: "Payment from Client", type: "INCOME" },
+  { name: "Petty Cash", type: "INCOME" },
+  { name: "Other", type: "INCOME" },
+
+  { name: "Material Purchase", type: "EXPENSE" },
+  { name: "Labour Payment", type: "EXPENSE" },
+  { name: "Rental Payments", type: "EXPENSE" },
+  { name: "Demolition & Excavation", type: "EXPENSE" },
+  { name: "Transport", type: "EXPENSE" },
+  { name: "Miscellaneous", type: "EXPENSE" },
+  { name: "Other", type: "EXPENSE" },
+
+  { name: "Fees", type: "TRANSFER" },
+];
+
 async function main() {
   await prisma.tenant.upsert({
     where: { id: TENANT_ID },
@@ -52,6 +75,41 @@ async function main() {
         name: account.name,
         type: account.type,
         group: account.group ?? null,
+      },
+    });
+  }
+
+  for (const account of financeAccounts) {
+    await prisma.financeAccount.upsert({
+      where: {
+        tenantId_name: {
+          tenantId: TENANT_ID,
+          name: account.name,
+        },
+      },
+      update: { type: account.type },
+      create: {
+        tenantId: TENANT_ID,
+        name: account.name,
+        type: account.type,
+      },
+    });
+  }
+
+  for (const cat of txnCategories) {
+    await prisma.txnCategory.upsert({
+      where: {
+        tenantId_type_name: {
+          tenantId: TENANT_ID,
+          type: cat.type,
+          name: cat.name,
+        },
+      },
+      update: {},
+      create: {
+        tenantId: TENANT_ID,
+        name: cat.name,
+        type: cat.type,
       },
     });
   }

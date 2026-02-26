@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 
 export const appNav = [
   { href: "/app", label: "Dashboard" },
+  { href: "/app/transactions", label: "Transactions" },
   { href: "/app/clients", label: "Clients" },
   { href: "/app/vendors", label: "Vendors" },
   { href: "/app/projects", label: "Projects" },
