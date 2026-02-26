@@ -673,6 +673,9 @@ model ClientInvoice {
   invoiceNumber        String
   invoiceDate          DateTime  @db.Date
   dueDate              DateTime? @db.Date
+  serviceDescription   String?
+  sacCode              String?
+  gstRate              Decimal?  @db.Decimal(5, 2)
   basicValue           Decimal   @db.Decimal(14, 2)
   gstType              GstType
   cgst                 Decimal   @default(0) @db.Decimal(14, 2)

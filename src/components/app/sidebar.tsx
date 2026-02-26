@@ -23,6 +23,8 @@ import { cn } from "@/lib/utils";
 export const appNav = [
   { href: "/app", label: "Dashboard", icon: LayoutDashboard },
   { href: "/app/transactions", label: "Transactions", icon: ArrowLeftRight },
+  { href: "/app/sales/invoices", label: "Invoices", icon: FileSpreadsheet },
+  { href: "/app/sales/receipts", label: "Receipts", icon: FileSpreadsheet },
   { href: "/app/clients", label: "Clients", icon: Users },
   { href: "/app/vendors", label: "Vendors", icon: Truck },
   { href: "/app/projects", label: "Projects", icon: Building2 },
