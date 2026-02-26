@@ -47,7 +47,7 @@ export default async function ExpensesPage({
   const attachmentCountByExpense = new Map(attachmentCounts.map((a) => [a.entityId, a._count._all]));
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-6">
+    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Expenses</h1>
@@ -68,7 +68,8 @@ export default async function ExpensesPage({
         </Link>
       </form>
 
-      <Table>
+      <div className="overflow-x-auto rounded-md border">
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Date</TableHead>
@@ -100,7 +101,8 @@ export default async function ExpensesPage({
             </TableRow>
           ) : null}
         </TableBody>
-      </Table>
+        </Table>
+      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 
-const nav = [
+export const appNav = [
   { href: "/app", label: "Dashboard" },
   { href: "/app/clients", label: "Clients" },
   { href: "/app/vendors", label: "Vendors" },
@@ -19,7 +19,7 @@ export function Sidebar({ className }: { className?: string }) {
     <aside className={cn("w-64 border-r bg-background p-4", className)}>
       <div className="text-lg font-semibold">Probuild ERP</div>
       <nav className="mt-6 space-y-1">
-        {nav.map((item) => (
+        {appNav.map((item) => (
           <Link
             key={item.href}
             href={item.href}

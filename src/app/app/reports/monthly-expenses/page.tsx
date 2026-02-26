@@ -19,7 +19,7 @@ export default async function MonthlyExpensesReportPage({
       : new Date().toISOString().slice(0, 7);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-6">
+    <div className="mx-auto max-w-3xl space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Monthly Expense CSV</h1>
@@ -49,4 +49,3 @@ export default async function MonthlyExpensesReportPage({
     </div>
   );
 }
-

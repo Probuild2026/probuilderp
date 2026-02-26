@@ -35,7 +35,7 @@ export default async function VendorsPage({
   });
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-6">
+    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Vendors</h1>
@@ -46,7 +46,8 @@ export default async function VendorsPage({
         <AddVendorDialog />
       </div>
 
-      <Table>
+      <div className="overflow-x-auto rounded-md border">
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
@@ -74,7 +75,8 @@ export default async function VendorsPage({
             </TableRow>
           ) : null}
         </TableBody>
-      </Table>
+        </Table>
+      </div>
     </div>
   );
 }

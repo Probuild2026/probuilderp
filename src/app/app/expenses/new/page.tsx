@@ -34,7 +34,7 @@ export default async function NewExpensePage() {
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-6">
+    <div className="mx-auto max-w-3xl space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">New Expense</h1>
@@ -45,7 +45,7 @@ export default async function NewExpensePage() {
         </Button>
       </div>
 
-      <form action={createExpense} className="space-y-5 rounded-md border p-6">
+      <form action={createExpense} className="space-y-5 rounded-md border p-4 md:p-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className="space-y-2 text-sm">
             <div className="text-muted-foreground">Project</div>
@@ -153,4 +153,3 @@ export default async function NewExpensePage() {
     </div>
   );
 }
-
