@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { authOptions } from "@/server/auth";
@@ -114,6 +115,9 @@ export default async function ProjectsPage({
               <TableCell>{p.location ?? "-"}</TableCell>
               <TableCell className="text-right">
                 <div className="inline-flex items-center gap-2">
+                  <Button asChild size="sm" variant="outline">
+                    <Link href={`/app/projects/${p.id}`}>View</Link>
+                  </Button>
                   <ProjectDialog
                     clients={clients}
                     triggerLabel="Edit"

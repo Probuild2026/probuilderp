@@ -113,6 +113,39 @@ enum TransactionType {
   TRANSFER
 }
 
+model ProjectPaymentStage {
+  id        String @id @default(cuid())
+  tenantId  Int    @default(1)
+  projectId String
+
+  stageName   String
+  scopeOfWork String?
+  percent     Decimal? @db.Decimal(5, 2)
+
+  expectedAmount Decimal @db.Decimal(14, 2)
+  expectedBank   Decimal @default(0) @db.Decimal(14, 2)
+  expectedCash   Decimal @default(0) @db.Decimal(14, 2)
+
+  actualBank Decimal @default(0) @db.Decimal(14, 2)
+  actualCash Decimal @default(0) @db.Decimal(14, 2)
+
+  expectedDate DateTime? @db.Date
+  actualDate   DateTime? @db.Date
+
+  notes     String?
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, projectId, sortOrder])
+  @@index([tenantId, projectId, stageName])
+}
+
 model Tenant {
   id        Int      @id @default(autoincrement())
   name      String
@@ -139,6 +172,7 @@ model Tenant {
   financeAccounts      FinanceAccount[]
   txnCategories        TxnCategory[]
   transactions         Transaction[]
+  projectPaymentStages ProjectPaymentStage[]
 }
 
 // --- Auth (NextAuth / Auth.js) ---
@@ -286,10 +320,11 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant          Tenant                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   stockMovements  StockMovement[]
   paymentVouchers PaymentVoucher[]
   attachments     Attachment[]
+  paymentStages   ProjectPaymentStage[]
 
   @@index([tenantId])
   @@index([tenantId, name])
