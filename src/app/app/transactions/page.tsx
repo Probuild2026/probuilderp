@@ -3,13 +3,9 @@ import { getServerSession } from "next-auth/next";
 
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatINR } from "@/lib/money";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
-
-function money(value: { toFixed: (n: number) => string } | number) {
-  if (typeof value === "number") return value.toFixed(2);
-  return value.toFixed(2);
-}
 
 export default async function TransactionsPage() {
   const session = await getServerSession(authOptions);
@@ -72,7 +68,7 @@ export default async function TransactionsPage() {
                   <TableCell>{t.fromAccount?.name ?? "—"}</TableCell>
                   <TableCell>{t.toAccount?.name ?? "—"}</TableCell>
                   <TableCell>{t.project?.name ?? "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{money(t.amount)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{formatINR(Number(t.amount))}</TableCell>
                 </TableRow>
               ))
             )}
@@ -82,4 +78,3 @@ export default async function TransactionsPage() {
     </div>
   );
 }
-

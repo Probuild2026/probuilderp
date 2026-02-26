@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth/next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatINR } from "@/lib/money";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
@@ -76,9 +77,11 @@ export default async function ExpensesPage({
             <TableHead>Project</TableHead>
             <TableHead>Vendor/Labour</TableHead>
             <TableHead>Type</TableHead>
+            <TableHead>Narration</TableHead>
             <TableHead className="text-right">Total</TableHead>
             <TableHead>Paid via</TableHead>
             <TableHead>Bills</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -88,14 +91,20 @@ export default async function ExpensesPage({
               <TableCell>{e.project.name}</TableCell>
               <TableCell>{e.vendor?.name ?? e.labourer?.name ?? "-"}</TableCell>
               <TableCell>{e.expenseType}</TableCell>
-              <TableCell className="text-right">{e.totalAmount.toString()}</TableCell>
+              <TableCell className="max-w-[320px] truncate">{e.narration ?? "—"}</TableCell>
+              <TableCell className="text-right tabular-nums">{formatINR(Number(e.totalAmount))}</TableCell>
               <TableCell>{e.paymentMode ?? "-"}</TableCell>
               <TableCell>{attachmentCountByExpense.get(e.id) ?? 0}</TableCell>
+              <TableCell className="text-right">
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/app/expenses/${e.id}`}>View</Link>
+                </Button>
+              </TableCell>
             </TableRow>
           ))}
           {expenses.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+              <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
                 No expenses yet.
               </TableCell>
             </TableRow>

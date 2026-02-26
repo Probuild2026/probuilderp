@@ -16,3 +16,8 @@ export const expenseCreateSchema = z.object({
 
 export type ExpenseCreateInput = z.input<typeof expenseCreateSchema>;
 
+export const expenseUpdateSchema = expenseCreateSchema.extend({
+  id: z.string().min(1),
+});
+
+export type ExpenseUpdateInput = z.input<typeof expenseUpdateSchema>;
