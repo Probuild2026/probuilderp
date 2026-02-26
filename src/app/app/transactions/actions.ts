@@ -28,6 +28,11 @@ export async function createTransaction(formData: FormData) {
   const session = await getServerSession(authOptions);
   if (!session?.user) throw new Error("Unauthorized");
 
+  const attachmentUrl = formData.get("attachmentUrl");
+  const attachmentName = formData.get("attachmentName");
+  const attachmentType = formData.get("attachmentType");
+  const attachmentSize = formData.get("attachmentSize");
+
   const raw = Object.fromEntries(formData.entries());
   const parsed = transactionCreateSchema.parse(raw);
 
@@ -62,7 +67,21 @@ export async function createTransaction(formData: FormData) {
   });
 
   const file = formData.get("attachment");
-  if (file instanceof File && file.size > 0) {
+  if (typeof attachmentUrl === "string" && attachmentUrl.length) {
+    await prisma.attachment.create({
+      data: {
+        tenantId: session.user.tenantId,
+        entityType: "TRANSACTION",
+        entityId: tx.id,
+        projectId: tx.projectId,
+        originalName: typeof attachmentName === "string" && attachmentName ? attachmentName : "upload",
+        mimeType: typeof attachmentType === "string" && attachmentType ? attachmentType : "application/octet-stream",
+        size: typeof attachmentSize === "string" ? Number(attachmentSize) || 0 : 0,
+        storagePath: attachmentUrl,
+        uploadedById: session.user.id,
+      },
+    });
+  } else if (file instanceof File && file.size > 0) {
     const saved = await saveUploadToDisk({
       tenantId: session.user.tenantId,
       entityPath: `transactions/${tx.id}`,
@@ -120,4 +139,3 @@ export async function createTxnCategory(input: unknown) {
 
   revalidatePath("/app/transactions/new");
 }
-

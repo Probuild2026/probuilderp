@@ -43,8 +43,13 @@ export default async function NewTransactionPage() {
         </Button>
       </div>
 
-      <TransactionForm today={today} projects={projects} accounts={accounts} categories={categories} />
+      <TransactionForm
+        tenantId={session.user.tenantId}
+        today={today}
+        projects={projects}
+        accounts={accounts}
+        categories={categories}
+      />
     </div>
   );
 }
-

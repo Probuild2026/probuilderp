@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { uploadBillToBlob } from "@/lib/blob-upload";
 import { cn } from "@/lib/utils";
 
 import { createFinanceAccount, createTransaction, createTxnCategory } from "../actions";
@@ -27,11 +28,13 @@ function groupLabel(t: AccountOption["type"]) {
 }
 
 export function TransactionForm({
+  tenantId,
   today,
   projects,
   accounts,
   categories,
 }: {
+  tenantId: number;
   today: string;
   projects: ProjectOption[];
   accounts: AccountOption[];
@@ -117,6 +120,21 @@ export function TransactionForm({
         setErr("");
         startTransition(async () => {
           try {
+            const file = fd.get("attachment");
+            if (file instanceof File && file.size > 0) {
+              const blob = await uploadBillToBlob({
+                tenantId,
+                entityPath: "transactions",
+                file,
+              });
+
+              fd.delete("attachment");
+              fd.set("attachmentUrl", blob.url);
+              fd.set("attachmentName", file.name);
+              fd.set("attachmentType", file.type || "application/octet-stream");
+              fd.set("attachmentSize", String(file.size));
+            }
+
             await createTransaction(fd);
             window.location.href = "/app/transactions";
           } catch (e) {

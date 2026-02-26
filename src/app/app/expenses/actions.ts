@@ -18,6 +18,11 @@ export async function createExpense(formData: FormData) {
   const session = await getServerSession(authOptions);
   if (!session?.user) throw new Error("Unauthorized");
 
+  const billUrl = formData.get("billUrl");
+  const billName = formData.get("billName");
+  const billType = formData.get("billType");
+  const billSize = formData.get("billSize");
+
   const raw = Object.fromEntries(formData.entries());
   const parsed = expenseCreateSchema.parse(raw);
 
@@ -46,7 +51,21 @@ export async function createExpense(formData: FormData) {
   });
 
   const file = formData.get("bill");
-  if (file instanceof File && file.size > 0) {
+  if (typeof billUrl === "string" && billUrl.length) {
+    await prisma.attachment.create({
+      data: {
+        tenantId: session.user.tenantId,
+        entityType: "EXPENSE",
+        entityId: expense.id,
+        projectId: expense.projectId,
+        originalName: typeof billName === "string" && billName ? billName : "upload",
+        mimeType: typeof billType === "string" && billType ? billType : "application/octet-stream",
+        size: typeof billSize === "string" ? Number(billSize) || 0 : 0,
+        storagePath: billUrl,
+        uploadedById: session.user.id,
+      },
+    });
+  } else if (file instanceof File && file.size > 0) {
     const saved = await saveUploadToDisk({
       tenantId: session.user.tenantId,
       entityPath: `expenses/${expense.id}`,
@@ -74,6 +93,11 @@ export async function createExpense(formData: FormData) {
 export async function updateExpense(formData: FormData) {
   const session = await getServerSession(authOptions);
   if (!session?.user) throw new Error("Unauthorized");
+
+  const billUrl = formData.get("billUrl");
+  const billName = formData.get("billName");
+  const billType = formData.get("billType");
+  const billSize = formData.get("billSize");
 
   const raw = Object.fromEntries(formData.entries());
   const parsed = expenseUpdateSchema.parse(raw);
@@ -103,7 +127,21 @@ export async function updateExpense(formData: FormData) {
   });
 
   const file = formData.get("bill");
-  if (file instanceof File && file.size > 0) {
+  if (typeof billUrl === "string" && billUrl.length) {
+    await prisma.attachment.create({
+      data: {
+        tenantId: session.user.tenantId,
+        entityType: "EXPENSE",
+        entityId: expense.id,
+        projectId: expense.projectId,
+        originalName: typeof billName === "string" && billName ? billName : "upload",
+        mimeType: typeof billType === "string" && billType ? billType : "application/octet-stream",
+        size: typeof billSize === "string" ? Number(billSize) || 0 : 0,
+        storagePath: billUrl,
+        uploadedById: session.user.id,
+      },
+    });
+  } else if (file instanceof File && file.size > 0) {
     const saved = await saveUploadToDisk({
       tenantId: session.user.tenantId,
       entityPath: `expenses/${expense.id}`,
