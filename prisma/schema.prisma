@@ -74,7 +74,7 @@ enum VendorLegalType {
 enum AttachmentEntityType {
   EXPENSE
   PURCHASE_INVOICE
-  INVOICE
+  CLIENT_INVOICE
   PAYMENT_VOUCHER
   LABOUR_PAYMENT
   TRANSACTION
@@ -108,18 +108,15 @@ enum FinanceAccountType {
   OTHER
 }
 
-enum TransactionDirection {
-  IN
-  OUT
+enum TransactionType {
+  INCOME
+  EXPENSE
   TRANSFER
 }
 
-enum InvoiceStatus {
-  DRAFT
-  ISSUED
-  PARTIAL
-  PAID
-  CANCELLED
+enum AllocationDocumentType {
+  CLIENT_INVOICE
+  EXPENSE
 }
 
 model ProjectPaymentStage {
@@ -161,41 +158,42 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users                User[]
-  clients              Client[]
-  vendors              Vendor[]
-  projects             Project[]
-  items                Item[]
-  expenses             Expense[]
-  purchaseInvoices     PurchaseInvoice[]
-  purchaseInvoiceLines PurchaseInvoiceLine[]
-  invoices             Invoice[]
-  vendorPayments       VendorPayment[]
-  ledgerAccounts       LedgerAccount[]
-  ledgerEntries        LedgerEntry[]
-  stockMovements       StockMovement[]
-  labourers            Labourer[]
-  paymentVouchers      PaymentVoucher[]
-  attachments          Attachment[]
-  financeAccounts      FinanceAccount[]
-  txnCategories        TxnCategory[]
-  transactions         Transaction[]
-  projectPaymentStages ProjectPaymentStage[]
-  profile              TenantProfile?
-  allocations          Allocation[]
+  users                  User[]
+  clients                Client[]
+  vendors                Vendor[]
+  projects               Project[]
+  items                  Item[]
+  expenses               Expense[]
+  purchaseInvoices       PurchaseInvoice[]
+  purchaseInvoiceLines   PurchaseInvoiceLine[]
+  clientInvoices         ClientInvoice[]
+  receipts               Receipt[]
+  vendorPayments         VendorPayment[]
+  ledgerAccounts         LedgerAccount[]
+  ledgerEntries          LedgerEntry[]
+  stockMovements         StockMovement[]
+  labourers              Labourer[]
+  paymentVouchers        PaymentVoucher[]
+  attachments            Attachment[]
+  financeAccounts        FinanceAccount[]
+  txnCategories          TxnCategory[]
+  transactions           Transaction[]
+  projectPaymentStages   ProjectPaymentStage[]
+  profile                TenantProfile?
+  transactionAllocations TransactionAllocation[]
 }
 
 model TenantProfile {
   id       String @id @default(cuid())
   tenantId Int    @unique @default(1)
 
-  legalName   String
-  tradeName   String?
-  phone       String?
-  email       String?
-  address     String?
-  gstin       String?
-  pan         String?
+  legalName String
+  tradeName String?
+  phone     String?
+  email     String?
+  address   String?
+  gstin     String?
+  pan       String?
 
   bankName      String?
   bankAccountNo String?
@@ -294,7 +292,7 @@ model Client {
   ledgerAccount   LedgerAccount? @relation(fields: [ledgerAccountId], references: [id], onDelete: SetNull)
 
   projects       Project[]
-  invoices       Invoice[]
+  clientInvoices ClientInvoice[]
   transactions   Transaction[]
 
   createdAt DateTime @default(now())
@@ -353,12 +351,13 @@ model Project {
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
 
-  expenses             Expense[]
-  purchaseInvoices     PurchaseInvoice[]
-  purchaseInvoiceLines PurchaseInvoiceLine[]
-  invoices             Invoice[]
-  ledgerEntries        LedgerEntry[]
-  transactions         Transaction[]
+  expenses               Expense[]
+  purchaseInvoices       PurchaseInvoice[]
+  purchaseInvoiceLines   PurchaseInvoiceLine[]
+  clientInvoices         ClientInvoice[]
+  ledgerEntries          LedgerEntry[]
+  transactions           Transaction[]
+  transactionAllocations TransactionAllocation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -399,29 +398,25 @@ model Item {
 
 // --- Transactions ---
 model Expense {
-  id       String @id @default(cuid())
-  tenantId Int    @default(1)
+  id              String       @id @default(cuid())
+  tenantId        Int          @default(1)
+  projectId       String
+  vendorId        String?
+  labourerId      String?
+  date            DateTime     @db.Date
+  amountBeforeTax Decimal      @db.Decimal(14, 2)
+  cgst            Decimal      @default(0) @db.Decimal(14, 2)
+  sgst            Decimal      @default(0) @db.Decimal(14, 2)
+  igst            Decimal      @default(0) @db.Decimal(14, 2)
+  totalAmount     Decimal      @db.Decimal(14, 2)
+  paymentStatus   String?
+  paymentMode     PaymentMode?
+  narration       String?
+  expenseType     ExpenseType
 
-  projectId String
-  vendorId  String
-
-  category ExpenseType
-
-  billNo   String?
-  billDate DateTime  @db.Date
-  dueDate  DateTime? @db.Date
-
-  subtotal Decimal @db.Decimal(14, 2)
-  cgst     Decimal @default(0) @db.Decimal(14, 2)
-  sgst     Decimal @default(0) @db.Decimal(14, 2)
-  igst     Decimal @default(0) @db.Decimal(14, 2)
-  total    Decimal @db.Decimal(14, 2)
-
-  narration String?
-
-  project     Project     @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  vendor      Vendor      @relation(fields: [vendorId], references: [id], onDelete: Restrict)
-  allocations Allocation[]
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  vendor   Vendor?   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  labourer Labourer? @relation(fields: [labourerId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -429,9 +424,10 @@ model Expense {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([tenantId])
-  @@index([tenantId, projectId, billDate])
-  @@index([tenantId, vendorId, billDate])
-  @@index([tenantId, category])
+  @@index([tenantId, projectId, date])
+  @@index([tenantId, vendorId, date])
+  @@index([tenantId, labourerId, date])
+  @@index([tenantId, expenseType])
 }
 
 model Labourer {
@@ -441,6 +437,8 @@ model Labourer {
   phone    String?
   address  String?
   active   Boolean @default(true)
+
+  expenses Expense[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -566,7 +564,7 @@ model TxnCategory {
   id       String          @id @default(cuid())
   tenantId Int             @default(1)
   name     String
-  direction TransactionDirection
+  type     TransactionType
   active   Boolean         @default(true)
 
   transactions Transaction[]
@@ -576,51 +574,38 @@ model TxnCategory {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
-  @@unique([tenantId, direction, name])
+  @@unique([tenantId, type, name])
   @@index([tenantId])
-  @@index([tenantId, direction])
+  @@index([tenantId, type])
   @@index([tenantId, active])
 }
 
 model Transaction {
-  id       String @id @default(cuid())
-  tenantId Int    @default(1)
-
-  /// Source of truth for money movement:
-  /// - direction IN: money received (cash/bank) into an account
-  /// - direction OUT: money paid out (cash/bank) from an account
-  /// - amount = actual cash/bank moved
-  /// - tdsAmount = tax deducted at source associated with this transaction
-  ///   (for IN: client deducted TDS; for OUT: vendor TDS withheld)
-  /// - applied/settled amount for documents is typically (amount + tdsAmount)
-  direction TransactionDirection
-  date      DateTime @db.Date
-  amount    Decimal  @db.Decimal(14, 2)
-  tdsAmount Decimal  @default(0) @db.Decimal(14, 2)
-
-  mode      PaymentMode
-  reference String?
-
-  projectId  String?
-  clientId   String?
-  vendorId   String?
-  categoryId String?
-
+  id            String          @id @default(cuid())
+  tenantId      Int             @default(1)
+  type          TransactionType
+  date          DateTime        @db.Date
+  amount        Decimal         @db.Decimal(14, 2)
+  tdsAmount     Decimal         @default(0) @db.Decimal(14, 2)
+  projectId     String?
+  clientId      String?
+  vendorId      String?
+  categoryId    String?
   fromAccountId String?
   toAccountId   String?
+  mode          PaymentMode?
+  reference     String?
+  note          String?
+  description   String?
 
-  note        String?
-  description String?
-
-  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  vendor  Vendor?  @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-
-  category    TxnCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  fromAccount FinanceAccount? @relation("TxnFromAccount", fields: [fromAccountId], references: [id], onDelete: SetNull)
-  toAccount   FinanceAccount? @relation("TxnToAccount", fields: [toAccountId], references: [id], onDelete: SetNull)
-
-  allocations Allocation[]
+  project     Project?                @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  client      Client?                 @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  vendor      Vendor?                 @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  category    TxnCategory?            @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  fromAccount FinanceAccount?         @relation("TxnFromAccount", fields: [fromAccountId], references: [id], onDelete: SetNull)
+  toAccount   FinanceAccount?         @relation("TxnToAccount", fields: [toAccountId], references: [id], onDelete: SetNull)
+  allocations TransactionAllocation[]
+  receipts    Receipt[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -629,44 +614,41 @@ model Transaction {
 
   @@index([tenantId])
   @@index([tenantId, date])
-  @@index([tenantId, direction, date])
+  @@index([tenantId, type, date])
   @@index([tenantId, projectId, date])
   @@index([tenantId, clientId, date])
   @@index([tenantId, vendorId, date])
-  @@index([tenantId, mode, date])
   @@index([tenantId, fromAccountId, date])
   @@index([tenantId, toAccountId, date])
   @@index([tenantId, categoryId, date])
+  @@index([tenantId, mode, date])
 }
 
-model Allocation {
-  id        String @id @default(cuid())
-  tenantId  Int    @default(1)
-
+model TransactionAllocation {
+  id            String @id @default(cuid())
+  tenantId      Int    @default(1)
   transactionId String
 
-  /// Exactly one of invoiceId / expenseId should be set.
-  invoiceId String?
-  expenseId String?
+  documentType AllocationDocumentType
+  documentId   String
+  projectId    String?
 
-  /// Amount applied to the document (cash/bank moved).
-  cashAmount Decimal @db.Decimal(14, 2)
-  /// Portion of Transaction.tdsAmount applied to this document (0 by default).
-  tdsAmount  Decimal @default(0) @db.Decimal(14, 2)
+  cashAmount  Decimal @db.Decimal(14, 2)
+  tdsAmount   Decimal @default(0) @db.Decimal(14, 2)
+  grossAmount Decimal @db.Decimal(14, 2)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  invoice     Invoice?    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  expense     Expense?    @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  project     Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([tenantId])
   @@index([tenantId, transactionId])
-  @@index([tenantId, invoiceId])
-  @@index([tenantId, expenseId])
+  @@index([tenantId, documentType, documentId])
+  @@index([tenantId, projectId, createdAt])
 }
 
 model PurchaseInvoice {
@@ -731,18 +713,18 @@ model PurchaseInvoiceLine {
   @@index([tenantId, projectId])
 }
 
-model Invoice {
+model ClientInvoice {
   id                   String    @id @default(cuid())
   tenantId             Int       @default(1)
   clientId             String
   projectId            String
-  invoiceNo            String
+  invoiceNumber        String
   invoiceDate          DateTime  @db.Date
   dueDate              DateTime? @db.Date
   serviceDescription   String?
   sacCode              String?
   gstRate              Decimal?  @db.Decimal(5, 2)
-  subtotal             Decimal   @db.Decimal(14, 2)
+  basicValue           Decimal   @db.Decimal(14, 2)
   gstType              GstType
   cgst                 Decimal   @default(0) @db.Decimal(14, 2)
   sgst                 Decimal   @default(0) @db.Decimal(14, 2)
@@ -750,25 +732,51 @@ model Invoice {
   total                Decimal   @db.Decimal(14, 2)
   tdsRate              Decimal?  @db.Decimal(5, 2)
   tdsAmountExpected    Decimal?  @db.Decimal(14, 2)
+  receivedAmount       Decimal   @default(0) @db.Decimal(14, 2)
   tdsCertificateNumber String?
-  status               InvoiceStatus @default(ISSUED)
-  notes                String?
+  status               String
 
   client  Client  @relation(fields: [clientId], references: [id], onDelete: Restrict)
   project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
 
-  allocations Allocation[]
+  receipts Receipt[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
-  @@unique([tenantId, projectId, invoiceNo])
+  @@unique([tenantId, projectId, invoiceNumber])
   @@index([tenantId])
   @@index([tenantId, clientId, invoiceDate])
   @@index([tenantId, projectId, invoiceDate])
   @@index([tenantId, status])
+}
+
+model Receipt {
+  id              String      @id @default(cuid())
+  tenantId        Int         @default(1)
+  clientInvoiceId String
+  transactionId   String?
+  date            DateTime    @db.Date
+  amountReceived  Decimal     @db.Decimal(14, 2)
+  mode            PaymentMode
+  reference       String?
+  tdsDeducted     Boolean     @default(false)
+  tdsAmount       Decimal?    @db.Decimal(14, 2)
+  remarks         String?
+
+  clientInvoice ClientInvoice @relation(fields: [clientInvoiceId], references: [id], onDelete: Cascade)
+  transaction   Transaction?  @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, clientInvoiceId, date])
+  @@index([tenantId, transactionId])
 }
 
 model VendorPayment {

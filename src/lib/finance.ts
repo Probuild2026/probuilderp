@@ -38,7 +38,7 @@ function money(value: MoneyInput): Money {
 }
 
 function sumMoney(values: MoneyInput[]): Money {
-  return values.reduce((acc, v) => acc.add(money(v)), new Prisma.Decimal(0));
+  return values.reduce<Money>((acc, v) => acc.add(money(v)), new Prisma.Decimal(0));
 }
 
 function allocationGross(a: AllocationLike): Money {
@@ -47,7 +47,7 @@ function allocationGross(a: AllocationLike): Money {
 
 export function calcInvoicePaidAmount(invoice: InvoiceLike, allocations: AllocationLike[]): Money {
   void invoice; // intentional: paid amount is derived purely from allocations
-  return allocations.reduce((acc, a) => acc.add(allocationGross(a)), new Prisma.Decimal(0));
+  return allocations.reduce<Money>((acc, a) => acc.add(allocationGross(a)), new Prisma.Decimal(0));
 }
 
 export function calcInvoiceBalance(invoice: InvoiceLike, allocations: AllocationLike[]): Money {
@@ -76,7 +76,7 @@ export function calcInvoiceStatus(
 
 export function calcExpensePaidAmount(expense: ExpenseLike, allocations: AllocationLike[]): Money {
   void expense;
-  return allocations.reduce((acc, a) => acc.add(allocationGross(a)), new Prisma.Decimal(0));
+  return allocations.reduce<Money>((acc, a) => acc.add(allocationGross(a)), new Prisma.Decimal(0));
 }
 
 export function calcExpenseBalance(expense: ExpenseLike, allocations: AllocationLike[]): Money {
@@ -145,18 +145,18 @@ export function calcProjectSummary(
   const projectTxns = transactions.filter((t) => (t.projectId ?? null) === project.id);
   const cashIn = projectTxns
     .filter((t) => t.direction === "IN")
-    .reduce((acc, t) => acc.add(money(t.amount)), new Prisma.Decimal(0));
+    .reduce<Money>((acc, t) => acc.add(money(t.amount)), new Prisma.Decimal(0));
   const cashOut = projectTxns
     .filter((t) => t.direction === "OUT")
-    .reduce((acc, t) => acc.add(money(t.amount)), new Prisma.Decimal(0));
+    .reduce<Money>((acc, t) => acc.add(money(t.amount)), new Prisma.Decimal(0));
   const netCash = cashIn.sub(cashOut);
 
   const tdsIn = projectTxns
     .filter((t) => t.direction === "IN")
-    .reduce((acc, t) => acc.add(money(t.tdsAmount ?? 0)), new Prisma.Decimal(0));
+    .reduce<Money>((acc, t) => acc.add(money(t.tdsAmount ?? 0)), new Prisma.Decimal(0));
   const tdsOut = projectTxns
     .filter((t) => t.direction === "OUT")
-    .reduce((acc, t) => acc.add(money(t.tdsAmount ?? 0)), new Prisma.Decimal(0));
+    .reduce<Money>((acc, t) => acc.add(money(t.tdsAmount ?? 0)), new Prisma.Decimal(0));
   const netTds = tdsIn.sub(tdsOut);
 
   return {
@@ -179,4 +179,3 @@ export function calcProjectSummary(
     netTds,
   };
 }
-
