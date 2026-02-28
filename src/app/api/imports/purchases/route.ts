@@ -39,6 +39,7 @@ function detectDelimiter(firstLine: string) {
 
 function parseDelimited(text: string) {
   const lines = text
+    .replace(/^\uFEFF/, "")
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
     .split("\n")
@@ -76,17 +77,37 @@ function parseDelimited(text: string) {
 
   const headers = parseLine(lines[0]).map((h) => h.trim());
   const rows = lines.slice(1).map(parseLine);
+
+  // Some exports include one or more "summary" lines before the actual header.
+  // Detect the header row by looking for required columns.
+  const required = ["date", "description"];
+  const hasRequired = (cols: string[]) => {
+    const set = new Set(cols.map((c) => c.trim().toLowerCase()));
+    return required.every((r) => set.has(r));
+  };
+
+  if (hasRequired(headers)) return { headers, rows };
+
+  for (let i = 0; i < Math.min(lines.length, 20); i++) {
+    const candidate = parseLine(lines[i]).map((h) => h.trim());
+    if (hasRequired(candidate)) {
+      return { headers: candidate, rows: lines.slice(i + 1).map(parseLine) };
+    }
+  }
+
   return { headers, rows };
 }
 
 function parseDate(value: string) {
   const v = value.trim();
-  // Expected: 02-Feb-2026
-  const m = v.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
+  // Expected: 02-Feb-2026 OR 2-Feb-26
+  const m = v.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2}|\d{4})$/);
   if (!m) return null;
   const day = Number(m[1]);
   const mon = m[2].toLowerCase();
-  const year = Number(m[3]);
+  const yearRaw = m[3];
+  const yearNum = Number(yearRaw);
+  const year = yearRaw.length === 2 ? 2000 + yearNum : yearNum;
   const monthMap: Record<string, number> = {
     jan: 0,
     feb: 1,
@@ -457,4 +478,3 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true, dryRun: false, kind: parsedForm.data.kind, ...result });
 }
-
