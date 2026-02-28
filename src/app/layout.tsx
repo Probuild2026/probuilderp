@@ -18,6 +18,21 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Probuild ERP",
   description: "Contractor ERP for purchases, sales, GST, TDS, and project costing.",
+  manifest: "/manifest.webmanifest",
+  applicationName: "Probuild ERP",
+  themeColor: "#0a0a0e",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Probuild ERP",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/icons/icon-512.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", type: "image/png", sizes: "180x180" }],
+  },
 };
 
 export default function RootLayout({
