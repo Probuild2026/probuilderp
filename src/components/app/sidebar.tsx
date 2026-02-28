@@ -27,6 +27,7 @@ export const appNav = [
   { href: "/app/sales/receipts", label: "Receipts", icon: FileSpreadsheet },
   { href: "/app/purchases/bills", label: "Bills", icon: FileSpreadsheet },
   { href: "/app/purchases/payments-made", label: "Payments Made", icon: FileSpreadsheet },
+  { href: "/app/imports", label: "Import CSV", icon: FileSpreadsheet },
   { href: "/app/clients", label: "Clients", icon: Users },
   { href: "/app/vendors", label: "Vendors", icon: Truck },
   { href: "/app/projects", label: "Projects", icon: Building2 },
