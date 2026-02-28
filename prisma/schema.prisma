@@ -114,6 +114,11 @@ enum TransactionType {
   TRANSFER
 }
 
+enum AllocationDocumentType {
+  CLIENT_INVOICE
+  EXPENSE
+}
+
 model ProjectPaymentStage {
   id        String @id @default(cuid())
   tenantId  Int    @default(1)
@@ -175,6 +180,7 @@ model Tenant {
   transactions         Transaction[]
   projectPaymentStages ProjectPaymentStage[]
   profile              TenantProfile?
+  transactionAllocations TransactionAllocation[]
 }
 
 model TenantProfile {
@@ -349,6 +355,7 @@ model Project {
   clientInvoices       ClientInvoice[]
   ledgerEntries        LedgerEntry[]
   transactions         Transaction[]
+  transactionAllocations TransactionAllocation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -588,6 +595,8 @@ model Transaction {
   category    TxnCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   fromAccount FinanceAccount? @relation("TxnFromAccount", fields: [fromAccountId], references: [id], onDelete: SetNull)
   toAccount   FinanceAccount? @relation("TxnToAccount", fields: [toAccountId], references: [id], onDelete: SetNull)
+  allocations TransactionAllocation[]
+  receipts    Receipt[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -601,6 +610,33 @@ model Transaction {
   @@index([tenantId, fromAccountId, date])
   @@index([tenantId, toAccountId, date])
   @@index([tenantId, categoryId, date])
+}
+
+model TransactionAllocation {
+  id            String                @id @default(cuid())
+  tenantId      Int                   @default(1)
+  transactionId String
+
+  documentType AllocationDocumentType
+  documentId   String
+  projectId    String?
+
+  cashAmount  Decimal @db.Decimal(14, 2)
+  tdsAmount   Decimal @default(0) @db.Decimal(14, 2)
+  grossAmount Decimal @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  project     Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, transactionId])
+  @@index([tenantId, documentType, documentId])
+  @@index([tenantId, projectId, createdAt])
 }
 
 model PurchaseInvoice {
@@ -709,6 +745,7 @@ model Receipt {
   id              String      @id @default(cuid())
   tenantId        Int         @default(1)
   clientInvoiceId String
+  transactionId   String?
   date            DateTime    @db.Date
   amountReceived  Decimal     @db.Decimal(14, 2)
   mode            PaymentMode
@@ -718,6 +755,7 @@ model Receipt {
   remarks         String?
 
   clientInvoice ClientInvoice @relation(fields: [clientInvoiceId], references: [id], onDelete: Cascade)
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -726,6 +764,7 @@ model Receipt {
 
   @@index([tenantId])
   @@index([tenantId, clientInvoiceId, date])
+  @@index([tenantId, transactionId])
 }
 
 model VendorPayment {

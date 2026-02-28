@@ -5,13 +5,19 @@ import { formatINR } from "@/lib/money";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
+function statusFromSettled(total: number, settled: number) {
+  if (settled >= total) return "PAID";
+  if (settled > 0) return "PARTIAL";
+  return "DUE";
+}
+
 export default async function InvoicePrintPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
 
   const { id } = await params;
 
-  const [invoice, profile, receiptsSum] = await Promise.all([
+  const [invoice, profile, allocSum] = await Promise.all([
     prisma.clientInvoice.findFirst({
       where: { id, tenantId: session.user.tenantId },
       select: {
@@ -29,7 +35,6 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
         total: true,
         tdsRate: true,
         tdsAmountExpected: true,
-        status: true,
         project: { select: { name: true, location: true } },
         client: {
           select: { name: true, billingAddress: true, gstin: true, pan: true, phone: true, email: true },
@@ -53,16 +58,18 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
         logoUrl: true,
       },
     }),
-    prisma.receipt.aggregate({
-      where: { tenantId: session.user.tenantId, clientInvoiceId: id },
-      _sum: { amountReceived: true, tdsAmount: true },
+    prisma.transactionAllocation.aggregate({
+      where: { tenantId: session.user.tenantId, documentType: "CLIENT_INVOICE", documentId: id },
+      _sum: { cashAmount: true, tdsAmount: true, grossAmount: true },
     }),
   ]);
 
   if (!invoice) return notFound();
 
-  const received = Number(receiptsSum._sum.amountReceived ?? 0);
-  const tds = Number(receiptsSum._sum.tdsAmount ?? 0);
+  const received = Number(allocSum._sum.cashAmount ?? 0);
+  const tds = Number(allocSum._sum.tdsAmount ?? 0);
+  const settled = Number(allocSum._sum.grossAmount ?? 0);
+  const status = statusFromSettled(Number(invoice.total), settled);
 
   const gstTotal = Number(invoice.cgst) + Number(invoice.sgst) + Number(invoice.igst);
 
@@ -110,7 +117,7 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
           <div className="text-sm">Invoice #: {invoice.invoiceNumber}</div>
           <div className="text-sm">Date: {invoice.invoiceDate.toISOString().slice(0, 10)}</div>
           <div className="text-sm">Due: {invoice.dueDate ? invoice.dueDate.toISOString().slice(0, 10) : "—"}</div>
-          <div className="text-sm">Status: {invoice.status}</div>
+          <div className="text-sm">Status: {status}</div>
         </div>
       </div>
 
@@ -213,4 +220,3 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
     </div>
   );
 }
-

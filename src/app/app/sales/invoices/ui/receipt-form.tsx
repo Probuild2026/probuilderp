@@ -14,12 +14,12 @@ function to2(n: number) {
 export function ReceiptForm({
   invoiceId,
   invoiceTotal,
-  invoiceReceived,
+  invoiceSettled,
   onSubmit,
 }: {
   invoiceId: string;
   invoiceTotal: number;
-  invoiceReceived: number;
+  invoiceSettled: number;
   onSubmit: (fd: FormData) => Promise<void>;
 }) {
   const [pending, startTransition] = useTransition();
@@ -30,7 +30,7 @@ export function ReceiptForm({
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
-  const remaining = useMemo(() => to2(Math.max(0, invoiceTotal - invoiceReceived)), [invoiceTotal, invoiceReceived]);
+  const remaining = useMemo(() => to2(Math.max(0, invoiceTotal - invoiceSettled)), [invoiceTotal, invoiceSettled]);
 
   return (
     <form
@@ -126,4 +126,3 @@ export function ReceiptForm({
     </form>
   );
 }
-

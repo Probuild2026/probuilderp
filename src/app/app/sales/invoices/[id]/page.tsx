@@ -15,13 +15,19 @@ import { createReceipt, deleteReceipt } from "../../receipts/actions";
 import { InvoiceForm } from "../ui/invoice-form";
 import { ReceiptForm } from "../ui/receipt-form";
 
+function statusFromSettled(total: number, settled: number) {
+  if (settled >= total) return "PAID";
+  if (settled > 0) return "PARTIAL";
+  return "DUE";
+}
+
 export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
 
   const { id } = await params;
 
-  const [invoice, profile, receipts] = await Promise.all([
+  const [invoice, profile, receipts, alloc] = await Promise.all([
     prisma.clientInvoice.findFirst({
       where: { id, tenantId: session.user.tenantId },
       select: {
@@ -42,8 +48,6 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         total: true,
         tdsRate: true,
         tdsAmountExpected: true,
-        receivedAmount: true,
-        status: true,
         project: { select: { name: true } },
         client: { select: { name: true } },
       },
@@ -66,11 +70,19 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         remarks: true,
       },
     }),
+    prisma.transactionAllocation.aggregate({
+      where: { tenantId: session.user.tenantId, documentType: "CLIENT_INVOICE", documentId: id },
+      _sum: { cashAmount: true, tdsAmount: true, grossAmount: true },
+    }),
   ]);
 
   if (!invoice) return notFound();
 
   const invoiceId = invoice.id;
+  const receivedCash = Number(alloc._sum.cashAmount ?? 0);
+  const receivedTds = Number(alloc._sum.tdsAmount ?? 0);
+  const settledGross = Number(alloc._sum.grossAmount ?? 0);
+  const status = statusFromSettled(Number(invoice.total), settledGross);
 
   const projects = await prisma.project.findMany({
     where: { tenantId: session.user.tenantId },
@@ -97,7 +109,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     basicValue: String(invoice.basicValue),
     tdsRate: invoice.tdsRate ? String(invoice.tdsRate) : "",
     tdsAmountExpected: invoice.tdsAmountExpected ? String(invoice.tdsAmountExpected) : "",
-    status: invoice.status,
+    status,
   };
 
   async function onUpdate(fd: FormData) {
@@ -161,8 +173,8 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
               <div className="text-lg font-semibold">{formatINR(Number(invoice.total))}</div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Received</div>
-              <div className="text-lg font-semibold">{formatINR(Number(invoice.receivedAmount))}</div>
+              <div className="text-xs text-muted-foreground">Settled</div>
+              <div className="text-lg font-semibold">{formatINR(settledGross)}</div>
             </div>
           </CardContent>
         </Card>
@@ -174,7 +186,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           <CardContent className="space-y-2 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Status</span>
-              <span className="font-medium">{invoice.status}</span>
+              <span className="font-medium">{status}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Invoice date</span>
@@ -216,7 +228,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
               <ReceiptForm
                 invoiceId={invoiceId}
                 invoiceTotal={Number(invoice.total)}
-                invoiceReceived={Number(invoice.receivedAmount)}
+                invoiceSettled={settledGross}
                 onSubmit={async (fd) => {
                   "use server";
                   await createReceipt(fd);

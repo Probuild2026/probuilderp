@@ -46,7 +46,8 @@ export async function createClientInvoice(formData: FormData) {
       total: parsed.total,
       tdsRate: typeof parsed.tdsRate === "number" ? parsed.tdsRate : null,
       tdsAmountExpected: typeof parsed.tdsAmountExpected === "number" ? parsed.tdsAmountExpected : null,
-      status: parsed.status,
+      // Status is derived from allocations; keep stored field as legacy for now.
+      status: "DUE",
     },
     select: { id: true },
   });
@@ -81,7 +82,7 @@ export async function updateClientInvoice(formData: FormData) {
       total: parsed.total,
       tdsRate: typeof parsed.tdsRate === "number" ? parsed.tdsRate : null,
       tdsAmountExpected: typeof parsed.tdsAmountExpected === "number" ? parsed.tdsAmountExpected : null,
-      status: parsed.status,
+      // Status is derived from allocations; do not update stored field.
     },
   });
 
@@ -99,4 +100,3 @@ export async function deleteClientInvoice(id: string) {
 
   revalidatePath("/app/sales/invoices");
 }
-
