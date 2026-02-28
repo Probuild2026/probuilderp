@@ -317,6 +317,17 @@ model Vendor {
   email           String?
   address         String?
   isSubcontractor Boolean         @default(false)
+  active          Boolean         @default(true)
+
+  // TDS (defaults per 194C; used for subcontractors by default)
+  tdsSection         String   @default("194C")
+  tdsOverrideRate    Decimal? @db.Decimal(5, 2)
+  tdsThresholdSingle Decimal  @default(30000) @db.Decimal(14, 2)
+  tdsThresholdAnnual Decimal  @default(100000) @db.Decimal(14, 2)
+
+  // Transporter exemption (if applicable)
+  isTransporter           Boolean @default(false)
+  transporterVehicleCount Int?
 
   ledgerAccountId String?        @unique
   ledgerAccount   LedgerAccount? @relation(fields: [ledgerAccountId], references: [id], onDelete: SetNull)

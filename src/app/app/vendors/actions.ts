@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
+import { Prisma } from "@prisma/client";
 
 import { vendorCreateSchema } from "@/lib/validators/vendor";
 import { authOptions } from "@/server/auth";
@@ -30,6 +31,14 @@ export async function createVendor(input: unknown) {
       email,
       address,
       isSubcontractor: parsed.isSubcontractor,
+      legalType: parsed.legalType,
+      active: parsed.active,
+      tdsSection: parsed.tdsSection,
+      tdsOverrideRate: parsed.tdsOverrideRate == null ? null : new Prisma.Decimal(parsed.tdsOverrideRate),
+      tdsThresholdSingle: new Prisma.Decimal(parsed.tdsThresholdSingle),
+      tdsThresholdAnnual: new Prisma.Decimal(parsed.tdsThresholdAnnual),
+      isTransporter: parsed.isTransporter,
+      transporterVehicleCount: parsed.isTransporter ? (parsed.transporterVehicleCount ?? null) : null,
     },
   });
 
