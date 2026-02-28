@@ -42,3 +42,16 @@ export const vendorCreateSchema = z.object({
 });
 
 export type VendorCreateInput = z.infer<typeof vendorCreateSchema>;
+
+export const vendorUpdateSchema = vendorCreateSchema.extend({
+  id: z.string().min(1),
+});
+
+export type VendorUpdateInput = z.infer<typeof vendorUpdateSchema>;
+
+export const vendorMergeSchema = z.object({
+  fromVendorId: z.string().min(1),
+  toVendorId: z.string().min(1),
+});
+
+export type VendorMergeInput = z.infer<typeof vendorMergeSchema>;

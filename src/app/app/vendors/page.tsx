@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth/next";
 
-import { AddVendorDialog } from "@/app/app/vendors/vendor-dialog";
+import { AddVendorDialog, EditVendorDialog, MergeVendorsDialog } from "@/app/app/vendors/vendor-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,12 +28,24 @@ export default async function VendorsPage({
         name: string;
         trade: string | null;
         gstin: string | null;
+        pan: string | null;
+        phone: string | null;
+        email: string | null;
+        address: string | null;
         isSubcontractor: boolean;
+        legalType: "INDIVIDUAL" | "HUF" | "FIRM" | "COMPANY" | "OTHER";
+        active: boolean;
+        tdsSection: string;
+        tdsOverrideRate: number | null;
+        tdsThresholdSingle: number;
+        tdsThresholdAnnual: number;
+        isTransporter: boolean;
+        transporterVehicleCount: number | null;
       }>
     | null = null;
 
   try {
-    vendors = await prisma.vendor.findMany({
+    const dbVendors = await prisma.vendor.findMany({
       where: {
         tenantId: session.user.tenantId,
         ...(q
@@ -52,11 +64,31 @@ export default async function VendorsPage({
         name: true,
         trade: true,
         gstin: true,
+        pan: true,
+        phone: true,
+        email: true,
+        address: true,
         isSubcontractor: true,
+        legalType: true,
+        active: true,
+        tdsSection: true,
+        tdsOverrideRate: true,
+        tdsThresholdSingle: true,
+        tdsThresholdAnnual: true,
+        isTransporter: true,
+        transporterVehicleCount: true,
       },
       orderBy: { createdAt: "desc" },
       take: 50,
     });
+
+    // Ensure client components get JSON-serializable props.
+    vendors = dbVendors.map((v) => ({
+      ...v,
+      tdsOverrideRate: v.tdsOverrideRate == null ? null : Number(v.tdsOverrideRate),
+      tdsThresholdSingle: Number(v.tdsThresholdSingle),
+      tdsThresholdAnnual: Number(v.tdsThresholdAnnual),
+    }));
   } catch (e) {
     // If the database hasn't been migrated yet, don't crash the whole page.
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2022") {
@@ -75,7 +107,10 @@ export default async function VendorsPage({
             Search, filter, and manage vendor master data.
           </p>
         </div>
-        <AddVendorDialog />
+        <div className="flex items-center gap-2">
+          {vendors ? <MergeVendorsDialog vendors={vendors.map((v) => ({ id: v.id, name: v.name }))} /> : null}
+          <AddVendorDialog />
+        </div>
       </div>
 
       {vendors === null ? (
@@ -130,6 +165,7 @@ npx prisma migrate deploy`}
             <TableHead>Trade</TableHead>
             <TableHead>GSTIN</TableHead>
             <TableHead>Type</TableHead>
+            <TableHead className="w-[1%] text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -141,11 +177,14 @@ npx prisma migrate deploy`}
               <TableCell>
                 {vendor.isSubcontractor ? <Badge>Subcontractor</Badge> : <span className="text-muted-foreground">Vendor</span>}
               </TableCell>
+              <TableCell className="text-right">
+                <EditVendorDialog vendor={vendor} />
+              </TableCell>
             </TableRow>
           ))}
           {(vendors ?? []).length === 0 ? (
             <TableRow>
-              <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
+              <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
                 No vendors yet.
               </TableCell>
             </TableRow>
