@@ -117,6 +117,7 @@ enum TransactionType {
 enum AllocationDocumentType {
   CLIENT_INVOICE
   EXPENSE
+  PURCHASE_INVOICE
 }
 
 model ProjectPaymentStage {
@@ -181,6 +182,8 @@ model Tenant {
   projectPaymentStages   ProjectPaymentStage[]
   profile                TenantProfile?
   transactionAllocations TransactionAllocation[]
+  labourSheets           LabourSheet[]
+  labourSheetLines       LabourSheetLine[]
 }
 
 model TenantProfile {
@@ -378,6 +381,7 @@ model Project {
   paymentVouchers PaymentVoucher[]
   attachments     Attachment[]
   paymentStages   ProjectPaymentStage[]
+  labourSheets    LabourSheet[]
 
   @@index([tenantId])
   @@index([tenantId, name])
@@ -598,6 +602,8 @@ model Transaction {
   date          DateTime        @db.Date
   amount        Decimal         @db.Decimal(14, 2)
   tdsAmount     Decimal         @default(0) @db.Decimal(14, 2)
+  // Taxable base amount used for TDS threshold checks (e.g. 194C taxable value).
+  tdsBaseAmount Decimal         @default(0) @db.Decimal(14, 2)
   projectId     String?
   clientId      String?
   vendorId      String?
@@ -617,6 +623,7 @@ model Transaction {
   toAccount   FinanceAccount?         @relation("TxnToAccount", fields: [toAccountId], references: [id], onDelete: SetNull)
   allocations TransactionAllocation[]
   receipts    Receipt[]
+  labourSheet LabourSheet?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -660,6 +667,50 @@ model TransactionAllocation {
   @@index([tenantId, transactionId])
   @@index([tenantId, documentType, documentId])
   @@index([tenantId, projectId, createdAt])
+}
+
+model LabourSheet {
+  id        String   @id @default(cuid())
+  tenantId  Int      @default(1)
+  projectId String
+  date      DateTime @db.Date
+  mode      PaymentMode
+  reference String?
+  note      String?
+  total     Decimal  @db.Decimal(14, 2)
+
+  transactionId String? @unique
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  lines LabourSheetLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, projectId, date])
+}
+
+model LabourSheetLine {
+  id           String  @id @default(cuid())
+  tenantId     Int     @default(1)
+  labourSheetId String
+  role         String
+  headcount    Int     @default(1)
+  rate         Decimal @db.Decimal(14, 2)
+  amount       Decimal @db.Decimal(14, 2)
+
+  labourSheet LabourSheet @relation(fields: [labourSheetId], references: [id], onDelete: Cascade)
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, labourSheetId])
 }
 
 model PurchaseInvoice {

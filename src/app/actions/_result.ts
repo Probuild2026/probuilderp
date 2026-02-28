@@ -1,5 +1,3 @@
-"use server";
-
 import type { ZodError } from "zod";
 
 export type ActionErrorCode =
@@ -30,4 +28,3 @@ export function zodToFieldErrors(error: ZodError) {
 export function unknownError(message = "Unexpected error."): ActionResult<never> {
   return { ok: false, error: { code: "INTERNAL", message } };
 }
-

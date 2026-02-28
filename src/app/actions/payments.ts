@@ -265,6 +265,7 @@ export async function payExpenses(input: unknown): Promise<
       }
 
       const totalTds = tdsCalc.applicable ? tdsCalc.tdsAmount : new Prisma.Decimal(0);
+      const tdsBaseAmount = tdsCalc.applicable ? baseAssumingTds : currentBaseNoTds;
 
       const transaction = await tx.transaction.create({
         data: {
@@ -273,6 +274,7 @@ export async function payExpenses(input: unknown): Promise<
           date: payDate,
           amount: cash,
           tdsAmount: totalTds,
+          tdsBaseAmount: vendor.isSubcontractor ? tdsBaseAmount.toDecimalPlaces(2) : new Prisma.Decimal(0),
           mode: parsed.data.mode,
           reference: parsed.data.reference?.trim() || null,
           projectId: parsed.data.projectId?.trim() || null,

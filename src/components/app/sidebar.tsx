@@ -25,6 +25,8 @@ export const appNav = [
   { href: "/app/transactions", label: "Transactions", icon: ArrowLeftRight },
   { href: "/app/sales/invoices", label: "Invoices", icon: FileSpreadsheet },
   { href: "/app/sales/receipts", label: "Receipts", icon: FileSpreadsheet },
+  { href: "/app/purchases/bills", label: "Bills", icon: FileSpreadsheet },
+  { href: "/app/purchases/payments-made", label: "Payments Made", icon: FileSpreadsheet },
   { href: "/app/clients", label: "Clients", icon: Users },
   { href: "/app/vendors", label: "Vendors", icon: Truck },
   { href: "/app/projects", label: "Projects", icon: Building2 },
@@ -32,6 +34,7 @@ export const appNav = [
   { href: "/app/inventory", label: "Inventory", icon: Boxes },
   { href: "/app/expenses", label: "Expenses", icon: ClipboardList },
   { href: "/app/reports/monthly-expenses", label: "Monthly CSV", icon: FileSpreadsheet },
+  { href: "/app/wages", label: "Wages", icon: ClipboardList },
   { href: "/app/settings/business", label: "Business", icon: Building2 },
   { href: "/app/settings/account", label: "Account", icon: Settings },
 ];
