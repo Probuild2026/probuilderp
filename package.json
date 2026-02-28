@@ -12,6 +12,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "db:seed": "prisma db seed",
+    "test:finance": "tsx scripts/test-finance.ts",
     "admin:update": "tsx scripts/update-admin.ts"
   },
   "dependencies": {

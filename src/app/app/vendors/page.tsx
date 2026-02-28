@@ -2,6 +2,8 @@ import { getServerSession } from "next-auth/next";
 
 import { AddVendorDialog } from "@/app/app/vendors/vendor-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
@@ -17,6 +19,7 @@ export default async function VendorsPage({
   const sp = (await searchParams) ?? {};
   const q = typeof sp.q === "string" ? sp.q : "";
   const trade = typeof sp.trade === "string" ? sp.trade : "";
+  const subcontractorsOnly = sp.subcontractors === "1";
 
   const vendors = await prisma.vendor.findMany({
     where: {
@@ -30,6 +33,7 @@ export default async function VendorsPage({
           }
         : {}),
       ...(trade ? { trade: { equals: trade, mode: "insensitive" } } : {}),
+      ...(subcontractorsOnly ? { isSubcontractor: true } : {}),
     },
     orderBy: { createdAt: "desc" },
     take: 50,
@@ -47,6 +51,33 @@ export default async function VendorsPage({
         <AddVendorDialog />
       </div>
 
+      <form className="flex flex-col gap-3 sm:flex-row sm:items-end" action="/app/vendors" method="get">
+        <div className="flex-1">
+          <label className="text-xs text-muted-foreground">Search</label>
+          <Input name="q" defaultValue={q} placeholder="Name / GSTIN" />
+        </div>
+        <div className="sm:w-56">
+          <label className="text-xs text-muted-foreground">Trade</label>
+          <Input name="trade" defaultValue={trade} placeholder="steel, cement..." />
+        </div>
+        <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+          <input
+            className="size-4 accent-primary"
+            type="checkbox"
+            name="subcontractors"
+            value="1"
+            defaultChecked={subcontractorsOnly}
+          />
+          <span className="text-sm">Subcontractors only</span>
+        </div>
+        <div className="flex gap-2">
+          <Button type="submit">Apply</Button>
+          <Button type="button" variant="secondary" asChild>
+            <a href="/app/vendors">Reset</a>
+          </Button>
+        </div>
+      </form>
+
       <div className="overflow-x-auto rounded-md border">
         <Table>
         <TableHeader>
@@ -54,7 +85,7 @@ export default async function VendorsPage({
             <TableHead>Name</TableHead>
             <TableHead>Trade</TableHead>
             <TableHead>GSTIN</TableHead>
-            <TableHead>Subcontractor</TableHead>
+            <TableHead>Type</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -64,7 +95,7 @@ export default async function VendorsPage({
               <TableCell>{vendor.trade ?? "-"}</TableCell>
               <TableCell>{vendor.gstin ?? "-"}</TableCell>
               <TableCell>
-                {vendor.isSubcontractor ? <Badge>Yes</Badge> : <span className="text-muted-foreground">No</span>}
+                {vendor.isSubcontractor ? <Badge>Subcontractor</Badge> : <span className="text-muted-foreground">Vendor</span>}
               </TableCell>
             </TableRow>
           ))}

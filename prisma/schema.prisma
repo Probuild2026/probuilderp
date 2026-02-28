@@ -158,28 +158,28 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users                User[]
-  clients              Client[]
-  vendors              Vendor[]
-  projects             Project[]
-  items                Item[]
-  expenses             Expense[]
-  purchaseInvoices     PurchaseInvoice[]
-  purchaseInvoiceLines PurchaseInvoiceLine[]
-  clientInvoices       ClientInvoice[]
-  receipts             Receipt[]
-  vendorPayments       VendorPayment[]
-  ledgerAccounts       LedgerAccount[]
-  ledgerEntries        LedgerEntry[]
-  stockMovements       StockMovement[]
-  labourers            Labourer[]
-  paymentVouchers      PaymentVoucher[]
-  attachments          Attachment[]
-  financeAccounts      FinanceAccount[]
-  txnCategories        TxnCategory[]
-  transactions         Transaction[]
-  projectPaymentStages ProjectPaymentStage[]
-  profile              TenantProfile?
+  users                  User[]
+  clients                Client[]
+  vendors                Vendor[]
+  projects               Project[]
+  items                  Item[]
+  expenses               Expense[]
+  purchaseInvoices       PurchaseInvoice[]
+  purchaseInvoiceLines   PurchaseInvoiceLine[]
+  clientInvoices         ClientInvoice[]
+  receipts               Receipt[]
+  vendorPayments         VendorPayment[]
+  ledgerAccounts         LedgerAccount[]
+  ledgerEntries          LedgerEntry[]
+  stockMovements         StockMovement[]
+  labourers              Labourer[]
+  paymentVouchers        PaymentVoucher[]
+  attachments            Attachment[]
+  financeAccounts        FinanceAccount[]
+  txnCategories          TxnCategory[]
+  transactions           Transaction[]
+  projectPaymentStages   ProjectPaymentStage[]
+  profile                TenantProfile?
   transactionAllocations TransactionAllocation[]
 }
 
@@ -187,13 +187,13 @@ model TenantProfile {
   id       String @id @default(cuid())
   tenantId Int    @unique @default(1)
 
-  legalName   String
-  tradeName   String?
-  phone       String?
-  email       String?
-  address     String?
-  gstin       String?
-  pan         String?
+  legalName String
+  tradeName String?
+  phone     String?
+  email     String?
+  address   String?
+  gstin     String?
+  pan       String?
 
   bankName      String?
   bankAccountNo String?
@@ -293,6 +293,7 @@ model Client {
 
   projects       Project[]
   clientInvoices ClientInvoice[]
+  transactions   Transaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -316,6 +317,17 @@ model Vendor {
   email           String?
   address         String?
   isSubcontractor Boolean         @default(false)
+  active          Boolean         @default(true)
+
+  // TDS (defaults per 194C; used for subcontractors by default)
+  tdsSection         String   @default("194C")
+  tdsOverrideRate    Decimal? @db.Decimal(5, 2)
+  tdsThresholdSingle Decimal  @default(30000) @db.Decimal(14, 2)
+  tdsThresholdAnnual Decimal  @default(100000) @db.Decimal(14, 2)
+
+  // Transporter exemption (if applicable)
+  isTransporter           Boolean @default(false)
+  transporterVehicleCount Int?
 
   ledgerAccountId String?        @unique
   ledgerAccount   LedgerAccount? @relation(fields: [ledgerAccountId], references: [id], onDelete: SetNull)
@@ -323,6 +335,7 @@ model Vendor {
   expenses         Expense[]
   purchaseInvoices PurchaseInvoice[]
   vendorPayments   VendorPayment[]
+  transactions     Transaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -349,12 +362,12 @@ model Project {
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
 
-  expenses             Expense[]
-  purchaseInvoices     PurchaseInvoice[]
-  purchaseInvoiceLines PurchaseInvoiceLine[]
-  clientInvoices       ClientInvoice[]
-  ledgerEntries        LedgerEntry[]
-  transactions         Transaction[]
+  expenses               Expense[]
+  purchaseInvoices       PurchaseInvoice[]
+  purchaseInvoiceLines   PurchaseInvoiceLine[]
+  clientInvoices         ClientInvoice[]
+  ledgerEntries          LedgerEntry[]
+  transactions           Transaction[]
   transactionAllocations TransactionAllocation[]
 
   createdAt DateTime @default(now())
@@ -584,17 +597,24 @@ model Transaction {
   type          TransactionType
   date          DateTime        @db.Date
   amount        Decimal         @db.Decimal(14, 2)
+  tdsAmount     Decimal         @default(0) @db.Decimal(14, 2)
   projectId     String?
+  clientId      String?
+  vendorId      String?
   categoryId    String?
   fromAccountId String?
   toAccountId   String?
+  mode          PaymentMode?
+  reference     String?
   note          String?
   description   String?
 
-  project     Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  category    TxnCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  fromAccount FinanceAccount? @relation("TxnFromAccount", fields: [fromAccountId], references: [id], onDelete: SetNull)
-  toAccount   FinanceAccount? @relation("TxnToAccount", fields: [toAccountId], references: [id], onDelete: SetNull)
+  project     Project?                @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  client      Client?                 @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  vendor      Vendor?                 @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  category    TxnCategory?            @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  fromAccount FinanceAccount?         @relation("TxnFromAccount", fields: [fromAccountId], references: [id], onDelete: SetNull)
+  toAccount   FinanceAccount?         @relation("TxnToAccount", fields: [toAccountId], references: [id], onDelete: SetNull)
   allocations TransactionAllocation[]
   receipts    Receipt[]
 
@@ -607,14 +627,17 @@ model Transaction {
   @@index([tenantId, date])
   @@index([tenantId, type, date])
   @@index([tenantId, projectId, date])
+  @@index([tenantId, clientId, date])
+  @@index([tenantId, vendorId, date])
   @@index([tenantId, fromAccountId, date])
   @@index([tenantId, toAccountId, date])
   @@index([tenantId, categoryId, date])
+  @@index([tenantId, mode, date])
 }
 
 model TransactionAllocation {
-  id            String                @id @default(cuid())
-  tenantId      Int                   @default(1)
+  id            String @id @default(cuid())
+  tenantId      Int    @default(1)
   transactionId String
 
   documentType AllocationDocumentType
@@ -755,7 +778,7 @@ model Receipt {
   remarks         String?
 
   clientInvoice ClientInvoice @relation(fields: [clientInvoiceId], references: [id], onDelete: Cascade)
-  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  transaction   Transaction?  @relation(fields: [transactionId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
