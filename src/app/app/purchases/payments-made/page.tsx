@@ -23,9 +23,9 @@ export default async function PaymentsMadePage() {
         reference: string | null;
         vendor: { id: string; name: string } | null;
         project: { id: string; name: string } | null;
-        _count: { allocations: number };
       }>
     | null = null;
+  let allocationCountByTxnId: Map<string, number> = new Map();
 
   try {
     txns = await prisma.transaction.findMany({
@@ -41,9 +41,21 @@ export default async function PaymentsMadePage() {
         reference: true,
         vendor: { select: { id: true, name: true } },
         project: { select: { id: true, name: true } },
-        _count: { select: { allocations: true } },
       },
     });
+
+    // Avoid Prisma relation `_count` (can generate database-specific aggregate queries).
+    const txnIds = txns.map((t) => t.id);
+    if (txnIds.length > 0) {
+      const allocs = await prisma.transactionAllocation.findMany({
+        where: { tenantId: session.user.tenantId, transactionId: { in: txnIds } },
+        select: { transactionId: true },
+      });
+      allocationCountByTxnId = new Map();
+      for (const a of allocs) {
+        allocationCountByTxnId.set(a.transactionId, (allocationCountByTxnId.get(a.transactionId) ?? 0) + 1);
+      }
+    }
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && (e.code === "P2021" || e.code === "P2022")) {
       txns = null;
@@ -121,7 +133,7 @@ DATABASE_URL='postgres://...your-vercel-db-url...' npx prisma db seed`}
                         <TableCell className="text-right">{formatINR(gross)}</TableCell>
                         <TableCell>{t.mode ?? "-"}</TableCell>
                         <TableCell className="max-w-[220px] truncate">{t.reference ?? "-"}</TableCell>
-                        <TableCell className="text-right">{t._count.allocations}</TableCell>
+                        <TableCell className="text-right">{allocationCountByTxnId.get(t.id) ?? 0}</TableCell>
                       </TableRow>
                     );
                   })

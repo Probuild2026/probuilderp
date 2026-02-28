@@ -23,9 +23,21 @@ export default async function WagesPage() {
       mode: true,
       reference: true,
       project: { select: { id: true, name: true } },
-      _count: { select: { lines: true } },
     },
   });
+
+  // Avoid Prisma relation `_count` (can generate database-specific aggregate queries).
+  const sheetIds = sheets.map((s) => s.id);
+  const lineCountBySheetId = new Map<string, number>();
+  if (sheetIds.length > 0) {
+    const lines = await prisma.labourSheetLine.findMany({
+      where: { tenantId: session.user.tenantId, labourSheetId: { in: sheetIds } },
+      select: { labourSheetId: true },
+    });
+    for (const l of lines) {
+      lineCountBySheetId.set(l.labourSheetId, (lineCountBySheetId.get(l.labourSheetId) ?? 0) + 1);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
@@ -68,7 +80,7 @@ export default async function WagesPage() {
                       <TableCell className="text-right">{formatINR(Number(s.total))}</TableCell>
                       <TableCell>{s.mode}</TableCell>
                       <TableCell className="max-w-[260px] truncate">{s.reference ?? "-"}</TableCell>
-                      <TableCell className="text-right">{s._count.lines}</TableCell>
+                      <TableCell className="text-right">{lineCountBySheetId.get(s.id) ?? 0}</TableCell>
                     </TableRow>
                   ))
                 )}
@@ -80,4 +92,3 @@ export default async function WagesPage() {
     </div>
   );
 }
-
