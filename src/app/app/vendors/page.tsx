@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
+import { Prisma } from "@prisma/client";
 
 export default async function VendorsPage({
   searchParams,
@@ -21,23 +22,49 @@ export default async function VendorsPage({
   const trade = typeof sp.trade === "string" ? sp.trade : "";
   const subcontractorsOnly = sp.subcontractors === "1";
 
-  const vendors = await prisma.vendor.findMany({
-    where: {
-      tenantId: session.user.tenantId,
-      ...(q
-        ? {
-            OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { gstin: { contains: q, mode: "insensitive" } },
-            ],
-          }
-        : {}),
-      ...(trade ? { trade: { equals: trade, mode: "insensitive" } } : {}),
-      ...(subcontractorsOnly ? { isSubcontractor: true } : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-  });
+  let vendors:
+    | Array<{
+        id: string;
+        name: string;
+        trade: string | null;
+        gstin: string | null;
+        isSubcontractor: boolean;
+      }>
+    | null = null;
+
+  try {
+    vendors = await prisma.vendor.findMany({
+      where: {
+        tenantId: session.user.tenantId,
+        ...(q
+          ? {
+              OR: [
+                { name: { contains: q, mode: "insensitive" } },
+                { gstin: { contains: q, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+        ...(trade ? { trade: { equals: trade, mode: "insensitive" } } : {}),
+        ...(subcontractorsOnly ? { isSubcontractor: true } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        trade: true,
+        gstin: true,
+        isSubcontractor: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+  } catch (e) {
+    // If the database hasn't been migrated yet, don't crash the whole page.
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2022") {
+      vendors = null;
+    } else {
+      throw e;
+    }
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
@@ -50,6 +77,23 @@ export default async function VendorsPage({
         </div>
         <AddVendorDialog />
       </div>
+
+      {vendors === null ? (
+        <div className="rounded-md border bg-muted/20 p-4 text-sm">
+          <div className="font-medium">Database update required</div>
+          <div className="mt-1 text-muted-foreground">
+            Your app code was deployed, but the database migrations haven’t been applied yet. Run Prisma migrations, then refresh.
+          </div>
+          <pre className="mt-3 overflow-x-auto rounded-md bg-black/40 p-3 text-xs">
+{`cd "/Users/roshanvinayan/Documents/Probuild ERP/probuild-erp"
+
+# If you previously had a failed migration:
+npx prisma migrate resolve --rolled-back 20260228145912_durable_backbone
+
+npx prisma migrate deploy`}
+          </pre>
+        </div>
+      ) : null}
 
       <form className="flex flex-col gap-3 sm:flex-row sm:items-end" action="/app/vendors" method="get">
         <div className="flex-1">
@@ -89,7 +133,7 @@ export default async function VendorsPage({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {vendors.map((vendor) => (
+          {(vendors ?? []).map((vendor) => (
             <TableRow key={vendor.id}>
               <TableCell className="font-medium">{vendor.name}</TableCell>
               <TableCell>{vendor.trade ?? "-"}</TableCell>
@@ -99,7 +143,7 @@ export default async function VendorsPage({
               </TableCell>
             </TableRow>
           ))}
-          {vendors.length === 0 ? (
+          {(vendors ?? []).length === 0 ? (
             <TableRow>
               <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
                 No vendors yet.
