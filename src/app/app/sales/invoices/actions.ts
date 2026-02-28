@@ -25,27 +25,35 @@ export async function createClientInvoice(formData: FormData) {
   if (!session?.user) throw new Error("Unauthorized");
 
   const raw = Object.fromEntries(formData.entries());
-  const parsed = clientInvoiceCreateSchema.parse(raw);
+  const parsed = clientInvoiceCreateSchema.safeParse(raw);
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    const msg =
+      first?.path?.[0] === "invoiceNumber"
+        ? "Invoice number is required."
+        : "Please check the invoice details and try again.";
+    throw new Error(msg);
+  }
 
   const invoice = await prisma.clientInvoice.create({
     data: {
       tenantId: session.user.tenantId,
-      projectId: parsed.projectId,
-      clientId: parsed.clientId,
-      invoiceNumber: parsed.invoiceNumber.trim(),
-      invoiceDate: parseDateOnly(parsed.invoiceDate),
-      dueDate: optionalDateOnly(parsed.dueDate),
-      serviceDescription: parsed.serviceDescription?.trim() ? parsed.serviceDescription.trim() : null,
-      sacCode: parsed.sacCode?.trim() ? parsed.sacCode.trim() : null,
-      gstRate: typeof parsed.gstRate === "number" ? parsed.gstRate : null,
-      basicValue: parsed.basicValue,
-      gstType: parsed.gstType,
-      cgst: parsed.cgst ?? 0,
-      sgst: parsed.sgst ?? 0,
-      igst: parsed.igst ?? 0,
-      total: parsed.total,
-      tdsRate: typeof parsed.tdsRate === "number" ? parsed.tdsRate : null,
-      tdsAmountExpected: typeof parsed.tdsAmountExpected === "number" ? parsed.tdsAmountExpected : null,
+      projectId: parsed.data.projectId,
+      clientId: parsed.data.clientId,
+      invoiceNumber: parsed.data.invoiceNumber.trim(),
+      invoiceDate: parseDateOnly(parsed.data.invoiceDate),
+      dueDate: optionalDateOnly(parsed.data.dueDate),
+      serviceDescription: parsed.data.serviceDescription?.trim() ? parsed.data.serviceDescription.trim() : null,
+      sacCode: parsed.data.sacCode?.trim() ? parsed.data.sacCode.trim() : null,
+      gstRate: typeof parsed.data.gstRate === "number" ? parsed.data.gstRate : null,
+      basicValue: parsed.data.basicValue,
+      gstType: parsed.data.gstType,
+      cgst: parsed.data.cgst ?? 0,
+      sgst: parsed.data.sgst ?? 0,
+      igst: parsed.data.igst ?? 0,
+      total: parsed.data.total,
+      tdsRate: typeof parsed.data.tdsRate === "number" ? parsed.data.tdsRate : null,
+      tdsAmountExpected: typeof parsed.data.tdsAmountExpected === "number" ? parsed.data.tdsAmountExpected : null,
       // Status is derived from allocations; keep stored field as legacy for now.
       status: "DUE",
     },
@@ -61,33 +69,41 @@ export async function updateClientInvoice(formData: FormData) {
   if (!session?.user) throw new Error("Unauthorized");
 
   const raw = Object.fromEntries(formData.entries());
-  const parsed = clientInvoiceUpdateSchema.parse(raw);
+  const parsed = clientInvoiceUpdateSchema.safeParse(raw);
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    const msg =
+      first?.path?.[0] === "invoiceNumber"
+        ? "Invoice number is required."
+        : "Please check the invoice details and try again.";
+    throw new Error(msg);
+  }
 
   await prisma.clientInvoice.update({
-    where: { id: parsed.id, tenantId: session.user.tenantId },
+    where: { id: parsed.data.id, tenantId: session.user.tenantId },
     data: {
-      projectId: parsed.projectId,
-      clientId: parsed.clientId,
-      invoiceNumber: parsed.invoiceNumber.trim(),
-      invoiceDate: parseDateOnly(parsed.invoiceDate),
-      dueDate: optionalDateOnly(parsed.dueDate),
-      serviceDescription: parsed.serviceDescription?.trim() ? parsed.serviceDescription.trim() : null,
-      sacCode: parsed.sacCode?.trim() ? parsed.sacCode.trim() : null,
-      gstRate: typeof parsed.gstRate === "number" ? parsed.gstRate : null,
-      basicValue: parsed.basicValue,
-      gstType: parsed.gstType,
-      cgst: parsed.cgst ?? 0,
-      sgst: parsed.sgst ?? 0,
-      igst: parsed.igst ?? 0,
-      total: parsed.total,
-      tdsRate: typeof parsed.tdsRate === "number" ? parsed.tdsRate : null,
-      tdsAmountExpected: typeof parsed.tdsAmountExpected === "number" ? parsed.tdsAmountExpected : null,
+      projectId: parsed.data.projectId,
+      clientId: parsed.data.clientId,
+      invoiceNumber: parsed.data.invoiceNumber.trim(),
+      invoiceDate: parseDateOnly(parsed.data.invoiceDate),
+      dueDate: optionalDateOnly(parsed.data.dueDate),
+      serviceDescription: parsed.data.serviceDescription?.trim() ? parsed.data.serviceDescription.trim() : null,
+      sacCode: parsed.data.sacCode?.trim() ? parsed.data.sacCode.trim() : null,
+      gstRate: typeof parsed.data.gstRate === "number" ? parsed.data.gstRate : null,
+      basicValue: parsed.data.basicValue,
+      gstType: parsed.data.gstType,
+      cgst: parsed.data.cgst ?? 0,
+      sgst: parsed.data.sgst ?? 0,
+      igst: parsed.data.igst ?? 0,
+      total: parsed.data.total,
+      tdsRate: typeof parsed.data.tdsRate === "number" ? parsed.data.tdsRate : null,
+      tdsAmountExpected: typeof parsed.data.tdsAmountExpected === "number" ? parsed.data.tdsAmountExpected : null,
       // Status is derived from allocations; do not update stored field.
     },
   });
 
   revalidatePath("/app/sales/invoices");
-  revalidatePath(`/app/sales/invoices/${parsed.id}`);
+  revalidatePath(`/app/sales/invoices/${parsed.data.id}`);
 }
 
 export async function deleteClientInvoice(id: string) {

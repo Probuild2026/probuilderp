@@ -113,7 +113,12 @@ export function InvoiceForm({
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label>Invoice no.</Label>
-              <Input name="invoiceNumber" defaultValue={defaultValues?.invoiceNumber ?? ""} placeholder="PB/INV/0001" />
+              <Input
+                name="invoiceNumber"
+                defaultValue={defaultValues?.invoiceNumber ?? ""}
+                placeholder="PB/INV/0001"
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label>Date</Label>
@@ -252,4 +257,3 @@ export function InvoiceForm({
     </form>
   );
 }
-
