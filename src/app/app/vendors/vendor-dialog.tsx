@@ -85,7 +85,12 @@ export function AddVendorDialog() {
           <DialogDescription>Create a vendor record.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form
+            onSubmit={form.handleSubmit(onSubmit, () => {
+              toast.error("Please fix the highlighted fields.");
+            })}
+            className="space-y-4"
+          >
             <FormField
               control={form.control}
               name="name"
@@ -391,7 +396,12 @@ export function EditVendorDialog({
           <DialogDescription>Update vendor details and TDS defaults.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form
+            onSubmit={form.handleSubmit(onSubmit, () => {
+              toast.error("Please fix the highlighted fields.");
+            })}
+            className="space-y-4"
+          >
             <FormField
               control={form.control}
               name="name"
@@ -679,7 +689,12 @@ export function MergeVendorsDialog({
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form
+            onSubmit={form.handleSubmit(onSubmit, () => {
+              toast.error("Please select both vendors.");
+            })}
+            className="space-y-4"
+          >
             <FormField
               control={form.control}
               name="fromVendorId"
