@@ -6,9 +6,19 @@ import { prisma } from "@/server/db";
 
 import { VendorPaymentCreateForm } from "./vendor-payment-create-form";
 
-export default async function NewPaymentMadePage() {
+export default async function NewPaymentMadePage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/login");
+
+  const sp = (await searchParams) ?? {};
+  const prefillVendorId = typeof sp.vendorId === "string" ? sp.vendorId : undefined;
+  const prefillProjectId = typeof sp.projectId === "string" ? sp.projectId : undefined;
+  const prefillBillId = typeof sp.billId === "string" ? sp.billId : undefined;
+  const prefillAmount = typeof sp.amount === "string" ? sp.amount : undefined;
 
   const [projects, vendors] = await Promise.all([
     prisma.project.findMany({
@@ -35,8 +45,17 @@ export default async function NewPaymentMadePage() {
           Pick a vendor/subcontractor, optionally settle bills, and the app will auto-calculate TDS (194C) and net cash paid.
         </p>
       </div>
-      <VendorPaymentCreateForm today={today} projects={projects} vendors={vendors} />
+      <VendorPaymentCreateForm
+        today={today}
+        projects={projects}
+        vendors={vendors}
+        initial={{
+          vendorId: prefillVendorId,
+          projectId: prefillProjectId,
+          billId: prefillBillId,
+          amount: prefillAmount,
+        }}
+      />
     </div>
   );
 }
-

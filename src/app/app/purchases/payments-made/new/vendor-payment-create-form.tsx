@@ -27,24 +27,26 @@ export function VendorPaymentCreateForm({
   today,
   projects,
   vendors,
+  initial,
 }: {
   today: string;
   projects: Opt[];
   vendors: VendorOpt[];
+  initial?: { vendorId?: string; projectId?: string; billId?: string; amount?: string };
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  const [vendorId, setVendorId] = useState(vendors[0]?.id ?? "");
+  const [vendorId, setVendorId] = useState(initial?.vendorId ?? vendors[0]?.id ?? "");
   const [bills, setBills] = useState<OpenBill[]>([]);
   const [loadingBills, setLoadingBills] = useState(false);
   const [mode, setMode] = useState<"CASH" | "UPI" | "BANK_TRANSFER" | "CHEQUE" | "CARD" | "OTHER">("BANK_TRANSFER");
   const [reference, setReference] = useState("");
   const [date, setDate] = useState(today);
-  const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
+  const [projectId, setProjectId] = useState(initial?.projectId ?? projects[0]?.id ?? "");
   const [hasTransporterDeclaration, setHasTransporterDeclaration] = useState(false);
 
-  const [flow, setFlow] = useState<"BILLS" | "LUMP_SUM">("BILLS");
+  const [flow, setFlow] = useState<"BILLS" | "LUMP_SUM">(initial?.billId ? "BILLS" : "BILLS");
   const [lumpGross, setLumpGross] = useState("0");
 
   const [selected, setSelected] = useState<Record<string, string>>({});
@@ -66,6 +68,27 @@ export function VendorPaymentCreateForm({
       })
       .finally(() => setLoadingBills(false));
   }, [vendorId]);
+
+  // Pre-fill a specific bill once open bills are loaded.
+  useEffect(() => {
+    const billId = initial?.billId;
+    if (!billId) return;
+    if (loadingBills) return;
+    if (bills.length === 0) return;
+
+    const bill = bills.find((b) => b.id === billId);
+    if (!bill) return;
+
+    const requested = Number(initial?.amount ?? 0);
+    const desired = Number.isFinite(requested) && requested > 0 ? requested : bill.balance;
+    const clamped = Math.max(0, Math.min(desired, bill.balance));
+    if (clamped <= 0) return;
+
+    setFlow("BILLS");
+    setSelected((s) => (s[billId] ? s : { ...s, [billId]: clamped.toFixed(2) }));
+    if (bill.projectId && !projectId) setProjectId(bill.projectId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bills, loadingBills, initial?.billId, initial?.amount]);
 
   const selectedRows = useMemo(() => {
     return Object.entries(selected)
@@ -304,4 +327,3 @@ export function VendorPaymentCreateForm({
     </form>
   );
 }
-
