@@ -74,6 +74,8 @@ export function AddVendorDialog() {
     });
   }
 
+  const onInvalid = () => toast.error("Please fix the highlighted fields.");
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -86,9 +88,7 @@ export function AddVendorDialog() {
         </DialogHeader>
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(onSubmit, () => {
-              toast.error("Please fix the highlighted fields.");
-            })}
+            onSubmit={form.handleSubmit(onSubmit, onInvalid)}
             className="space-y-4"
           >
             <FormField
@@ -306,7 +306,7 @@ export function AddVendorDialog() {
                 ) : null}
               </div>
             ) : null}
-            <Button type="submit" disabled={pending}>
+            <Button type="button" disabled={pending} onClick={form.handleSubmit(onSubmit, onInvalid)}>
               {pending ? "Saving…" : "Save"}
             </Button>
           </form>
@@ -383,6 +383,8 @@ export function EditVendorDialog({
     });
   }
 
+  const onInvalid = () => toast.error("Please fix the highlighted fields.");
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -397,9 +399,7 @@ export function EditVendorDialog({
         </DialogHeader>
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(onSubmit, () => {
-              toast.error("Please fix the highlighted fields.");
-            })}
+            onSubmit={form.handleSubmit(onSubmit, onInvalid)}
             className="space-y-4"
           >
             <FormField
@@ -632,7 +632,7 @@ export function EditVendorDialog({
               )}
             />
 
-            <Button type="submit" disabled={pending}>
+            <Button type="button" disabled={pending} onClick={form.handleSubmit(onSubmit, onInvalid)}>
               {pending ? "Saving…" : "Save changes"}
             </Button>
           </form>
@@ -676,6 +676,8 @@ export function MergeVendorsDialog({
     });
   }
 
+  const onInvalid = () => toast.error("Please select both vendors.");
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -690,9 +692,7 @@ export function MergeVendorsDialog({
         </DialogHeader>
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(onSubmit, () => {
-              toast.error("Please select both vendors.");
-            })}
+            onSubmit={form.handleSubmit(onSubmit, onInvalid)}
             className="space-y-4"
           >
             <FormField
@@ -747,7 +747,7 @@ export function MergeVendorsDialog({
               )}
             />
 
-            <Button type="submit" disabled={pending}>
+            <Button type="button" disabled={pending} onClick={form.handleSubmit(onSubmit, onInvalid)}>
               {pending ? "Merging…" : "Merge"}
             </Button>
           </form>
