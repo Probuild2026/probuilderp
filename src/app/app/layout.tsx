@@ -65,7 +65,11 @@ export default async function AppLayout({
             <div className="flex items-center gap-2">
               {profile?.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={profile.logoUrl} alt={brandName} className="size-7 rounded object-contain" />
+                <img
+                  src={profile.logoUrl}
+                  alt={brandName}
+                  className="h-7 w-auto max-w-[180px] object-contain sm:h-8"
+                />
               ) : (
                 <div className="size-7 rounded bg-sidebar-primary/20" />
               )}
