@@ -12,6 +12,17 @@ function optionalString(value: FormDataEntryValue | null) {
   return trimmed.length ? trimmed : null;
 }
 
+function optionalColor(value: FormDataEntryValue | null) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed.length) return null;
+  // Accept simple hex. (We can extend later to oklch()/rgb() etc.)
+  if (!/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(trimmed)) {
+    throw new Error("Colors must be hex like #0ea5e9.");
+  }
+  return trimmed;
+}
+
 export async function upsertTenantProfile(formData: FormData) {
   const session = await getServerSession(authOptions);
   if (!session?.user) throw new Error("Unauthorized");
@@ -24,6 +35,10 @@ export async function upsertTenantProfile(formData: FormData) {
   const legalName = optionalString(formData.get("legalName"));
   if (!legalName) throw new Error("Legal name is required.");
 
+  const brandName = optionalString(formData.get("brandName"));
+  const primaryColor = optionalColor(formData.get("primaryColor"));
+  const accentColor = optionalColor(formData.get("accentColor"));
+
   await prisma.tenantProfile.upsert({
     where: { tenantId: session.user.tenantId },
     update: {
@@ -34,6 +49,9 @@ export async function upsertTenantProfile(formData: FormData) {
       address: optionalString(formData.get("address")),
       gstin: optionalString(formData.get("gstin")),
       pan: optionalString(formData.get("pan")),
+      brandName,
+      primaryColor,
+      accentColor,
       bankName: optionalString(formData.get("bankName")),
       bankAccountNo: optionalString(formData.get("bankAccountNo")),
       bankIfsc: optionalString(formData.get("bankIfsc")),
@@ -56,6 +74,9 @@ export async function upsertTenantProfile(formData: FormData) {
       address: optionalString(formData.get("address")),
       gstin: optionalString(formData.get("gstin")),
       pan: optionalString(formData.get("pan")),
+      brandName,
+      primaryColor,
+      accentColor,
       bankName: optionalString(formData.get("bankName")),
       bankAccountNo: optionalString(formData.get("bankAccountNo")),
       bankIfsc: optionalString(formData.get("bankIfsc")),
@@ -68,5 +89,5 @@ export async function upsertTenantProfile(formData: FormData) {
   });
 
   revalidatePath("/app/settings/business");
+  revalidatePath("/app");
 }
-

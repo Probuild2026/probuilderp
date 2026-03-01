@@ -213,6 +213,10 @@ model TenantProfile {
   bankIfsc      String?
   upiId         String?
 
+  brandName    String?
+  primaryColor String?
+  accentColor  String?
+
   logoUrl      String?
   logoName     String?
   logoMimeType String?

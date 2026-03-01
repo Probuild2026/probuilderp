@@ -1,26 +1,179 @@
 import Link from "next/link";
+import { getServerSession } from "next-auth/next";
+import { redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { authOptions } from "@/server/auth";
+import { prisma } from "@/server/db";
 
-export default function AppHomePage() {
+function startOfMonth(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+function formatINR(n: number) {
+  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(n);
+}
+
+export default async function AppHomePage() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) redirect("/login");
+
+  const today = new Date();
+  const from = startOfMonth(today);
+  const to = today;
+
+  const [receivedAgg, billsAgg, expensesAgg, wagesAgg, projects] = await Promise.all([
+    prisma.receipt.aggregate({
+      where: { tenantId: session.user.tenantId, date: { gte: from, lte: to } },
+      _sum: { amountReceived: true },
+    }),
+    prisma.purchaseInvoice.aggregate({
+      where: { tenantId: session.user.tenantId, invoiceDate: { gte: from, lte: to } },
+      _sum: { total: true },
+    }),
+    prisma.expense.aggregate({
+      where: { tenantId: session.user.tenantId, date: { gte: from, lte: to } },
+      _sum: { totalAmount: true },
+    }),
+    prisma.labourSheet.aggregate({
+      where: { tenantId: session.user.tenantId, date: { gte: from, lte: to } },
+      _sum: { total: true },
+    }),
+    prisma.project.findMany({
+      where: { tenantId: session.user.tenantId },
+      orderBy: { createdAt: "desc" },
+      take: 25,
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        client: { select: { name: true } },
+      },
+    }),
+  ]);
+
+  const totalReceived = Number(receivedAgg._sum.amountReceived ?? 0);
+  const totalSpent = Number(billsAgg._sum.total ?? 0) + Number(expensesAgg._sum.totalAmount ?? 0) + Number(wagesAgg._sum.total ?? 0);
+  const net = totalReceived - totalSpent;
+
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
       <PageHeader
         title="Dashboard"
-        description="Quick guide + shortcuts for daily use."
+        description="Track projects, cash, GST/TDS and key site activity."
         actions={
           <>
-            <Button asChild variant="secondary">
-              <Link href="/app/settings/business">Business settings</Link>
-            </Button>
-            <Button asChild>
-              <Link href="/app/transactions/new">New transaction</Link>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button>+ New transaction</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link href="/app/purchases/bills/new">Bill</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/app/purchases/payments-made/new">Vendor payment</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/app/sales/receipts/new">Receipt</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/app/expenses/new">Expense</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/app/wages/new">Wage</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/app/transactions/new">Quick transaction</Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </>
         }
       />
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="cursor-pointer transition hover:bg-muted/30">
+          <Link href="/app/sales/receipts" className="block">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total received (this month)</CardTitle>
+            </CardHeader>
+            <CardContent className="text-2xl font-semibold">{formatINR(totalReceived)}</CardContent>
+          </Link>
+        </Card>
+        <Card className="cursor-pointer transition hover:bg-muted/30">
+          <Link href="/app/purchases/bills" className="block">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total spent (bills+wages+expenses)</CardTitle>
+            </CardHeader>
+            <CardContent className="text-2xl font-semibold">{formatINR(totalSpent)}</CardContent>
+          </Link>
+        </Card>
+        <Card className="cursor-pointer transition hover:bg-muted/30">
+          <Link href="/app/transactions" className="block">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Net position (this month)</CardTitle>
+            </CardHeader>
+            <CardContent className="text-2xl font-semibold">{formatINR(net)}</CardContent>
+          </Link>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="text-base">Projects overview</CardTitle>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/app/projects">View all</Link>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Project</TableHead>
+                  <TableHead className="hidden md:table-cell">Client</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-[1%] text-right">Open</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {projects.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
+                      No projects yet.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  projects.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="min-w-0">
+                        <div className="min-w-0">
+                          <div className="truncate font-medium">{p.name}</div>
+                          <div className="mt-0.5 truncate text-xs text-muted-foreground md:hidden">{p.client?.name ?? "—"}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">{p.client?.name ?? "—"}</TableCell>
+                      <TableCell>{p.status}</TableCell>
+                      <TableCell className="text-right">
+                        <Button asChild size="sm" variant="secondary">
+                          <Link href={`/app/projects/${p.id}`}>Open</Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-3">

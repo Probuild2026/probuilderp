@@ -14,6 +14,9 @@ export default async function BusinessSettingsPage() {
     select: {
       legalName: true,
       tradeName: true,
+      brandName: true,
+      primaryColor: true,
+      accentColor: true,
       phone: true,
       email: true,
       address: true,
@@ -40,4 +43,3 @@ export default async function BusinessSettingsPage() {
     </div>
   );
 }
-

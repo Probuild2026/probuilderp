@@ -14,6 +14,9 @@ import { upsertTenantProfile } from "./actions";
 type Profile = {
   legalName: string;
   tradeName: string | null;
+  brandName: string | null;
+  primaryColor: string | null;
+  accentColor: string | null;
   phone: string | null;
   email: string | null;
   address: string | null;
@@ -41,6 +44,9 @@ export function BusinessSettingsForm({
     () => ({
       legalName: profile?.legalName ?? "",
       tradeName: profile?.tradeName ?? "",
+      brandName: profile?.brandName ?? "",
+      primaryColor: profile?.primaryColor ?? "",
+      accentColor: profile?.accentColor ?? "",
       phone: profile?.phone ?? "",
       email: profile?.email ?? "",
       address: profile?.address ?? "",
@@ -97,6 +103,39 @@ export function BusinessSettingsForm({
             <div className="space-y-2">
               <Label htmlFor="tradeName">Trade name (optional)</Label>
               <Input id="tradeName" name="tradeName" defaultValue={initial.tradeName} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="brandName">Brand name (optional)</Label>
+              <Input id="brandName" name="brandName" defaultValue={initial.brandName} placeholder="Shown in the app header" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="primaryColor">Primary color (optional)</Label>
+              <Input id="primaryColor" name="primaryColor" defaultValue={initial.primaryColor} placeholder="#0ea5e9" />
+              <div className="text-xs text-muted-foreground">Hex like #0ea5e9. Used for buttons + selected menu.</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="accentColor">Accent color (optional)</Label>
+              <Input id="accentColor" name="accentColor" defaultValue={initial.accentColor} placeholder="#f59e0b" />
+              <div className="text-xs text-muted-foreground">Used for highlights (e.g. outstanding / at risk).</div>
+            </div>
+            <div className="space-y-2">
+              <Label>Preview</Label>
+              <div
+                className="flex h-9 items-center gap-2 rounded-md border px-3 text-sm"
+                style={{
+                  background: initial.primaryColor ? `${initial.primaryColor}14` : undefined,
+                  borderColor: initial.primaryColor || undefined,
+                }}
+              >
+                <div className="size-2 rounded-full" style={{ background: initial.primaryColor || undefined }} />
+                <div className="truncate">{initial.brandName || initial.tradeName || initial.legalName || "Probuild ERP"}</div>
+              </div>
             </div>
           </div>
 
@@ -182,4 +221,3 @@ export function BusinessSettingsForm({
     </form>
   );
 }
-

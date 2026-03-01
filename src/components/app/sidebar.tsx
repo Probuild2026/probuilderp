@@ -6,12 +6,21 @@ import { useState } from "react";
 
 import {
   ArrowLeftRight,
+  BarChart3,
+  Briefcase,
   Boxes,
   Building2,
   ClipboardList,
   FileSpreadsheet,
+  FileText,
+  HandCoins,
   LayoutDashboard,
   Package,
+  Receipt,
+  Settings2,
+  Upload,
+  UsersRound,
+  Wallet,
   Settings,
   Truck,
   Users,
@@ -20,25 +29,46 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export const appNav = [
-  { href: "/app", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/app/transactions", label: "Transactions", icon: ArrowLeftRight },
-  { href: "/app/sales/invoices", label: "Invoices", icon: FileSpreadsheet },
-  { href: "/app/sales/receipts", label: "Receipts", icon: FileSpreadsheet },
-  { href: "/app/purchases/bills", label: "Bills", icon: FileSpreadsheet },
-  { href: "/app/purchases/payments-made", label: "Payments Made", icon: FileSpreadsheet },
-  { href: "/app/imports", label: "Import CSV", icon: FileSpreadsheet },
-  { href: "/app/clients", label: "Clients", icon: Users },
-  { href: "/app/vendors", label: "Vendors", icon: Truck },
-  { href: "/app/projects", label: "Projects", icon: Building2 },
-  { href: "/app/items", label: "Items", icon: Package },
-  { href: "/app/inventory", label: "Inventory", icon: Boxes },
-  { href: "/app/expenses", label: "Expenses", icon: ClipboardList },
-  { href: "/app/reports/monthly-expenses", label: "Monthly CSV", icon: FileSpreadsheet },
-  { href: "/app/wages", label: "Wages", icon: ClipboardList },
-  { href: "/app/settings/business", label: "Business", icon: Building2 },
-  { href: "/app/settings/account", label: "Account", icon: Settings },
-];
+export const navGroups = [
+  {
+    header: "Operations",
+    items: [
+      { href: "/app", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/app/projects", label: "Projects", icon: Building2 },
+      { href: "/app/purchases/bills", label: "Bills", icon: FileText },
+      { href: "/app/purchases/payments-made", label: "Payments Made", icon: Wallet },
+      { href: "/app/sales/invoices", label: "Invoices", icon: FileSpreadsheet },
+      { href: "/app/sales/receipts", label: "Receipts", icon: HandCoins },
+      { href: "/app/wages", label: "Wages", icon: Briefcase },
+      { href: "/app/expenses", label: "Expenses", icon: ClipboardList },
+      { href: "/app/transactions", label: "Transactions", icon: ArrowLeftRight },
+      { href: "/app/inventory", label: "Inventory", icon: Boxes },
+    ],
+  },
+  {
+    header: "Parties",
+    items: [
+      { href: "/app/clients", label: "Clients", icon: Users },
+      { href: "/app/vendors", label: "Vendors", icon: Truck },
+    ],
+  },
+  {
+    header: "Analysis",
+    items: [
+      { href: "/app/reports", label: "Reports", icon: BarChart3 },
+      { href: "/app/reports/monthly-expenses", label: "Monthly CSV", icon: Receipt },
+      { href: "/app/imports", label: "Import CSV", icon: Upload },
+    ],
+  },
+  {
+    header: "Setup",
+    items: [
+      { href: "/app/items", label: "Items", icon: Package },
+      { href: "/app/settings/business", label: "Business", icon: Settings2 },
+      { href: "/app/settings/account", label: "Account", icon: UsersRound },
+    ],
+  },
+] as const;
 
 const STORAGE_KEY = "probuild.sidebarCollapsed";
 
@@ -86,28 +116,37 @@ export function Sidebar({ className }: { className?: string }) {
         </Button>
       </div>
 
-      <nav className={cn("mt-3 space-y-1", collapsed ? "px-1" : "px-2")}>
-        {appNav.map((item) => {
-          const active = pathname === item.href;
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={collapsed ? item.label : undefined}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm",
-                active
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                collapsed && "justify-center px-2",
-              )}
-            >
-              <Icon className="size-4" />
-              <span className={cn(collapsed && "hidden")}>{item.label}</span>
-            </Link>
-          );
-        })}
+      <nav className={cn("mt-3 space-y-4", collapsed ? "px-1" : "px-2")}>
+        {navGroups.map((group) => (
+          <div key={group.header}>
+            <div className={cn("px-3 pb-1 text-[11px] font-medium tracking-wide text-muted-foreground/80", collapsed && "sr-only")}>
+              {group.header}
+            </div>
+            <div className="space-y-1">
+              {group.items.map((item) => {
+                const active = pathname === item.href;
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    title={collapsed ? item.label : undefined}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm",
+                      active
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                      collapsed && "justify-center px-2",
+                    )}
+                  >
+                    <Icon className="size-4" />
+                    <span className={cn(collapsed && "hidden")}>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
     </aside>
   );
