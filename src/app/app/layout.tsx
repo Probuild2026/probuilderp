@@ -10,6 +10,7 @@ import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 import { PROJECT_FILTER_COOKIE } from "@/lib/project-filter";
 import { Input } from "@/components/ui/input";
+import { Prisma } from "@prisma/client";
 
 export default async function AppLayout({
   children,
@@ -30,17 +31,52 @@ export default async function AppLayout({
   ]);
   const selectedProjectId = cookieStore.get(PROJECT_FILTER_COOKIE)?.value ?? "";
 
-  const profile = await prisma.tenantProfile.findUnique({
-    where: { tenantId: session.user.tenantId },
-    select: {
-      legalName: true,
-      tradeName: true,
-      brandName: true,
-      primaryColor: true,
-      accentColor: true,
-      logoUrl: true,
-    },
-  });
+  let profile: {
+    legalName: string;
+    tradeName: string | null;
+    brandName: string | null;
+    primaryColor: string | null;
+    accentColor: string | null;
+    logoUrl: string | null;
+  } | null = null;
+  try {
+    const res = await prisma.tenantProfile.findUnique({
+      where: { tenantId: session.user.tenantId },
+      select: {
+        legalName: true,
+        tradeName: true,
+        brandName: true,
+        primaryColor: true,
+        accentColor: true,
+        logoUrl: true,
+      },
+    });
+    profile = res;
+  } catch (e) {
+    // If the DB migration hasn't been applied yet, fall back to older columns.
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2022") {
+      const res = await prisma.tenantProfile.findUnique({
+        where: { tenantId: session.user.tenantId },
+        select: {
+          legalName: true,
+          tradeName: true,
+          logoUrl: true,
+        },
+      });
+      profile = res
+        ? {
+            legalName: res.legalName,
+            tradeName: res.tradeName ?? null,
+            brandName: null,
+            primaryColor: null,
+            accentColor: null,
+            logoUrl: res.logoUrl ?? null,
+          }
+        : null;
+    } else {
+      throw e;
+    }
+  }
 
   const brandName = profile?.brandName?.trim() || profile?.tradeName?.trim() || profile?.legalName?.trim() || "Probuild ERP";
 
