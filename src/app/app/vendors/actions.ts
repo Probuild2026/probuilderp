@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
 import { Prisma } from "@prisma/client";
 
 import { vendorCreateSchema, vendorMergeSchema, vendorUpdateSchema } from "@/lib/validators/vendor";
