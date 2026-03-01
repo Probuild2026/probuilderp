@@ -19,7 +19,7 @@ const schema = z.object({
   id: z.string().min(1),
   date: z.string().min(1),
   mode: z.enum(["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "CARD", "OTHER"]),
-  projectId: z.union([z.string(), z.literal("")]).optional(),
+  projectId: z.string().optional(),
   reference: z.union([z.string(), z.literal("")]).optional(),
   note: z.union([z.string(), z.literal("")]).optional(),
   description: z.union([z.string(), z.literal("")]).optional(),
@@ -44,6 +44,7 @@ export function PaymentEditForm({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const NONE = "__none__";
 
   const form = useForm<FormInput>({
     resolver: zodResolver(schema),
@@ -51,7 +52,7 @@ export function PaymentEditForm({
       id: payment.id,
       date: payment.date,
       mode: payment.mode,
-      projectId: payment.projectId ?? "",
+      projectId: payment.projectId ?? NONE,
       reference: payment.reference ?? "",
       note: payment.note ?? "",
       description: payment.description ?? "",
@@ -64,7 +65,7 @@ export function PaymentEditForm({
         id: values.id,
         date: values.date,
         mode: values.mode,
-        projectId: values.projectId?.trim() ? values.projectId.trim() : undefined,
+        projectId: values.projectId && values.projectId !== NONE ? values.projectId.trim() : undefined,
         reference: values.reference?.trim() ? values.reference.trim() : undefined,
         note: values.note?.trim() ? values.note.trim() : undefined,
         description: values.description?.trim() ? values.description.trim() : undefined,
@@ -130,14 +131,14 @@ export function PaymentEditForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Project (optional)</FormLabel>
-              <Select value={field.value ?? ""} onValueChange={field.onChange}>
+              <Select value={field.value ?? NONE} onValueChange={field.onChange}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="—" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="">—</SelectItem>
+                  <SelectItem value={NONE}>—</SelectItem>
                   {projects.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name}
@@ -199,4 +200,3 @@ export function PaymentEditForm({
     </Form>
   );
 }
-
