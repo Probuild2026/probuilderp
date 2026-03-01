@@ -96,51 +96,65 @@ DATABASE_URL='postgres://...your-vercel-db-url...' npx prisma db seed`}
 
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-auto">
-            <Table>
-              <TableHeader>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[110px]">Date</TableHead>
+                <TableHead>Vendor</TableHead>
+                <TableHead className="hidden lg:table-cell">Project</TableHead>
+                <TableHead className="text-right">Cash</TableHead>
+                <TableHead className="hidden sm:table-cell text-right">TDS</TableHead>
+                <TableHead className="hidden md:table-cell text-right">Gross</TableHead>
+                <TableHead className="hidden md:table-cell">Mode</TableHead>
+                <TableHead className="hidden xl:table-cell">Reference</TableHead>
+                <TableHead className="hidden md:table-cell text-right">Bills</TableHead>
+                <TableHead className="w-[1%] text-right">Open</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(txns ?? []).length === 0 ? (
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Vendor</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead className="text-right">Cash paid</TableHead>
-                  <TableHead className="text-right">TDS</TableHead>
-                  <TableHead className="text-right">Gross</TableHead>
-                  <TableHead>Mode</TableHead>
-                  <TableHead>Reference</TableHead>
-                  <TableHead className="text-right">Bills</TableHead>
+                  <TableCell colSpan={10} className="py-10 text-center text-sm text-muted-foreground">
+                    No payments yet.
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(txns ?? []).length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
-                      No payments yet.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  (txns ?? []).map((t) => {
-                    const cash = Number(t.amount);
-                    const tds = Number(t.tdsAmount ?? 0);
-                    const gross = cash + tds;
-                    return (
-                      <TableRow key={t.id}>
-                        <TableCell>{t.date.toISOString().slice(0, 10)}</TableCell>
-                        <TableCell className="max-w-[260px] truncate font-medium">{t.vendor?.name ?? "-"}</TableCell>
-                        <TableCell className="max-w-[260px] truncate">{t.project?.name ?? "-"}</TableCell>
-                        <TableCell className="text-right">{formatINR(cash)}</TableCell>
-                        <TableCell className="text-right">{formatINR(tds)}</TableCell>
-                        <TableCell className="text-right">{formatINR(gross)}</TableCell>
-                        <TableCell>{t.mode ?? "-"}</TableCell>
-                        <TableCell className="max-w-[220px] truncate">{t.reference ?? "-"}</TableCell>
-                        <TableCell className="text-right">{allocationCountByTxnId.get(t.id) ?? 0}</TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
+              ) : (
+                (txns ?? []).map((t) => {
+                  const cash = Number(t.amount);
+                  const tds = Number(t.tdsAmount ?? 0);
+                  const gross = cash + tds;
+                  const bills = allocationCountByTxnId.get(t.id) ?? 0;
+                  return (
+                    <TableRow key={t.id}>
+                      <TableCell className="whitespace-nowrap">{t.date.toISOString().slice(0, 10)}</TableCell>
+                      <TableCell className="min-w-0">
+                        <div className="min-w-0">
+                          <Link className="block truncate font-medium hover:underline" href={`/app/purchases/payments-made/${t.id}`}>
+                            {t.vendor?.name ?? "-"}
+                          </Link>
+                          <div className="mt-0.5 truncate text-xs text-muted-foreground lg:hidden">
+                            {t.project?.name ?? "—"} • {t.mode ?? "—"} • Bills {bills}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell max-w-[260px] truncate">{t.project?.name ?? "-"}</TableCell>
+                      <TableCell className="whitespace-nowrap text-right tabular-nums">{formatINR(cash)}</TableCell>
+                      <TableCell className="hidden sm:table-cell whitespace-nowrap text-right tabular-nums">{formatINR(tds)}</TableCell>
+                      <TableCell className="hidden md:table-cell whitespace-nowrap text-right tabular-nums">{formatINR(gross)}</TableCell>
+                      <TableCell className="hidden md:table-cell whitespace-nowrap">{t.mode ?? "-"}</TableCell>
+                      <TableCell className="hidden xl:table-cell max-w-[260px] truncate">{t.reference ?? "-"}</TableCell>
+                      <TableCell className="hidden md:table-cell whitespace-nowrap text-right tabular-nums">{bills}</TableCell>
+                      <TableCell className="text-right">
+                        <Button asChild size="sm" variant="secondary">
+                          <Link href={`/app/purchases/payments-made/${t.id}`}>Open</Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>

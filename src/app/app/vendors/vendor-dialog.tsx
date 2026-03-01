@@ -1,9 +1,11 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +33,8 @@ import { createVendor, mergeVendors, updateVendor } from "./actions";
 
 export function AddVendorDialog() {
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
 
   const form = useForm<VendorCreateInput>({
     resolver: zodResolver(vendorCreateSchema) as any,
@@ -61,15 +65,17 @@ export function AddVendorDialog() {
         await createVendor(values);
         toast.success("Vendor created.");
         form.reset();
+        setOpen(false);
+        router.refresh();
       } catch (e) {
-        toast.error("Failed to create vendor.");
+        toast.error(e instanceof Error ? e.message : "Failed to create vendor.");
         console.error(e);
       }
     });
   }
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>Add Vendor</Button>
       </DialogTrigger>
@@ -329,6 +335,8 @@ export function EditVendorDialog({
   };
 }) {
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
 
   const form = useForm<VendorUpdateInput>({
     resolver: zodResolver(vendorUpdateSchema) as any,
@@ -361,15 +369,17 @@ export function EditVendorDialog({
       try {
         await updateVendor(values);
         toast.success("Vendor updated.");
+        setOpen(false);
+        router.refresh();
       } catch (e) {
-        toast.error("Failed to update vendor.");
+        toast.error(e instanceof Error ? e.message : "Failed to update vendor.");
         console.error(e);
       }
     });
   }
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" variant="secondary">
           Edit
@@ -630,6 +640,8 @@ export function MergeVendorsDialog({
   defaultFromVendorId?: string;
 }) {
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
 
   const form = useForm<VendorMergeInput>({
     resolver: zodResolver(vendorMergeSchema) as any,
@@ -645,15 +657,17 @@ export function MergeVendorsDialog({
         await mergeVendors(values);
         toast.success("Vendors merged.");
         form.reset({ fromVendorId: "", toVendorId: "" });
+        setOpen(false);
+        router.refresh();
       } catch (e) {
-        toast.error("Failed to merge vendors.");
+        toast.error(e instanceof Error ? e.message : "Failed to merge vendors.");
         console.error(e);
       }
     });
   }
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="secondary">Merge vendors</Button>
       </DialogTrigger>

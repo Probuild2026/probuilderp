@@ -9,6 +9,7 @@ import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
 import { type ActionError, type ActionResult, unknownError, zodToFieldErrors } from "./_result";
+import { revalidatePath } from "next/cache";
 
 const allocationSchema = z
   .object({
@@ -52,6 +53,18 @@ function fyStartForIndia(date: Date) {
   const startYear = month >= 3 ? year : year - 1;
   return new Date(startYear, 3, 1, 0, 0, 0, 0);
 }
+
+const updateVendorPaymentMetaSchema = z
+  .object({
+    id: z.string().min(1),
+    date: z.string().min(1),
+    mode: z.enum(["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "CARD", "OTHER"]),
+    reference: z.string().max(200).optional(),
+    projectId: z.string().optional(),
+    note: z.string().max(2000).optional(),
+    description: z.string().max(5000).optional(),
+  })
+  .strict();
 
 export async function createVendorPayment(input: unknown): Promise<
   ActionResult<{
@@ -290,3 +303,81 @@ export async function createVendorPayment(input: unknown): Promise<
   }
 }
 
+export async function updateVendorPaymentMeta(input: unknown): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return { ok: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } };
+
+  const parsed = updateVendorPaymentMetaSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: { code: "VALIDATION", message: "Invalid input", fieldErrors: zodToFieldErrors(parsed.error) } };
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const txn = await tx.transaction.findFirst({
+        where: { tenantId: session.user.tenantId, id: parsed.data.id, type: "EXPENSE", vendorId: { not: null } },
+        select: { id: true },
+      });
+      if (!txn) throw new Error("Payment not found.");
+
+      const projectId = parsed.data.projectId?.trim() || null;
+
+      await tx.transaction.update({
+        where: { tenantId: session.user.tenantId, id: parsed.data.id },
+        data: {
+          date: parseDateOnly(parsed.data.date),
+          mode: parsed.data.mode,
+          reference: parsed.data.reference?.trim() || null,
+          projectId,
+          note: parsed.data.note?.trim() || null,
+          description: parsed.data.description?.trim() || null,
+        },
+        select: { id: true },
+      });
+
+      // Keep allocations in the same project bucket as the payment transaction.
+      await tx.transactionAllocation.updateMany({
+        where: { tenantId: session.user.tenantId, transactionId: parsed.data.id },
+        data: { projectId },
+      });
+    });
+
+    revalidatePath("/app/purchases/payments-made");
+    revalidatePath("/app/transactions");
+    revalidatePath(`/app/purchases/payments-made/${parsed.data.id}`);
+
+    return { ok: true, data: { id: parsed.data.id } };
+  } catch (e) {
+    return unknownError(e instanceof Error ? e.message : "Failed to update payment.");
+  }
+}
+
+export async function deleteVendorPayment(id: string): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return { ok: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } };
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const txn = await tx.transaction.findFirst({
+        where: { tenantId: session.user.tenantId, id, type: "EXPENSE", vendorId: { not: null } },
+        select: { id: true },
+      });
+      if (!txn) throw new Error("Payment not found.");
+
+      await tx.attachment.deleteMany({
+        where: { tenantId: session.user.tenantId, entityType: "TRANSACTION", entityId: id },
+      });
+
+      // Allocations cascade, but deleting explicitly keeps behavior consistent across DBs.
+      await tx.transactionAllocation.deleteMany({ where: { tenantId: session.user.tenantId, transactionId: id } });
+      await tx.transaction.delete({ where: { tenantId: session.user.tenantId, id } });
+    });
+
+    revalidatePath("/app/purchases/payments-made");
+    revalidatePath("/app/transactions");
+
+    return { ok: true, data: { id } };
+  } catch (e) {
+    return unknownError(e instanceof Error ? e.message : "Failed to delete payment.");
+  }
+}
