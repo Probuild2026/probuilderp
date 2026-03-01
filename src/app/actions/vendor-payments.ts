@@ -115,26 +115,32 @@ export async function createVendorPayment(input: unknown): Promise<
           pan: true,
           isTransporter: true,
           transporterVehicleCount: true,
+          tdsApplicable: true,
+          tdsRate: true,
           tdsOverrideRate: true,
           tdsThresholdSingle: true,
           tdsThresholdAnnual: true,
+          tdsThreshold: true,
         },
       });
       if (!vendor) return { ok: false, error: { code: "VALIDATION", message: "Vendor not found." } };
 
-      // This flow is specifically for Vendor/Subcontractor payments. Always run 194C logic.
-      const ratePct = determineTDS194CRatePct({
-        vendor: {
-          legalType: vendor.legalType,
-          pan: vendor.pan,
-          isTransporter: vendor.isTransporter,
-          transporterVehicleCount: vendor.transporterVehicleCount,
-          tdsOverrideRate: vendor.tdsOverrideRate,
-          tdsThresholdSingle: vendor.tdsThresholdSingle,
-          tdsThresholdAnnual: vendor.tdsThresholdAnnual,
-        },
-        hasTransporterDeclaration,
-      });
+      const shouldApplyTds = vendor.isSubcontractor || vendor.tdsApplicable;
+
+      const ratePct = shouldApplyTds
+        ? determineTDS194CRatePct({
+            vendor: {
+              legalType: vendor.legalType,
+              pan: vendor.pan,
+              isTransporter: vendor.isTransporter,
+              transporterVehicleCount: vendor.transporterVehicleCount,
+              tdsOverrideRate: vendor.tdsRate ?? vendor.tdsOverrideRate,
+              tdsThresholdSingle: vendor.tdsThresholdSingle,
+              tdsThresholdAnnual: vendor.tdsThreshold ?? vendor.tdsThresholdAnnual,
+            },
+            hasTransporterDeclaration,
+          })
+        : 0;
 
       const ytd = await tx.transaction.aggregate({
         where: {
@@ -187,16 +193,17 @@ export async function createVendorPayment(input: unknown): Promise<
           pan: vendor.pan,
           isTransporter: vendor.isTransporter,
           transporterVehicleCount: vendor.transporterVehicleCount,
-          tdsOverrideRate: vendor.tdsOverrideRate,
+          tdsOverrideRate: vendor.tdsRate ?? vendor.tdsOverrideRate,
           tdsThresholdSingle: vendor.tdsThresholdSingle,
-          tdsThresholdAnnual: vendor.tdsThresholdAnnual,
+          tdsThresholdAnnual: vendor.tdsThreshold ?? vendor.tdsThresholdAnnual,
         },
         currentAmount: currentTaxableBase,
         ytdAmount: ytdBase,
         hasTransporterDeclaration,
       });
 
-      const totalTds = tdsCalc.applicable ? tdsCalc.tdsAmount : new Prisma.Decimal(0);
+      const totalTds = shouldApplyTds && tdsCalc.applicable ? tdsCalc.tdsAmount : new Prisma.Decimal(0);
+      const tdsReason = shouldApplyTds ? tdsCalc.reason : "TDS not applicable for this vendor.";
 
       // Distribute TDS across bills proportional to taxable ratio; cash = gross - tds.
       const allocationRows = allocations.length
@@ -248,6 +255,7 @@ export async function createVendorPayment(input: unknown): Promise<
           vendorId: parsed.data.vendorId,
           projectId: parsed.data.projectId?.trim() || null,
           mode: parsed.data.mode,
+          channel: parsed.data.mode === "CASH" ? "CASH" : "BANK",
           reference: parsed.data.reference?.trim() || null,
           note: parsed.data.note?.trim() || null,
           description: parsed.data.description?.trim() || null,
@@ -277,7 +285,7 @@ export async function createVendorPayment(input: unknown): Promise<
         cashPaid,
         tdsAmount: totalTds.toDecimalPlaces(2),
         tdsRatePct: ratePct,
-        tdsReason: tdsCalc.reason,
+        tdsReason,
         projectId: txn.projectId,
       };
     });
@@ -327,6 +335,7 @@ export async function updateVendorPaymentMeta(input: unknown): Promise<ActionRes
         data: {
           date: parseDateOnly(parsed.data.date),
           mode: parsed.data.mode,
+          channel: parsed.data.mode === "CASH" ? "CASH" : "BANK",
           reference: parsed.data.reference?.trim() || null,
           projectId,
           note: parsed.data.note?.trim() || null,

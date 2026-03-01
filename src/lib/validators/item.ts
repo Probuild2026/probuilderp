@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const itemTypeSchema = z.enum(["MATERIAL", "SERVICE"]);
+export const itemTypeSchema = z.enum(["MATERIAL", "LABOUR", "SERVICE"]);
 
 export const itemUpsertSchema = z.object({
   id: z.string().optional(),

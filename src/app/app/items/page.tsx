@@ -44,6 +44,7 @@ export default async function ItemsPage({
             <select name="type" defaultValue={type} className="h-10 rounded-md border bg-background px-3 text-sm">
               <option value="">All types</option>
               <option value="MATERIAL">Material</option>
+              <option value="LABOUR">Labour</option>
               <option value="SERVICE">Service</option>
             </select>
             <button className="h-10 rounded-md bg-primary px-4 text-sm text-primary-foreground" type="submit">

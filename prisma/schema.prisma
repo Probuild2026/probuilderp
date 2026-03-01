@@ -23,6 +23,7 @@ enum ProjectStatus {
 
 enum ItemType {
   MATERIAL
+  LABOUR
   SERVICE
 }
 
@@ -36,6 +37,7 @@ enum ExpenseType {
 enum GstType {
   INTRA
   INTER
+  NOGST
 }
 
 enum LedgerAccountType {
@@ -61,6 +63,12 @@ enum PaymentMode {
   UPI
   CARD
   OTHER
+}
+
+enum Channel {
+  BANK
+  CASH
+  ADJUSTMENT
 }
 
 enum VendorLegalType {
@@ -161,9 +169,11 @@ model Tenant {
 
   users                  User[]
   clients                Client[]
+  clientContacts         ClientContact[]
   vendors                Vendor[]
   projects               Project[]
   items                  Item[]
+  itemVendors            ItemVendor[]
   expenses               Expense[]
   purchaseInvoices       PurchaseInvoice[]
   purchaseInvoiceLines   PurchaseInvoiceLine[]
@@ -281,15 +291,19 @@ model VerificationToken {
 
 // --- Masters ---
 model Client {
-  id             String  @id @default(cuid())
-  tenantId       Int     @default(1)
-  name           String
-  contactPerson  String?
-  phone          String?
-  email          String?
-  billingAddress String?
-  gstin          String?
-  pan            String?
+  id                   String  @id @default(cuid())
+  tenantId             Int     @default(1)
+  name                 String
+  contactPerson        String?
+  phone                String?
+  email                String?
+  billingAddress       String?
+  siteAddress          String?
+  gstin                String?
+  pan                  String?
+  paymentTermsDays     Int?
+  preferredPaymentMode String?
+  notes                String?
 
   ledgerAccountId String?        @unique
   ledgerAccount   LedgerAccount? @relation(fields: [ledgerAccountId], references: [id], onDelete: SetNull)
@@ -297,6 +311,7 @@ model Client {
   projects       Project[]
   clientInvoices ClientInvoice[]
   transactions   Transaction[]
+  contacts       ClientContact[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -308,11 +323,37 @@ model Client {
   @@index([tenantId, gstin])
 }
 
+model ClientContact {
+  id       String @id @default(cuid())
+  tenantId Int    @default(1)
+
+  clientId  String
+  name      String
+  role      String?
+  phone     String?
+  whatsapp  String?
+  email     String?
+  isPrimary Boolean @default(false)
+  notes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, clientId])
+  @@index([tenantId, clientId, isPrimary])
+}
+
 model Vendor {
   id              String          @id @default(cuid())
   tenantId        Int             @default(1)
   name            String
+  type            String?
   trade           String?
+  tags            String[]        @default([])
   legalType       VendorLegalType @default(OTHER)
   gstin           String?
   pan             String?
@@ -323,10 +364,14 @@ model Vendor {
   active          Boolean         @default(true)
 
   // TDS (defaults per 194C; used for subcontractors by default)
+  tdsApplicable      Boolean  @default(false)
   tdsSection         String   @default("194C")
+  tdsRate            Decimal? @db.Decimal(5, 2)
   tdsOverrideRate    Decimal? @db.Decimal(5, 2)
   tdsThresholdSingle Decimal  @default(30000) @db.Decimal(14, 2)
   tdsThresholdAnnual Decimal  @default(100000) @db.Decimal(14, 2)
+  // Optional single yearly threshold override for simplified setups.
+  tdsThreshold       Decimal? @db.Decimal(14, 2)
 
   // Transporter exemption (if applicable)
   isTransporter           Boolean @default(false)
@@ -345,6 +390,7 @@ model Vendor {
 
   tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   paymentVouchers PaymentVoucher[]
+  itemVendors     ItemVendor[]
 
   @@index([tenantId])
   @@index([tenantId, name])
@@ -390,15 +436,20 @@ model Project {
 }
 
 model Item {
-  id         String   @id @default(cuid())
-  tenantId   Int      @default(1)
-  name       String
-  type       ItemType
-  unit       String?
-  sacHsnCode String?
-  gstRate    Decimal  @db.Decimal(5, 2)
+  id             String   @id @default(cuid())
+  tenantId       Int      @default(1)
+  name           String
+  type           ItemType
+  category       String?
+  unit           String?
+  sacHsnCode     String?
+  defaultGstRate Decimal? @db.Decimal(5, 2)
+  gstRate        Decimal  @db.Decimal(5, 2)
+  trackInventory Boolean  @default(false)
+  description    String?
 
   purchaseInvoiceLines PurchaseInvoiceLine[]
+  itemVendors          ItemVendor[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -409,6 +460,24 @@ model Item {
   @@index([tenantId])
   @@index([tenantId, name])
   @@index([tenantId, type])
+}
+
+model ItemVendor {
+  id       String @id @default(cuid())
+  tenantId Int    @default(1)
+  itemId   String
+  vendorId String
+
+  createdAt DateTime @default(now())
+
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, itemId, vendorId])
+  @@index([tenantId])
+  @@index([tenantId, itemId])
+  @@index([tenantId, vendorId])
 }
 
 // --- Transactions ---
@@ -611,6 +680,7 @@ model Transaction {
   fromAccountId String?
   toAccountId   String?
   mode          PaymentMode?
+  channel       Channel         @default(BANK)
   reference     String?
   note          String?
   description   String?
@@ -670,16 +740,16 @@ model TransactionAllocation {
 }
 
 model LabourSheet {
-  id        String   @id @default(cuid())
-  tenantId  Int      @default(1)
+  id        String      @id @default(cuid())
+  tenantId  Int         @default(1)
   projectId String
-  date      DateTime @db.Date
+  date      DateTime    @db.Date
   mode      PaymentMode
   reference String?
   note      String?
-  total     Decimal  @db.Decimal(14, 2)
+  total     Decimal     @db.Decimal(14, 2)
 
-  transactionId String? @unique
+  transactionId String?      @unique
   transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
 
   lines LabourSheetLine[]
@@ -695,13 +765,13 @@ model LabourSheet {
 }
 
 model LabourSheetLine {
-  id           String  @id @default(cuid())
-  tenantId     Int     @default(1)
+  id            String  @id @default(cuid())
+  tenantId      Int     @default(1)
   labourSheetId String
-  role         String
-  headcount    Int     @default(1)
-  rate         Decimal @db.Decimal(14, 2)
-  amount       Decimal @db.Decimal(14, 2)
+  role          String
+  headcount     Int     @default(1)
+  rate          Decimal @db.Decimal(14, 2)
+  amount        Decimal @db.Decimal(14, 2)
 
   labourSheet LabourSheet @relation(fields: [labourSheetId], references: [id], onDelete: Cascade)
   tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
@@ -721,6 +791,7 @@ model PurchaseInvoice {
   invoiceDate   DateTime @db.Date
   projectId     String
   gstType       GstType
+  gstRate       Decimal? @db.Decimal(5, 2)
 
   taxableValue Decimal @db.Decimal(14, 2)
   cgst         Decimal @default(0) @db.Decimal(14, 2)
@@ -823,6 +894,7 @@ model Receipt {
   date            DateTime    @db.Date
   amountReceived  Decimal     @db.Decimal(14, 2)
   mode            PaymentMode
+  channel         Channel     @default(BANK)
   reference       String?
   tdsDeducted     Boolean     @default(false)
   tdsAmount       Decimal?    @db.Decimal(14, 2)

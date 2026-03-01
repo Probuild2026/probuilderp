@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 
+import { computeGstComponents } from "@/server/domain/gst";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
@@ -15,7 +16,8 @@ const createPurchaseInvoiceSchema = z
     projectId: z.string().min(1),
     invoiceNumber: z.string().min(1).max(50),
     invoiceDate: z.string().min(1),
-    gstType: z.enum(["INTRA", "INTER"]),
+    gstType: z.enum(["INTRA", "INTER", "NOGST"]),
+    gstRate: z.coerce.number().min(0).max(100).optional(),
     taxableValue: z.coerce.number().min(0),
     cgst: z.coerce.number().min(0).optional(),
     sgst: z.coerce.number().min(0).optional(),
@@ -35,6 +37,19 @@ function parseDateOnly(value: string) {
   return date;
 }
 
+function inferGstRatePct(input: { taxableValue: number; gstType: "INTRA" | "INTER" | "NOGST"; cgst?: number; sgst?: number; igst?: number }) {
+  if (input.gstType === "NOGST") return 0;
+  if (!input.taxableValue) return undefined;
+  if (input.gstType === "INTRA") {
+    const t = (input.cgst ?? 0) + (input.sgst ?? 0);
+    if (t <= 0) return undefined;
+    return (t / input.taxableValue) * 100;
+  }
+  const t = input.igst ?? 0;
+  if (t <= 0) return undefined;
+  return (t / input.taxableValue) * 100;
+}
+
 export async function createPurchaseInvoice(input: unknown): Promise<ActionResult<{ id: string }>> {
   const session = await getServerSession(authOptions);
   if (!session?.user) return { ok: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } };
@@ -45,6 +60,17 @@ export async function createPurchaseInvoice(input: unknown): Promise<ActionResul
   }
 
   try {
+    const taxableValue = parsed.data.taxableValue;
+    const gstRate = parsed.data.gstRate ?? inferGstRatePct(parsed.data);
+    const computed =
+      gstRate == null
+        ? null
+        : computeGstComponents({
+            taxableValue,
+            gstRate,
+            gstType: parsed.data.gstType,
+          });
+
     const created = await prisma.purchaseInvoice.create({
       data: {
         tenantId: session.user.tenantId,
@@ -53,11 +79,12 @@ export async function createPurchaseInvoice(input: unknown): Promise<ActionResul
         invoiceNumber: parsed.data.invoiceNumber.trim(),
         invoiceDate: parseDateOnly(parsed.data.invoiceDate),
         gstType: parsed.data.gstType,
+        gstRate: gstRate == null ? null : new Prisma.Decimal(gstRate),
         taxableValue: new Prisma.Decimal(parsed.data.taxableValue),
-        cgst: new Prisma.Decimal(parsed.data.cgst ?? 0),
-        sgst: new Prisma.Decimal(parsed.data.sgst ?? 0),
-        igst: new Prisma.Decimal(parsed.data.igst ?? 0),
-        total: new Prisma.Decimal(parsed.data.total),
+        cgst: new Prisma.Decimal(computed?.cgst ?? parsed.data.cgst ?? 0),
+        sgst: new Prisma.Decimal(computed?.sgst ?? parsed.data.sgst ?? 0),
+        igst: new Prisma.Decimal(computed?.igst ?? parsed.data.igst ?? 0),
+        total: new Prisma.Decimal(computed?.total ?? parsed.data.total),
         // keep TDS fields for later (on the invoice itself) — payments screen computes live TDS
         tdsApplicable: false,
       },
@@ -79,6 +106,17 @@ export async function updatePurchaseInvoice(input: unknown): Promise<ActionResul
   }
 
   try {
+    const taxableValue = parsed.data.taxableValue;
+    const gstRate = parsed.data.gstRate ?? inferGstRatePct(parsed.data);
+    const computed =
+      gstRate == null
+        ? null
+        : computeGstComponents({
+            taxableValue,
+            gstRate,
+            gstType: parsed.data.gstType,
+          });
+
     const res = await prisma.purchaseInvoice.updateMany({
       where: { tenantId: session.user.tenantId, id: parsed.data.id },
       data: {
@@ -87,11 +125,12 @@ export async function updatePurchaseInvoice(input: unknown): Promise<ActionResul
         invoiceNumber: parsed.data.invoiceNumber.trim(),
         invoiceDate: parseDateOnly(parsed.data.invoiceDate),
         gstType: parsed.data.gstType,
+        gstRate: gstRate == null ? null : new Prisma.Decimal(gstRate),
         taxableValue: new Prisma.Decimal(parsed.data.taxableValue),
-        cgst: new Prisma.Decimal(parsed.data.cgst ?? 0),
-        sgst: new Prisma.Decimal(parsed.data.sgst ?? 0),
-        igst: new Prisma.Decimal(parsed.data.igst ?? 0),
-        total: new Prisma.Decimal(parsed.data.total),
+        cgst: new Prisma.Decimal(computed?.cgst ?? parsed.data.cgst ?? 0),
+        sgst: new Prisma.Decimal(computed?.sgst ?? parsed.data.sgst ?? 0),
+        igst: new Prisma.Decimal(computed?.igst ?? parsed.data.igst ?? 0),
+        total: new Prisma.Decimal(computed?.total ?? parsed.data.total),
       },
     });
     if (res.count === 0) return { ok: false, error: { code: "NOT_FOUND", message: "Bill not found." } };

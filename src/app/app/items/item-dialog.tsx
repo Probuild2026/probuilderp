@@ -32,6 +32,7 @@ type ItemType = (typeof itemTypeSchema)["options"][number];
 
 const typeLabel: Record<ItemType, string> = {
   MATERIAL: "Material",
+  LABOUR: "Labour",
   SERVICE: "Service",
 };
 

@@ -27,7 +27,7 @@ export function BillEditForm({
     projectId: string;
     invoiceNumber: string;
     invoiceDate: string;
-    gstType: "INTRA" | "INTER";
+    gstType: "INTRA" | "INTER" | "NOGST";
     taxableValue: string;
     cgst: string;
     sgst: string;
@@ -46,7 +46,7 @@ export function BillEditForm({
   const [projectId, setProjectId] = useState(bill.projectId);
   const [invoiceNumber, setInvoiceNumber] = useState(bill.invoiceNumber);
   const [invoiceDate, setInvoiceDate] = useState(bill.invoiceDate);
-  const [gstType, setGstType] = useState<"INTRA" | "INTER">(bill.gstType);
+  const [gstType, setGstType] = useState<"INTRA" | "INTER" | "NOGST">(bill.gstType);
 
   const [taxableValue, setTaxableValue] = useState(bill.taxableValue);
   const [cgst, setCgst] = useState(bill.cgst);
@@ -75,6 +75,13 @@ export function BillEditForm({
       return;
     }
 
+    if (gstType === "NOGST") {
+      setCgst("0.00");
+      setSgst("0.00");
+      setIgst("0.00");
+      return;
+    }
+
     const rate = effectiveRatePct;
     if (!Number.isFinite(rate) || rate <= 0) return;
     const tax = (base * rate) / 100;
@@ -91,12 +98,16 @@ export function BillEditForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taxableValue, gstType]);
 
-  // When GST type changes, convert existing tax between INTRA <-> INTER.
-  function handleGstTypeChange(next: "INTRA" | "INTER") {
+  // When GST type changes, convert existing tax between INTRA <-> INTER, or clear for NOGST.
+  function handleGstTypeChange(next: "INTRA" | "INTER" | "NOGST") {
     if (next === gstType) return;
     const currentTax = totalTax;
     setGstType(next);
-    if (next === "INTER") {
+    if (next === "NOGST") {
+      setIgst("0.00");
+      setCgst("0.00");
+      setSgst("0.00");
+    } else if (next === "INTER") {
       setIgst(currentTax.toFixed(2));
       setCgst("0.00");
       setSgst("0.00");
@@ -192,6 +203,7 @@ export function BillEditForm({
             >
               <option value="INTRA">Intra (CGST+SGST)</option>
               <option value="INTER">Inter (IGST)</option>
+              <option value="NOGST">No GST</option>
             </select>
           </label>
         </div>
@@ -239,7 +251,7 @@ export function BillEditForm({
                 />
               </label>
             </>
-          ) : (
+          ) : gstType === "INTER" ? (
             <label className="space-y-2 text-sm">
               <div className="text-muted-foreground">IGST</div>
               <Input
@@ -250,7 +262,7 @@ export function BillEditForm({
                 onChange={(e) => setIgst(e.target.value)}
               />
             </label>
-          )}
+          ) : null}
 
           <div className="rounded-md border p-3 text-sm">
             <div className="font-medium">GST summary</div>

@@ -8,14 +8,20 @@ import { prisma } from "@/server/db";
 
 import { type ActionResult, unknownError, zodToFieldErrors } from "./_result";
 
+function emptyToUndefined(value: unknown) {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? undefined : trimmed;
+}
+
 const vendorCreateSchema = z.object({
   name: z.string().min(1).max(200),
-  trade: z.string().max(200).optional(),
-  gstin: z.string().max(30).optional(),
-  pan: z.string().max(30).optional(),
-  phone: z.string().max(50).optional(),
-  email: z.string().email().optional(),
-  address: z.string().max(2000).optional(),
+  trade: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
+  gstin: z.preprocess(emptyToUndefined, z.string().max(30).optional()),
+  pan: z.preprocess(emptyToUndefined, z.string().max(30).optional()),
+  phone: z.preprocess(emptyToUndefined, z.string().max(50).optional()),
+  email: z.preprocess(emptyToUndefined, z.string().email().optional()),
+  address: z.preprocess(emptyToUndefined, z.string().max(2000).optional()),
   isSubcontractor: z.coerce.boolean().optional(),
 });
 
@@ -131,4 +137,3 @@ export async function listVendors(input: unknown): Promise<ActionResult<{ items:
     return unknownError("Failed to load vendors.");
   }
 }
-
