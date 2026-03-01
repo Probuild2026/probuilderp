@@ -8,6 +8,7 @@ import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
 import { type ActionResult, unknownError, zodToFieldErrors } from "./_result";
+import { revalidatePath } from "next/cache";
 
 const lineSchema = z
   .object({
@@ -27,6 +28,10 @@ const createLabourSheetSchema = z
     lines: z.array(lineSchema).min(1),
   })
   .strict();
+
+const updateLabourSheetSchema = createLabourSheetSchema.extend({
+  id: z.string().min(1),
+});
 
 function parseDateOnly(value: string) {
   const date = new Date(`${value}T00:00:00`);
@@ -119,3 +124,147 @@ export async function createLabourSheet(input: unknown): Promise<ActionResult<{ 
   }
 }
 
+export async function updateLabourSheet(input: unknown): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return { ok: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } };
+
+  const parsed = updateLabourSheetSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: { code: "VALIDATION", message: "Invalid input", fieldErrors: zodToFieldErrors(parsed.error) } };
+  }
+
+  try {
+    const total = parsed.data.lines.reduce((acc, l) => acc + l.headcount * l.rate, 0);
+    const totalDec = new Prisma.Decimal(total).toDecimalPlaces(2);
+    const financeType = financeTypeForMode(parsed.data.mode);
+
+    const res = await prisma.$transaction(async (tx) => {
+      const sheet = await tx.labourSheet.findFirst({
+        where: { tenantId: session.user.tenantId, id: parsed.data.id },
+        select: { id: true, transactionId: true },
+      });
+      if (!sheet) return { ok: false as const, code: "NOT_FOUND" as const };
+
+      const category = await tx.txnCategory.findFirst({
+        where: { tenantId: session.user.tenantId, type: "EXPENSE", name: "Labour Payment" },
+        select: { id: true },
+      });
+
+      const fromAccount = await tx.financeAccount.findFirst({
+        where: { tenantId: session.user.tenantId, type: financeType, active: true },
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      });
+
+      const date = parseDateOnly(parsed.data.date);
+
+      const txnId =
+        sheet.transactionId ??
+        (
+          await tx.transaction.create({
+            data: {
+              tenantId: session.user.tenantId,
+              type: "EXPENSE",
+              date,
+              amount: totalDec,
+              tdsAmount: new Prisma.Decimal(0),
+              tdsBaseAmount: new Prisma.Decimal(0),
+              projectId: parsed.data.projectId,
+              categoryId: category?.id ?? null,
+              fromAccountId: fromAccount?.id ?? null,
+              mode: parsed.data.mode,
+              reference: parsed.data.reference?.trim() || null,
+              note: parsed.data.note?.trim() || null,
+              description: null,
+            },
+            select: { id: true },
+          })
+        ).id;
+
+      await tx.transaction.updateMany({
+        where: { tenantId: session.user.tenantId, id: txnId },
+        data: {
+          date,
+          amount: totalDec,
+          projectId: parsed.data.projectId,
+          categoryId: category?.id ?? null,
+          fromAccountId: fromAccount?.id ?? null,
+          mode: parsed.data.mode,
+          reference: parsed.data.reference?.trim() || null,
+          note: parsed.data.note?.trim() || null,
+        },
+      });
+
+      await tx.labourSheet.updateMany({
+        where: { tenantId: session.user.tenantId, id: parsed.data.id },
+        data: {
+          projectId: parsed.data.projectId,
+          date,
+          mode: parsed.data.mode,
+          reference: parsed.data.reference?.trim() || null,
+          note: parsed.data.note?.trim() || null,
+          total: totalDec,
+          transactionId: txnId,
+        },
+      });
+
+      await tx.labourSheetLine.deleteMany({
+        where: { tenantId: session.user.tenantId, labourSheetId: parsed.data.id },
+      });
+      await tx.labourSheetLine.createMany({
+        data: parsed.data.lines.map((l) => ({
+          tenantId: session.user.tenantId,
+          labourSheetId: parsed.data.id,
+          role: l.role.trim(),
+          headcount: l.headcount,
+          rate: new Prisma.Decimal(l.rate).toDecimalPlaces(2),
+          amount: new Prisma.Decimal(l.headcount * l.rate).toDecimalPlaces(2),
+        })),
+      });
+
+      return { ok: true as const };
+    });
+
+    if (!res.ok) return { ok: false, error: { code: "NOT_FOUND", message: "Labour sheet not found." } };
+
+    revalidatePath("/app/wages");
+    revalidatePath("/app/transactions");
+    revalidatePath(`/app/wages/${parsed.data.id}`);
+
+    return { ok: true, data: { id: parsed.data.id } };
+  } catch {
+    return unknownError("Failed to update labour sheet.");
+  }
+}
+
+export async function deleteLabourSheet(id: string): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return { ok: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } };
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const sheet = await tx.labourSheet.findFirst({
+        where: { tenantId: session.user.tenantId, id },
+        select: { id: true, transactionId: true },
+      });
+      if (!sheet) return;
+
+      await tx.labourSheetLine.deleteMany({ where: { tenantId: session.user.tenantId, labourSheetId: id } });
+      await tx.labourSheet.deleteMany({ where: { tenantId: session.user.tenantId, id } });
+
+      if (sheet.transactionId) {
+        await tx.attachment.deleteMany({
+          where: { tenantId: session.user.tenantId, entityType: "TRANSACTION", entityId: sheet.transactionId },
+        });
+        await tx.transaction.deleteMany({ where: { tenantId: session.user.tenantId, id: sheet.transactionId } });
+      }
+    });
+
+    revalidatePath("/app/wages");
+    revalidatePath("/app/transactions");
+
+    return { ok: true, data: { id } };
+  } catch {
+    return unknownError("Failed to delete labour sheet.");
+  }
+}

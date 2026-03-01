@@ -60,15 +60,16 @@ export default async function WagesPage() {
                   <TableHead>Date</TableHead>
                   <TableHead>Project</TableHead>
                   <TableHead className="text-right">Total</TableHead>
-                  <TableHead>Mode</TableHead>
-                  <TableHead>Reference</TableHead>
-                  <TableHead className="text-right">Lines</TableHead>
+                  <TableHead className="hidden md:table-cell">Mode</TableHead>
+                  <TableHead className="hidden md:table-cell">Reference</TableHead>
+                  <TableHead className="hidden md:table-cell text-right">Lines</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sheets.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                    <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
                       No wage sheets yet.
                     </TableCell>
                   </TableRow>
@@ -76,11 +77,20 @@ export default async function WagesPage() {
                   sheets.map((s) => (
                     <TableRow key={s.id}>
                       <TableCell>{s.date.toISOString().slice(0, 10)}</TableCell>
-                      <TableCell className="max-w-[360px] truncate font-medium">{s.project.name}</TableCell>
+                      <TableCell className="max-w-[360px] truncate font-medium">
+                        <Link className="hover:underline" href={`/app/wages/${s.id}`}>
+                          {s.project.name}
+                        </Link>
+                      </TableCell>
                       <TableCell className="text-right">{formatINR(Number(s.total))}</TableCell>
-                      <TableCell>{s.mode}</TableCell>
-                      <TableCell className="max-w-[260px] truncate">{s.reference ?? "-"}</TableCell>
-                      <TableCell className="text-right">{lineCountBySheetId.get(s.id) ?? 0}</TableCell>
+                      <TableCell className="hidden md:table-cell">{s.mode}</TableCell>
+                      <TableCell className="hidden max-w-[260px] truncate md:table-cell">{s.reference ?? "-"}</TableCell>
+                      <TableCell className="hidden md:table-cell text-right">{lineCountBySheetId.get(s.id) ?? 0}</TableCell>
+                      <TableCell className="text-right">
+                        <Button asChild size="sm" variant="secondary">
+                          <Link href={`/app/wages/${s.id}`}>View</Link>
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}

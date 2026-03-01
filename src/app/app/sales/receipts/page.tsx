@@ -8,6 +8,8 @@ import { formatINR } from "@/lib/money";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
+import { deleteReceipt } from "./actions";
+
 export default async function ReceiptsPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
@@ -58,8 +60,8 @@ export default async function ReceiptsPage() {
                 <TableRow>
                   <TableHead>Date</TableHead>
                   <TableHead>Invoice #</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Client</TableHead>
+                  <TableHead className="hidden md:table-cell">Project</TableHead>
+                  <TableHead className="hidden md:table-cell">Client</TableHead>
                   <TableHead className="text-right">Received</TableHead>
                   <TableHead className="text-right">TDS</TableHead>
                   <TableHead>Mode</TableHead>
@@ -77,17 +79,34 @@ export default async function ReceiptsPage() {
                   receipts.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell>{r.date.toISOString().slice(0, 10)}</TableCell>
-                      <TableCell className="font-medium">{r.clientInvoice.invoiceNumber}</TableCell>
-                      <TableCell className="max-w-[260px] truncate">{r.clientInvoice.project.name}</TableCell>
-                      <TableCell className="max-w-[260px] truncate">{r.clientInvoice.client.name}</TableCell>
+                      <TableCell className="font-medium">
+                        <Link className="hover:underline" href={`/app/sales/receipts/${r.id}`}>
+                          {r.clientInvoice.invoiceNumber}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="hidden max-w-[260px] truncate md:table-cell">{r.clientInvoice.project.name}</TableCell>
+                      <TableCell className="hidden max-w-[260px] truncate md:table-cell">{r.clientInvoice.client.name}</TableCell>
                       <TableCell className="text-right">{formatINR(Number(r.amountReceived))}</TableCell>
                       <TableCell className="text-right">{formatINR(Number(r.tdsAmount ?? 0))}</TableCell>
                       <TableCell>{r.mode}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button asChild variant="secondary" size="sm">
-                            <Link href={`/app/sales/invoices/${r.clientInvoice.id}`}>View</Link>
+                            <Link href={`/app/sales/receipts/${r.id}`}>View</Link>
                           </Button>
+                          <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
+                            <Link href={`/app/sales/invoices/${r.clientInvoice.id}`}>Invoice</Link>
+                          </Button>
+                          <form
+                            action={async () => {
+                              "use server";
+                              await deleteReceipt(r.id, r.clientInvoice.id);
+                            }}
+                          >
+                            <Button variant="destructive" size="sm" type="submit">
+                              Delete
+                            </Button>
+                          </form>
                         </div>
                       </TableCell>
                     </TableRow>

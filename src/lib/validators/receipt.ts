@@ -11,3 +11,6 @@ export const receiptCreateSchema = z.object({
   remarks: z.string().optional(),
 });
 
+export const receiptUpdateSchema = receiptCreateSchema.extend({
+  id: z.string().min(1),
+});
