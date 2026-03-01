@@ -11,6 +11,7 @@ import { prisma } from "@/server/db";
 import { PROJECT_FILTER_COOKIE } from "@/lib/project-filter";
 import { Input } from "@/components/ui/input";
 import { Prisma } from "@prisma/client";
+import { CommandPalette, CommandPaletteSearch } from "@/components/app/command-palette";
 
 export default async function AppLayout({
   children,
@@ -116,7 +117,7 @@ export default async function AppLayout({
             </div>
 
             <div className="mx-auto hidden w-full max-w-xl flex-1 items-center gap-3 md:flex">
-              <Input placeholder="Search vendors, clients, projects, bills…" disabled />
+              <CommandPaletteSearch />
               <GlobalProjectFilter projects={projects} value={selectedProjectId} />
             </div>
 
@@ -128,10 +129,11 @@ export default async function AppLayout({
           <div className="px-3 pb-3 md:hidden">
             <div className="flex items-center gap-3">
               <GlobalProjectFilter projects={projects} value={selectedProjectId} />
-              <Input placeholder="Search…" disabled />
+              <CommandPaletteSearch placeholder="Search…" />
             </div>
           </div>
         </header>
+        <CommandPalette />
         <main className="min-w-0 flex-1">{children}</main>
       </div>
     </div>
