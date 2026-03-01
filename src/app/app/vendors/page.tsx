@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next";
 
 import { AddVendorDialog, EditVendorDialog, MergeVendorsDialog } from "@/app/app/vendors/vendor-dialog";
+import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -100,18 +101,44 @@ export default async function VendorsPage({
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Vendors</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Search, filter, and manage vendor master data.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {vendors ? <MergeVendorsDialog vendors={vendors.map((v) => ({ id: v.id, name: v.name }))} /> : null}
-          <AddVendorDialog />
-        </div>
-      </div>
+      <PageHeader
+        title="Vendors"
+        description="Search, filter, and manage vendor master data."
+        actions={
+          <div className="flex items-center gap-2">
+            {vendors ? <MergeVendorsDialog vendors={vendors.map((v) => ({ id: v.id, name: v.name }))} /> : null}
+            <AddVendorDialog />
+          </div>
+        }
+        filters={
+          <form className="flex flex-col gap-3 sm:flex-row sm:items-end" action="/app/vendors" method="get">
+            <div className="flex-1">
+              <label className="text-xs text-muted-foreground">Search</label>
+              <Input name="q" defaultValue={q} placeholder="Name / GSTIN" />
+            </div>
+            <div className="sm:w-56">
+              <label className="text-xs text-muted-foreground">Trade</label>
+              <Input name="trade" defaultValue={trade} placeholder="steel, cement..." />
+            </div>
+            <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+              <input
+                className="size-4 accent-primary"
+                type="checkbox"
+                name="subcontractors"
+                value="1"
+                defaultChecked={subcontractorsOnly}
+              />
+              <span className="text-sm">Subcontractors only</span>
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit">Apply</Button>
+              <Button type="button" variant="secondary" asChild>
+                <a href="/app/vendors">Reset</a>
+              </Button>
+            </div>
+          </form>
+        }
+      />
 
       {vendors === null ? (
         <div className="rounded-md border bg-muted/20 p-4 text-sm">
@@ -129,33 +156,6 @@ npx prisma migrate deploy`}
           </pre>
         </div>
       ) : null}
-
-      <form className="flex flex-col gap-3 sm:flex-row sm:items-end" action="/app/vendors" method="get">
-        <div className="flex-1">
-          <label className="text-xs text-muted-foreground">Search</label>
-          <Input name="q" defaultValue={q} placeholder="Name / GSTIN" />
-        </div>
-        <div className="sm:w-56">
-          <label className="text-xs text-muted-foreground">Trade</label>
-          <Input name="trade" defaultValue={trade} placeholder="steel, cement..." />
-        </div>
-        <div className="flex items-center gap-2 rounded-md border px-3 py-2">
-          <input
-            className="size-4 accent-primary"
-            type="checkbox"
-            name="subcontractors"
-            value="1"
-            defaultChecked={subcontractorsOnly}
-          />
-          <span className="text-sm">Subcontractors only</span>
-        </div>
-        <div className="flex gap-2">
-          <Button type="submit">Apply</Button>
-          <Button type="button" variant="secondary" asChild>
-            <a href="/app/vendors">Reset</a>
-          </Button>
-        </div>
-      </form>
 
       <div className="overflow-x-auto rounded-md border">
         <Table>

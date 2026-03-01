@@ -1,6 +1,9 @@
 import { getServerSession } from "next-auth/next";
 
 import { AddClientDialog } from "@/app/app/clients/client-dialog";
+import { PageHeader } from "@/components/app/page-header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
@@ -34,13 +37,25 @@ export default async function ClientsPage({
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Clients</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Manage client master data.</p>
-        </div>
-        <AddClientDialog />
-      </div>
+      <PageHeader
+        title="Clients"
+        description="Manage client master data."
+        actions={<AddClientDialog />}
+        filters={
+          <form className="flex flex-col gap-3 sm:flex-row sm:items-end" action="/app/clients" method="get">
+            <div className="flex-1">
+              <label className="text-xs text-muted-foreground">Search</label>
+              <Input name="q" defaultValue={q} placeholder="Name / GSTIN" />
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit">Apply</Button>
+              <Button type="button" variant="secondary" asChild>
+                <a href="/app/clients">Reset</a>
+              </Button>
+            </div>
+          </form>
+        }
+      />
 
       <div className="overflow-x-auto rounded-md border">
         <Table>

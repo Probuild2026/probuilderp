@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { NextResponse } from "next/server";
 
+import { getSelectedProjectId } from "@/lib/project-filter";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
@@ -24,10 +25,13 @@ export async function GET(request: Request) {
   const end = new Date(start);
   end.setMonth(end.getMonth() + 1);
 
+  const projectId = await getSelectedProjectId();
+
   const expenses = await prisma.expense.findMany({
     where: {
       tenantId: session.user.tenantId,
       date: { gte: start, lt: end },
+      ...(projectId ? { projectId } : {}),
     },
     include: {
       project: { select: { name: true } },
@@ -83,11 +87,11 @@ export async function GET(request: Request) {
   const csv =
     [header, ...rows].map((r) => r.map(csvEscape).join(",")).join("\n") + "\n";
 
+  const scopeSuffix = projectId ? `-project-${projectId}` : "";
   return new NextResponse(csv, {
     headers: {
       "content-type": "text/csv; charset=utf-8",
-      "content-disposition": `attachment; filename=\"expenses-${month}.csv\"`,
+      "content-disposition": `attachment; filename=\"expenses-${month}${scopeSuffix}.csv\"`,
     },
   });
 }
-

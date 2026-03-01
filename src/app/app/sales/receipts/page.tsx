@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 
+import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatINR } from "@/lib/money";
+import { getSelectedProjectId } from "@/lib/project-filter";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
@@ -14,8 +16,13 @@ export default async function ReceiptsPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
 
+  const projectId = await getSelectedProjectId();
+
   const receipts = await prisma.receipt.findMany({
-    where: { tenantId: session.user.tenantId },
+    where: {
+      tenantId: session.user.tenantId,
+      ...(projectId ? { clientInvoice: { projectId } } : {}),
+    },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     take: 200,
     select: {
@@ -37,20 +44,16 @@ export default async function ReceiptsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Receipts</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Payments received against invoices (including TDS).</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild>
-            <Link href="/app/sales/receipts/new">New receipt</Link>
-          </Button>
+      <PageHeader
+        title="Receipts"
+        description="Payments received against invoices (including TDS)."
+        action={{ label: "New receipt", href: "/app/sales/receipts/new" }}
+        actions={
           <Button asChild variant="outline">
             <Link href="/app/sales/invoices">Go to invoices</Link>
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <Card>
         <CardContent className="p-0">

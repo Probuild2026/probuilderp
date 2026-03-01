@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth/next";
 
+import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -33,28 +34,27 @@ export default async function ItemsPage({
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Items / Services</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Materials and services used in purchases and costing.</p>
-        </div>
-        <ItemDialog triggerLabel="Add Item" />
-      </div>
-
-      <form className="flex flex-wrap gap-3" action="/app/items" method="get">
-        <Input name="q" placeholder="Search item name..." defaultValue={q} className="max-w-sm" />
-        <select name="type" defaultValue={type} className="h-10 rounded-md border bg-background px-3 text-sm">
-          <option value="">All types</option>
-          <option value="MATERIAL">Material</option>
-          <option value="SERVICE">Service</option>
-        </select>
-        <button className="h-10 rounded-md bg-primary px-4 text-sm text-primary-foreground" type="submit">
-          Apply
-        </button>
-        <a className="h-10 rounded-md border px-4 text-sm leading-10" href="/app/items">
-          Reset
-        </a>
-      </form>
+      <PageHeader
+        title="Items / Services"
+        description="Materials and services used in purchases and costing."
+        actions={<ItemDialog triggerLabel="Add Item" />}
+        filters={
+          <form className="flex flex-wrap gap-3" action="/app/items" method="get">
+            <Input name="q" placeholder="Search item name..." defaultValue={q} className="max-w-sm" />
+            <select name="type" defaultValue={type} className="h-10 rounded-md border bg-background px-3 text-sm">
+              <option value="">All types</option>
+              <option value="MATERIAL">Material</option>
+              <option value="SERVICE">Service</option>
+            </select>
+            <button className="h-10 rounded-md bg-primary px-4 text-sm text-primary-foreground" type="submit">
+              Apply
+            </button>
+            <a className="h-10 rounded-md border px-4 text-sm leading-10" href="/app/items">
+              Reset
+            </a>
+          </form>
+        }
+      />
 
       <div className="overflow-x-auto rounded-md border">
         <Table>

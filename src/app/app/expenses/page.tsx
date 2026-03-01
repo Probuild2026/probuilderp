@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 
+import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatINR } from "@/lib/money";
+import { getSelectedProjectId } from "@/lib/project-filter";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
@@ -18,10 +20,12 @@ export default async function ExpensesPage({
 
   const sp = (await searchParams) ?? {};
   const q = typeof sp.q === "string" ? sp.q : "";
+  const projectId = await getSelectedProjectId();
 
   const expenses = await prisma.expense.findMany({
     where: {
       tenantId: session.user.tenantId,
+      ...(projectId ? { projectId } : {}),
       ...(q
         ? {
             OR: [
@@ -50,25 +54,22 @@ export default async function ExpensesPage({
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Expenses</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Daily expenses, labour, overheads.</p>
-        </div>
-        <Button asChild>
-          <Link href="/app/expenses/new">New Expense</Link>
-        </Button>
-      </div>
-
-      <form className="flex flex-wrap gap-3" action="/app/expenses" method="get">
-        <Input name="q" placeholder="Search narration/vendor/project..." defaultValue={q} className="max-w-sm" />
-        <button className="h-10 rounded-md bg-primary px-4 text-sm text-primary-foreground" type="submit">
-          Apply
-        </button>
-        <Link className="h-10 rounded-md border px-4 text-sm leading-10" href="/app/expenses">
-          Reset
-        </Link>
-      </form>
+      <PageHeader
+        title="Expenses"
+        description="Daily expenses, labour, overheads."
+        action={{ label: "New Expense", href: "/app/expenses/new" }}
+        filters={
+          <form className="flex flex-wrap gap-3" action="/app/expenses" method="get">
+            <Input name="q" placeholder="Search narration/vendor/project..." defaultValue={q} className="max-w-sm" />
+            <button className="h-10 rounded-md bg-primary px-4 text-sm text-primary-foreground" type="submit">
+              Apply
+            </button>
+            <Link className="h-10 rounded-md border px-4 text-sm leading-10" href="/app/expenses">
+              Reset
+            </Link>
+          </form>
+        }
+      />
 
       <div className="overflow-x-auto rounded-md border">
         <Table>

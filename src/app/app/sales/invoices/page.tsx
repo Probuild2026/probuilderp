@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 
+import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatINR } from "@/lib/money";
+import { getSelectedProjectId } from "@/lib/project-filter";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
@@ -18,8 +20,13 @@ export default async function InvoicesPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
 
+  const projectId = await getSelectedProjectId();
+
   const invoices = await prisma.clientInvoice.findMany({
-    where: { tenantId: session.user.tenantId },
+    where: {
+      tenantId: session.user.tenantId,
+      ...(projectId ? { projectId } : {}),
+    },
     orderBy: [{ invoiceDate: "desc" }, { createdAt: "desc" }],
     take: 200,
     select: {
@@ -33,11 +40,19 @@ export default async function InvoicesPage() {
     },
   });
 
-  const allocs = await prisma.transactionAllocation.groupBy({
-    by: ["documentId"],
-    where: { tenantId: session.user.tenantId, documentType: "CLIENT_INVOICE" },
-    _sum: { cashAmount: true, tdsAmount: true, grossAmount: true },
-  });
+  const invoiceIds = invoices.map((i) => i.id);
+  const allocs =
+    invoiceIds.length === 0
+      ? []
+      : await prisma.transactionAllocation.groupBy({
+          by: ["documentId"],
+          where: {
+            tenantId: session.user.tenantId,
+            documentType: "CLIENT_INVOICE",
+            documentId: { in: invoiceIds },
+          },
+          _sum: { cashAmount: true, tdsAmount: true, grossAmount: true },
+        });
   const byInvoiceId = new Map(
     allocs.map((a) => [
       a.documentId,
@@ -51,15 +66,11 @@ export default async function InvoicesPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Invoices</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Create GST invoices and track receipts + TDS.</p>
-        </div>
-        <Button asChild>
-          <Link href="/app/sales/invoices/new">New invoice</Link>
-        </Button>
-      </div>
+      <PageHeader
+        title="Invoices"
+        description="Create GST invoices and track receipts + TDS."
+        action={{ label: "New invoice", href: "/app/sales/invoices/new" }}
+      />
 
       <Card>
         <CardContent className="p-0">

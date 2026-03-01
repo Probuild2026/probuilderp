@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 
+import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,47 +53,46 @@ export default async function ProjectsPage({
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Projects</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Sites/jobs for costing and reporting.</p>
-        </div>
-        <ProjectDialog clients={clients} triggerLabel="Add Project" />
-      </div>
-
-      <form className="flex flex-wrap gap-3" action="/app/projects" method="get">
-        <Input name="q" placeholder="Search project name..." defaultValue={q} className="max-w-sm" />
-        <select
-          name="status"
-          defaultValue={status}
-          className="h-10 rounded-md border bg-background px-3 text-sm"
-        >
-          <option value="">All statuses</option>
-          {Object.entries(statusLabel).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <select
-          name="clientId"
-          defaultValue={clientId}
-          className="h-10 rounded-md border bg-background px-3 text-sm"
-        >
-          <option value="">All clients</option>
-          {clients.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        <button className="h-10 rounded-md bg-primary px-4 text-sm text-primary-foreground" type="submit">
-          Apply
-        </button>
-        <Link className="h-10 rounded-md border px-4 text-sm leading-10" href="/app/projects">
-          Reset
-        </Link>
-      </form>
+      <PageHeader
+        title="Projects"
+        description="Sites/jobs for costing and reporting."
+        actions={<ProjectDialog clients={clients} triggerLabel="Add Project" />}
+        filters={
+          <form className="flex flex-wrap gap-3" action="/app/projects" method="get">
+            <Input name="q" placeholder="Search project name..." defaultValue={q} className="max-w-sm" />
+            <select
+              name="status"
+              defaultValue={status}
+              className="h-10 rounded-md border bg-background px-3 text-sm"
+            >
+              <option value="">All statuses</option>
+              {Object.entries(statusLabel).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <select
+              name="clientId"
+              defaultValue={clientId}
+              className="h-10 rounded-md border bg-background px-3 text-sm"
+            >
+              <option value="">All clients</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <button className="h-10 rounded-md bg-primary px-4 text-sm text-primary-foreground" type="submit">
+              Apply
+            </button>
+            <Link className="h-10 rounded-md border px-4 text-sm leading-10" href="/app/projects">
+              Reset
+            </Link>
+          </form>
+        }
+      />
 
       <div className="overflow-x-auto rounded-md border">
         <Table>

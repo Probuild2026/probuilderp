@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 
-import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatINR } from "@/lib/money";
+import { getSelectedProjectId } from "@/lib/project-filter";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
@@ -12,8 +14,9 @@ export default async function WagesPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
 
+  const projectId = await getSelectedProjectId();
   const sheets = await prisma.labourSheet.findMany({
-    where: { tenantId: session.user.tenantId },
+    where: { tenantId: session.user.tenantId, ...(projectId ? { projectId } : {}) },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     take: 200,
     select: {
@@ -41,15 +44,11 @@ export default async function WagesPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Wages</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Direct labour wage sheets (no 194C TDS).</p>
-        </div>
-        <Button asChild>
-          <Link href="/app/wages/new">New labour sheet</Link>
-        </Button>
-      </div>
+      <PageHeader
+        title="Wages"
+        description="Direct labour wage sheets (no 194C TDS)."
+        action={{ label: "New labour sheet", href: "/app/wages/new" }}
+      />
 
       <Card>
         <CardContent className="p-0">

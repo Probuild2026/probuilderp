@@ -2,16 +2,20 @@ import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { Prisma } from "@prisma/client";
 
-import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatINR } from "@/lib/money";
+import { getSelectedProjectId } from "@/lib/project-filter";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
 export default async function PaymentsMadePage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
+
+  const projectId = await getSelectedProjectId();
 
   let txns:
     | Array<{
@@ -29,7 +33,12 @@ export default async function PaymentsMadePage() {
 
   try {
     txns = await prisma.transaction.findMany({
-      where: { tenantId: session.user.tenantId, type: "EXPENSE", vendorId: { not: null } },
+      where: {
+        tenantId: session.user.tenantId,
+        type: "EXPENSE",
+        vendorId: { not: null },
+        ...(projectId ? { projectId } : {}),
+      },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       take: 200,
       select: {
@@ -66,17 +75,11 @@ export default async function PaymentsMadePage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Payments Made</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Vendor/Subcontractor payments. TDS (194C) is auto-calculated for this flow.
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/app/purchases/payments-made/new">New Payment</Link>
-        </Button>
-      </div>
+      <PageHeader
+        title="Payments Made"
+        description="Vendor/Subcontractor payments. TDS (194C) is auto-calculated for this flow."
+        action={{ label: "New Payment", href: "/app/purchases/payments-made/new" }}
+      />
 
       {txns === null ? (
         <div className="rounded-md border bg-muted/20 p-4 text-sm">

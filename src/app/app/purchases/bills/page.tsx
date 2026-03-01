@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 
+import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatINR } from "@/lib/money";
+import { getSelectedProjectId } from "@/lib/project-filter";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
@@ -12,8 +14,9 @@ export default async function BillsPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
 
+  const projectId = await getSelectedProjectId();
   const bills = await prisma.purchaseInvoice.findMany({
-    where: { tenantId: session.user.tenantId },
+    where: { tenantId: session.user.tenantId, ...(projectId ? { projectId } : {}) },
     orderBy: [{ invoiceDate: "desc" }, { createdAt: "desc" }],
     take: 200,
     select: {
@@ -43,15 +46,11 @@ export default async function BillsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Bills</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Vendor bills (purchase invoices). Payments are tracked separately.</p>
-        </div>
-        <Button asChild>
-          <Link href="/app/purchases/bills/new">New Bill</Link>
-        </Button>
-      </div>
+      <PageHeader
+        title="Bills"
+        description="Vendor bills (purchase invoices). Payments are tracked separately."
+        action={{ label: "New Bill", href: "/app/purchases/bills/new" }}
+      />
 
       <Card>
         <CardContent className="p-0">

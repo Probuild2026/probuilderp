@@ -1,16 +1,18 @@
-import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { Prisma } from "@prisma/client";
 
-import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/app/page-header";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatINR } from "@/lib/money";
+import { getSelectedProjectId } from "@/lib/project-filter";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
 export default async function TransactionsPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
+
+  const projectId = await getSelectedProjectId();
 
   let txns:
     | Array<{
@@ -27,7 +29,10 @@ export default async function TransactionsPage() {
 
   try {
     txns = await prisma.transaction.findMany({
-      where: { tenantId: session.user.tenantId },
+      where: {
+        tenantId: session.user.tenantId,
+        ...(projectId ? { projectId } : {}),
+      },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       take: 200,
       include: {
@@ -47,19 +52,11 @@ export default async function TransactionsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Transactions</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Quick income/expense/transfer entries (mobile-first).
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button asChild>
-            <Link href="/app/transactions/new">New</Link>
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Transactions"
+        description="Quick income/expense/transfer entries (mobile-first)."
+        action={{ label: "New", href: "/app/transactions/new" }}
+      />
 
       {txns === null ? (
         <div className="rounded-md border bg-muted/20 p-4 text-sm">
@@ -77,16 +74,16 @@ DATABASE_URL='postgres://...your-vercel-db-url...' npx prisma db seed`}
         </div>
       ) : null}
 
-      <div className="overflow-x-auto rounded-md border">
-        <Table className="min-w-[900px]">
+      <div className="rounded-md border">
+        <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Date</TableHead>
+              <TableHead className="w-[110px]">Date</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>From</TableHead>
-              <TableHead>To</TableHead>
-              <TableHead>Project</TableHead>
+              <TableHead className="hidden lg:table-cell">Category</TableHead>
+              <TableHead className="hidden md:table-cell">From</TableHead>
+              <TableHead className="hidden md:table-cell">To</TableHead>
+              <TableHead className="hidden lg:table-cell">Project</TableHead>
               <TableHead className="text-right">Amount</TableHead>
             </TableRow>
           </TableHeader>
@@ -100,13 +97,20 @@ DATABASE_URL='postgres://...your-vercel-db-url...' npx prisma db seed`}
             ) : (
               (txns ?? []).map((t) => (
                 <TableRow key={t.id}>
-                  <TableCell>{t.date.toISOString().slice(0, 10)}</TableCell>
-                  <TableCell>{t.type}</TableCell>
-                  <TableCell>{t.category?.name ?? "—"}</TableCell>
-                  <TableCell>{t.fromAccount?.name ?? "—"}</TableCell>
-                  <TableCell>{t.toAccount?.name ?? "—"}</TableCell>
-                  <TableCell>{t.project?.name ?? "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatINR(Number(t.amount))}</TableCell>
+                  <TableCell className="whitespace-nowrap">{t.date.toISOString().slice(0, 10)}</TableCell>
+                  <TableCell className="min-w-0">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{t.type}</div>
+                      <div className="mt-0.5 truncate text-xs text-muted-foreground md:hidden">
+                        {(t.category?.name ?? "—") + " • " + (t.project?.name ?? "—")}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">{t.category?.name ?? "—"}</TableCell>
+                  <TableCell className="hidden md:table-cell">{t.fromAccount?.name ?? "—"}</TableCell>
+                  <TableCell className="hidden md:table-cell">{t.toAccount?.name ?? "—"}</TableCell>
+                  <TableCell className="hidden lg:table-cell">{t.project?.name ?? "—"}</TableCell>
+                  <TableCell className="whitespace-nowrap text-right tabular-nums">{formatINR(Number(t.amount))}</TableCell>
                 </TableRow>
               ))
             )}

@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 
+import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getSelectedProjectId } from "@/lib/project-filter";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
@@ -18,8 +21,8 @@ export default async function InventoryPage({
   if (!session?.user) return null;
 
   const sp = (await searchParams) ?? {};
-  const projectId = typeof sp.projectId === "string" ? sp.projectId : "";
   const q = typeof sp.q === "string" ? sp.q : "";
+  const selectedProjectId = await getSelectedProjectId();
 
   const projects = await prisma.project.findMany({
     where: { tenantId: session.user.tenantId },
@@ -38,7 +41,8 @@ export default async function InventoryPage({
     take: 200,
   });
 
-  const activeProjectId = projectId || projects[0]?.id || "";
+  const activeProjectId = selectedProjectId || "";
+  const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
 
   const movements = activeProjectId
     ? await prisma.stockMovement.groupBy({
@@ -59,37 +63,28 @@ export default async function InventoryPage({
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Inventory (Project-wise)</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Material balances per project from stock movements.</p>
-        </div>
-        <NewMovementDialog projects={projects} items={items} />
-      </div>
-
-      <form className="flex flex-wrap gap-3" action="/app/inventory" method="get">
-        <select
-          name="projectId"
-          defaultValue={activeProjectId}
-          className="h-10 rounded-md border bg-background px-3 text-sm"
-        >
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-        <Input name="q" placeholder="Search material..." defaultValue={q} className="max-w-sm" />
-        <button className="h-10 rounded-md bg-primary px-4 text-sm text-primary-foreground" type="submit">
-          Apply
-        </button>
-        <Link className="h-10 rounded-md border px-4 text-sm leading-10" href="/app/inventory">
-          Reset
-        </Link>
-      </form>
+      <PageHeader
+        title="Inventory (Project-wise)"
+        description="Material balances per project from stock movements."
+        actions={<NewMovementDialog projects={projects} items={items} />}
+        filters={
+          <form className="flex flex-wrap items-end gap-3" action="/app/inventory" method="get">
+            <div className="text-sm text-muted-foreground">
+              Project: <span className="text-foreground">{activeProject?.name ?? "Select a project from the top bar"}</span>
+            </div>
+            <Input name="q" placeholder="Search material..." defaultValue={q} className="max-w-sm" />
+            <Button type="submit">Apply</Button>
+            <Button type="button" variant="secondary" asChild>
+              <Link href="/app/inventory">Reset</Link>
+            </Button>
+          </form>
+        }
+      />
 
       {!activeProjectId ? (
-        <div className="rounded-md border p-6 text-sm text-muted-foreground">Create a project first.</div>
+        <div className="rounded-md border p-6 text-sm text-muted-foreground">
+          Select a project using the project filter in the top bar to view project-wise inventory.
+        </div>
       ) : null}
 
       {activeProjectId ? (

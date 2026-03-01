@@ -1,25 +1,26 @@
 import Link from "next/link";
 
+import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function AppHomePage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Quick guide + shortcuts for daily use.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="secondary">
-            <Link href="/app/settings/business">Business settings</Link>
-          </Button>
-          <Button asChild>
-            <Link href="/app/transactions/new">New transaction</Link>
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        description="Quick guide + shortcuts for daily use."
+        actions={
+          <>
+            <Button asChild variant="secondary">
+              <Link href="/app/settings/business">Business settings</Link>
+            </Button>
+            <Button asChild>
+              <Link href="/app/transactions/new">New transaction</Link>
+            </Button>
+          </>
+        }
+      />
 
       <Card>
         <CardHeader className="pb-3">
