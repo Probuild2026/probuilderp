@@ -8,14 +8,24 @@ import { prisma } from "@/server/db";
 
 import { type ActionResult, unknownError, zodToFieldErrors } from "./_result";
 
+function emptyToUndefined(value: unknown) {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? undefined : trimmed;
+}
+
 const clientCreateSchema = z.object({
   name: z.string().min(1).max(200),
-  contactPerson: z.string().max(200).optional(),
-  phone: z.string().max(50).optional(),
-  email: z.string().email().optional(),
-  billingAddress: z.string().max(2000).optional(),
-  gstin: z.string().max(30).optional(),
-  pan: z.string().max(30).optional(),
+  contactPerson: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
+  phone: z.preprocess(emptyToUndefined, z.string().max(50).optional()),
+  email: z.preprocess(emptyToUndefined, z.string().email().optional()),
+  billingAddress: z.preprocess(emptyToUndefined, z.string().max(2000).optional()),
+  siteAddress: z.preprocess(emptyToUndefined, z.string().max(2000).optional()),
+  gstin: z.preprocess(emptyToUndefined, z.string().max(30).optional()),
+  pan: z.preprocess(emptyToUndefined, z.string().max(30).optional()),
+  paymentTermsDays: z.coerce.number().int().min(0).max(3650).optional(),
+  preferredPaymentMode: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
+  notes: z.preprocess(emptyToUndefined, z.string().max(5000).optional()),
 });
 
 const clientUpdateSchema = clientCreateSchema.extend({
@@ -46,8 +56,12 @@ export async function createClient(input: unknown): Promise<ActionResult<{ id: s
         phone: parsed.data.phone?.trim() || null,
         email: parsed.data.email?.trim() || null,
         billingAddress: parsed.data.billingAddress?.trim() || null,
+        siteAddress: parsed.data.siteAddress?.trim() || null,
         gstin: parsed.data.gstin?.trim() || null,
         pan: parsed.data.pan?.trim() || null,
+        paymentTermsDays: parsed.data.paymentTermsDays ?? null,
+        preferredPaymentMode: parsed.data.preferredPaymentMode?.trim() || null,
+        notes: parsed.data.notes?.trim() || null,
       },
       select: { id: true },
     });
@@ -75,8 +89,12 @@ export async function updateClient(input: unknown): Promise<ActionResult<{ id: s
         phone: parsed.data.phone?.trim() || null,
         email: parsed.data.email?.trim() || null,
         billingAddress: parsed.data.billingAddress?.trim() || null,
+        siteAddress: parsed.data.siteAddress?.trim() || null,
         gstin: parsed.data.gstin?.trim() || null,
         pan: parsed.data.pan?.trim() || null,
+        paymentTermsDays: parsed.data.paymentTermsDays ?? null,
+        preferredPaymentMode: parsed.data.preferredPaymentMode?.trim() || null,
+        notes: parsed.data.notes?.trim() || null,
       },
       select: { id: true },
     });
@@ -125,4 +143,3 @@ export async function listClients(input: unknown): Promise<ActionResult<{ items:
     return unknownError("Failed to load clients.");
   }
 }
-

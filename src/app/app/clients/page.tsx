@@ -1,5 +1,7 @@
 import { getServerSession } from "next-auth/next";
 
+import Link from "next/link";
+
 import { AddClientDialog } from "@/app/app/clients/client-dialog";
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
@@ -62,23 +64,38 @@ export default async function ClientsPage({
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
-            <TableHead>Contact</TableHead>
-            <TableHead>Phone</TableHead>
-            <TableHead>GSTIN</TableHead>
+            <TableHead className="hidden md:table-cell">Contact</TableHead>
+            <TableHead className="hidden md:table-cell">Phone</TableHead>
+            <TableHead className="hidden lg:table-cell">GSTIN</TableHead>
+            <TableHead className="w-[1%] text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {clients.map((client) => (
             <TableRow key={client.id}>
-              <TableCell className="font-medium">{client.name}</TableCell>
-              <TableCell>{client.contactPerson ?? "-"}</TableCell>
-              <TableCell>{client.phone ?? "-"}</TableCell>
-              <TableCell>{client.gstin ?? "-"}</TableCell>
+              <TableCell className="min-w-0">
+                <div className="min-w-0">
+                  <Link className="block truncate font-medium hover:underline" href={`/app/clients/${client.id}`}>
+                    {client.name}
+                  </Link>
+                  <div className="mt-0.5 truncate text-xs text-muted-foreground md:hidden">
+                    {(client.contactPerson ?? "—") + " • " + (client.phone ?? "—")}
+                  </div>
+                </div>
+              </TableCell>
+              <TableCell className="hidden md:table-cell">{client.contactPerson ?? "-"}</TableCell>
+              <TableCell className="hidden md:table-cell">{client.phone ?? "-"}</TableCell>
+              <TableCell className="hidden lg:table-cell">{client.gstin ?? "-"}</TableCell>
+              <TableCell className="text-right">
+                <Button asChild size="sm" variant="secondary">
+                  <Link href={`/app/clients/${client.id}`}>View</Link>
+                </Button>
+              </TableCell>
             </TableRow>
           ))}
           {clients.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
+              <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
                 No clients yet.
               </TableCell>
             </TableRow>
