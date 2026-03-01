@@ -25,6 +25,10 @@ const createPurchaseInvoiceSchema = z
   })
   .strict();
 
+const updatePurchaseInvoiceSchema = createPurchaseInvoiceSchema.extend({
+  id: z.string().min(1),
+});
+
 function parseDateOnly(value: string) {
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) throw new Error("Invalid date");
@@ -65,3 +69,73 @@ export async function createPurchaseInvoice(input: unknown): Promise<ActionResul
   }
 }
 
+export async function updatePurchaseInvoice(input: unknown): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return { ok: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } };
+
+  const parsed = updatePurchaseInvoiceSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: { code: "VALIDATION", message: "Invalid input", fieldErrors: zodToFieldErrors(parsed.error) } };
+  }
+
+  try {
+    const res = await prisma.purchaseInvoice.updateMany({
+      where: { tenantId: session.user.tenantId, id: parsed.data.id },
+      data: {
+        vendorId: parsed.data.vendorId,
+        projectId: parsed.data.projectId,
+        invoiceNumber: parsed.data.invoiceNumber.trim(),
+        invoiceDate: parseDateOnly(parsed.data.invoiceDate),
+        gstType: parsed.data.gstType,
+        taxableValue: new Prisma.Decimal(parsed.data.taxableValue),
+        cgst: new Prisma.Decimal(parsed.data.cgst ?? 0),
+        sgst: new Prisma.Decimal(parsed.data.sgst ?? 0),
+        igst: new Prisma.Decimal(parsed.data.igst ?? 0),
+        total: new Prisma.Decimal(parsed.data.total),
+      },
+    });
+    if (res.count === 0) return { ok: false, error: { code: "NOT_FOUND", message: "Bill not found." } };
+    return { ok: true, data: { id: parsed.data.id } };
+  } catch {
+    return unknownError("Failed to update bill.");
+  }
+}
+
+export async function deletePurchaseInvoice(id: string): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return { ok: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } };
+
+  try {
+    const res = await prisma.$transaction(async (tx) => {
+      const invoice = await tx.purchaseInvoice.findFirst({
+        where: { tenantId: session.user.tenantId, id },
+        select: { id: true },
+      });
+      if (!invoice) return { ok: false as const, code: "NOT_FOUND" as const };
+
+      const allocCount = await tx.transactionAllocation.count({
+        where: { tenantId: session.user.tenantId, documentType: "PURCHASE_INVOICE", documentId: id },
+      });
+      if (allocCount > 0) return { ok: false as const, code: "HAS_PAYMENTS" as const };
+
+      await tx.attachment.deleteMany({
+        where: { tenantId: session.user.tenantId, entityType: "PURCHASE_INVOICE", entityId: id },
+      });
+      await tx.purchaseInvoiceLine.deleteMany({ where: { tenantId: session.user.tenantId, purchaseInvoiceId: id } });
+      const del = await tx.purchaseInvoice.deleteMany({ where: { tenantId: session.user.tenantId, id } });
+      if (del.count === 0) return { ok: false as const, code: "NOT_FOUND" as const };
+      return { ok: true as const };
+    });
+
+    if (!res.ok) {
+      if (res.code === "NOT_FOUND") return { ok: false, error: { code: "NOT_FOUND", message: "Bill not found." } };
+      if (res.code === "HAS_PAYMENTS") {
+        return { ok: false, error: { code: "VALIDATION", message: "Cannot delete this bill because payments are already applied. Remove the payment allocations first." } };
+      }
+    }
+
+    return { ok: true, data: { id } };
+  } catch {
+    return unknownError("Failed to delete bill.");
+  }
+}

@@ -55,50 +55,62 @@ export default async function BillsPage() {
 
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-auto">
-            <Table>
-              <TableHeader>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[110px]">Date</TableHead>
+                <TableHead>Bill #</TableHead>
+                <TableHead>Vendor</TableHead>
+                <TableHead className="hidden lg:table-cell">Project</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="hidden sm:table-cell text-right">Paid</TableHead>
+                <TableHead className="hidden md:table-cell text-right">Balance</TableHead>
+                <TableHead className="w-[1%] text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {bills.length === 0 ? (
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Bill #</TableHead>
-                  <TableHead>Vendor</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-right">Paid</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
+                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                    No bills yet.
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {bills.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
-                      No bills yet.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  bills.map((b) => {
-                    const total = Number(b.total);
-                    const paidGross = paidById.get(b.id) ?? 0;
-                    const balance = Math.max(0, total - paidGross);
-                    return (
-                      <TableRow key={b.id}>
-                        <TableCell>{b.invoiceDate.toISOString().slice(0, 10)}</TableCell>
-                        <TableCell className="font-medium">{b.invoiceNumber}</TableCell>
-                        <TableCell className="max-w-[260px] truncate">{b.vendor.name}</TableCell>
-                        <TableCell className="max-w-[260px] truncate">{b.project.name}</TableCell>
-                        <TableCell className="text-right">{formatINR(total)}</TableCell>
-                        <TableCell className="text-right">{formatINR(paidGross)}</TableCell>
-                        <TableCell className="text-right">{formatINR(balance)}</TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
+              ) : (
+                bills.map((b) => {
+                  const total = Number(b.total);
+                  const paidGross = paidById.get(b.id) ?? 0;
+                  const balance = Math.max(0, total - paidGross);
+                  return (
+                    <TableRow key={b.id}>
+                      <TableCell className="whitespace-nowrap">{b.invoiceDate.toISOString().slice(0, 10)}</TableCell>
+                      <TableCell className="font-medium">
+                        <Link className="hover:underline" href={`/app/purchases/bills/${b.id}`}>
+                          {b.invoiceNumber}
+                        </Link>
+                        <div className="mt-0.5 truncate text-xs text-muted-foreground lg:hidden">
+                          {b.vendor.name} • {b.project.name}
+                        </div>
+                      </TableCell>
+                      <TableCell className="max-w-[260px] truncate">{b.vendor.name}</TableCell>
+                      <TableCell className="hidden lg:table-cell max-w-[260px] truncate">{b.project.name}</TableCell>
+                      <TableCell className="whitespace-nowrap text-right tabular-nums">{formatINR(total)}</TableCell>
+                      <TableCell className="hidden sm:table-cell whitespace-nowrap text-right tabular-nums">{formatINR(paidGross)}</TableCell>
+                      <TableCell className="hidden md:table-cell whitespace-nowrap text-right tabular-nums">{formatINR(balance)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button asChild size="sm" variant="secondary">
+                            <Link href={`/app/purchases/bills/${b.id}`}>View</Link>
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>
   );
 }
-

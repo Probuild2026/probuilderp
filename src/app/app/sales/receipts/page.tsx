@@ -40,9 +40,14 @@ export default async function ReceiptsPage() {
           <h1 className="text-2xl font-semibold">Receipts</h1>
           <p className="mt-1 text-sm text-muted-foreground">Payments received against invoices (including TDS).</p>
         </div>
-        <Button asChild variant="outline">
-          <Link href="/app/sales/invoices">Go to invoices</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild>
+            <Link href="/app/sales/receipts/new">New receipt</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/app/sales/invoices">Go to invoices</Link>
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -58,7 +63,7 @@ export default async function ReceiptsPage() {
                   <TableHead className="text-right">Received</TableHead>
                   <TableHead className="text-right">TDS</TableHead>
                   <TableHead>Mode</TableHead>
-                  <TableHead className="text-right">Open</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -79,9 +84,11 @@ export default async function ReceiptsPage() {
                       <TableCell className="text-right">{formatINR(Number(r.tdsAmount ?? 0))}</TableCell>
                       <TableCell>{r.mode}</TableCell>
                       <TableCell className="text-right">
-                        <Button asChild variant="outline" size="sm">
-                          <Link href={`/app/sales/invoices/${r.clientInvoice.id}`}>View</Link>
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button asChild variant="secondary" size="sm">
+                            <Link href={`/app/sales/invoices/${r.clientInvoice.id}`}>View</Link>
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -94,4 +101,3 @@ export default async function ReceiptsPage() {
     </div>
   );
 }
-
