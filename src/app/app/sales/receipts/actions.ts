@@ -15,6 +15,30 @@ function parseDateOnly(value: string) {
   return date;
 }
 
+async function recomputeStageCollections(tx: Prisma.TransactionClient, tenantId: number, stageId: string) {
+  const grouped = await tx.receipt.groupBy({
+    by: ["channel"],
+    where: { tenantId, projectPaymentStageId: stageId },
+    _sum: { amountReceived: true },
+  });
+
+  let bank = 0;
+  let cash = 0;
+  for (const row of grouped) {
+    const sum = Number(row._sum.amountReceived ?? 0);
+    if (row.channel === "CASH") cash = sum;
+    if (row.channel === "BANK") bank = sum;
+  }
+
+  await tx.projectPaymentStage.updateMany({
+    where: { tenantId, id: stageId },
+    data: {
+      actualBank: new Prisma.Decimal(bank).toDecimalPlaces(2),
+      actualCash: new Prisma.Decimal(cash).toDecimalPlaces(2),
+    },
+  });
+}
+
 export async function createReceipt(formData: FormData) {
   const session = await getServerSession(authOptions);
   if (!session?.user) throw new Error("Unauthorized");
@@ -44,7 +68,7 @@ export async function createReceipt(formData: FormData) {
         amount: parsed.amountReceived,
         projectId: invoice.projectId,
         mode: parsed.mode,
-        channel: parsed.mode === "CASH" ? "CASH" : "BANK",
+        channel: parsed.channel,
         reference: parsed.reference?.trim() ? parsed.reference.trim() : null,
         note: `Receipt for invoice ${invoice.invoiceNumber}`,
         description: parsed.remarks?.trim() ? parsed.remarks.trim() : null,
@@ -58,10 +82,11 @@ export async function createReceipt(formData: FormData) {
         tenantId: session.user.tenantId,
         clientInvoiceId: parsed.clientInvoiceId,
         transactionId: txn.id,
+        projectPaymentStageId: parsed.projectPaymentStageId ?? null,
         date: parseDateOnly(parsed.date),
         amountReceived: parsed.amountReceived,
         mode: parsed.mode,
-        channel: parsed.mode === "CASH" ? "CASH" : "BANK",
+        channel: parsed.channel,
         reference: parsed.reference?.trim() ? parsed.reference.trim() : null,
         tdsDeducted: !!parsed.tdsDeducted,
         tdsAmount: parsed.tdsDeducted ? tdsAmount : null,
@@ -82,6 +107,10 @@ export async function createReceipt(formData: FormData) {
         grossAmount: parsed.amountReceived + tdsAmount,
       },
     });
+
+    if (parsed.projectPaymentStageId) {
+      await recomputeStageCollections(tx, session.user.tenantId, parsed.projectPaymentStageId);
+    }
   });
 
   revalidatePath(`/app/sales/invoices/${parsed.clientInvoiceId}`);
@@ -95,7 +124,7 @@ export async function deleteReceipt(id: string, clientInvoiceId: string) {
   await prisma.$transaction(async (tx) => {
     const receipt = await tx.receipt.findFirst({
       where: { id, tenantId: session.user.tenantId },
-      select: { id: true, transactionId: true },
+      select: { id: true, transactionId: true, projectPaymentStageId: true },
     });
     if (!receipt) return;
 
@@ -115,6 +144,10 @@ export async function deleteReceipt(id: string, clientInvoiceId: string) {
         where: { tenantId: session.user.tenantId, entityType: "TRANSACTION", entityId: receipt.transactionId },
       });
       await tx.transaction.deleteMany({ where: { id: receipt.transactionId, tenantId: session.user.tenantId } });
+    }
+
+    if (receipt.projectPaymentStageId) {
+      await recomputeStageCollections(tx, session.user.tenantId, receipt.projectPaymentStageId);
     }
   });
 
@@ -143,7 +176,7 @@ export async function updateReceipt(input: unknown): Promise<ActionResult<{ id: 
     const res = await prisma.$transaction(async (tx) => {
       const existing = await tx.receipt.findFirst({
         where: { tenantId: session.user.tenantId, id: parsed.data.id },
-        select: { id: true, transactionId: true, clientInvoiceId: true },
+        select: { id: true, transactionId: true, clientInvoiceId: true, projectPaymentStageId: true },
       });
       if (!existing) return { ok: false as const, code: "NOT_FOUND" as const };
       if (existing.clientInvoiceId !== parsed.data.clientInvoiceId) return { ok: false as const, code: "CONFLICT" as const };
@@ -168,6 +201,7 @@ export async function updateReceipt(input: unknown): Promise<ActionResult<{ id: 
               projectId: invoice.projectId,
               clientId: invoice.clientId,
               mode: parsed.data.mode,
+              channel: parsed.data.channel,
               reference: parsed.data.reference?.trim() ? parsed.data.reference.trim() : null,
               note: `Receipt for invoice ${invoice.invoiceNumber}`,
               description: parsed.data.remarks?.trim() ? parsed.data.remarks.trim() : null,
@@ -185,7 +219,7 @@ export async function updateReceipt(input: unknown): Promise<ActionResult<{ id: 
           projectId: invoice.projectId,
           clientId: invoice.clientId,
           mode: parsed.data.mode,
-          channel: parsed.data.mode === "CASH" ? "CASH" : "BANK",
+          channel: parsed.data.channel,
           reference: parsed.data.reference?.trim() ? parsed.data.reference.trim() : null,
           description: parsed.data.remarks?.trim() ? parsed.data.remarks.trim() : null,
         },
@@ -198,7 +232,8 @@ export async function updateReceipt(input: unknown): Promise<ActionResult<{ id: 
           date,
           amountReceived: new Prisma.Decimal(cashAmount).toDecimalPlaces(2),
           mode: parsed.data.mode,
-          channel: parsed.data.mode === "CASH" ? "CASH" : "BANK",
+          channel: parsed.data.channel,
+          projectPaymentStageId: parsed.data.projectPaymentStageId ?? null,
           reference: parsed.data.reference?.trim() ? parsed.data.reference.trim() : null,
           tdsDeducted: !!parsed.data.tdsDeducted,
           tdsAmount: parsed.data.tdsDeducted ? new Prisma.Decimal(tdsAmount).toDecimalPlaces(2) : null,
@@ -234,6 +269,13 @@ export async function updateReceipt(input: unknown): Promise<ActionResult<{ id: 
             grossAmount: new Prisma.Decimal(grossAmount).toDecimalPlaces(2),
           },
         });
+      }
+
+      if (existing.projectPaymentStageId && existing.projectPaymentStageId !== parsed.data.projectPaymentStageId) {
+        await recomputeStageCollections(tx, session.user.tenantId, existing.projectPaymentStageId);
+      }
+      if (parsed.data.projectPaymentStageId) {
+        await recomputeStageCollections(tx, session.user.tenantId, parsed.data.projectPaymentStageId);
       }
 
       return { ok: true as const };

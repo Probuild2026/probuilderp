@@ -24,17 +24,19 @@ export async function upsertPaymentStage(input: unknown) {
 
   const parsed = paymentStageUpsertSchema.parse(input);
 
+  const expectedBank = parsed.expectedBank ?? 0;
+  const expectedCash = parsed.expectedCash ?? 0;
+  const expectedAmount = expectedBank + expectedCash;
+
   const data = {
     tenantId: session.user.tenantId,
     projectId: parsed.projectId,
     stageName: parsed.stageName.trim(),
     scopeOfWork: parsed.scopeOfWork?.trim() ? parsed.scopeOfWork.trim() : null,
     percent: typeof parsed.percent === "number" ? parsed.percent : null,
-    expectedAmount: parsed.expectedAmount,
-    expectedBank: parsed.expectedBank ?? 0,
-    expectedCash: parsed.expectedCash ?? 0,
-    actualBank: parsed.actualBank ?? 0,
-    actualCash: parsed.actualCash ?? 0,
+    expectedAmount,
+    expectedBank,
+    expectedCash,
     expectedDate: parseDateOnly(parsed.expectedDate),
     actualDate: parseDateOnly(parsed.actualDate),
     notes: parsed.notes?.trim() ? parsed.notes.trim() : null,
@@ -93,9 +95,8 @@ export async function importPaymentScheduleCsv(formData: FormData) {
     const expectedAmount = parseMoney(r["amount (₹)"]);
     const expectedBank = parseMoney(r["bank (₹)"]);
     const expectedCash = parseMoney(r["cash (₹)"]);
-
-    const actualBank = parseMoney(r["bank payment"]);
-    const actualCash = parseMoney(r["cash received"]);
+    const derivedTotal = (expectedBank ?? 0) + (expectedCash ?? 0);
+    const finalExpectedAmount = derivedTotal > 0 ? derivedTotal : expectedAmount;
 
     await prisma.projectPaymentStage.create({
       data: {
@@ -104,11 +105,11 @@ export async function importPaymentScheduleCsv(formData: FormData) {
         stageName,
         scopeOfWork: scopeOfWork || null,
         percent,
-        expectedAmount,
+        expectedAmount: finalExpectedAmount,
         expectedBank,
         expectedCash,
-        actualBank,
-        actualCash,
+        actualBank: 0,
+        actualCash: 0,
         sortOrder,
       },
     });
@@ -118,4 +119,3 @@ export async function importPaymentScheduleCsv(formData: FormData) {
 
   revalidatePath(`/app/projects/${projectId}`);
 }
-

@@ -28,6 +28,7 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
         select: {
           id: true,
           invoiceNumber: true,
+          projectId: true,
           project: { select: { name: true } },
           client: { select: { name: true } },
         },
@@ -35,6 +36,12 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
     },
   });
   if (!receipt) return null;
+
+  const stages = await prisma.projectPaymentStage.findMany({
+    where: { tenantId: session.user.tenantId, projectId: receipt.clientInvoice.projectId },
+    orderBy: [{ sortOrder: "asc" }, { stageName: "asc" }],
+    select: { id: true, stageName: true },
+  });
 
   const cash = Number(receipt.amountReceived);
   const tds = Number(receipt.tdsAmount ?? 0);
@@ -101,14 +108,18 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
               receipt={{
                 id: receipt.id,
                 clientInvoiceId: receipt.clientInvoiceId,
+                projectId: receipt.clientInvoice.projectId,
                 date: dateOnly(receipt.date),
                 amountReceived: Number(receipt.amountReceived).toFixed(2),
                 mode: receipt.mode,
+                channel: receipt.channel === "CASH" ? "CASH" : "BANK",
+                projectPaymentStageId: receipt.projectPaymentStageId ?? null,
                 reference: receipt.reference ?? null,
                 tdsDeducted: receipt.tdsDeducted,
                 tdsAmount: Number(receipt.tdsAmount ?? 0).toFixed(2),
                 remarks: receipt.remarks ?? null,
               }}
+              stages={stages}
             />
           </CardContent>
         </Card>
@@ -141,4 +152,3 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
     </div>
   );
 }
-

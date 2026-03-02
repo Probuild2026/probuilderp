@@ -155,6 +155,7 @@ model ProjectPaymentStage {
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  receipts Receipt[]
 
   @@index([tenantId])
   @@index([tenantId, projectId, sortOrder])
@@ -895,6 +896,7 @@ model Receipt {
   tenantId        Int         @default(1)
   clientInvoiceId String
   transactionId   String?
+  projectPaymentStageId String?
   date            DateTime    @db.Date
   amountReceived  Decimal     @db.Decimal(14, 2)
   mode            PaymentMode
@@ -906,6 +908,7 @@ model Receipt {
 
   clientInvoice ClientInvoice @relation(fields: [clientInvoiceId], references: [id], onDelete: Cascade)
   transaction   Transaction?  @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  projectPaymentStage ProjectPaymentStage? @relation(fields: [projectPaymentStageId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -915,6 +918,7 @@ model Receipt {
   @@index([tenantId])
   @@index([tenantId, clientInvoiceId, date])
   @@index([tenantId, transactionId])
+  @@index([tenantId, projectPaymentStageId, date])
 }
 
 model VendorPayment {

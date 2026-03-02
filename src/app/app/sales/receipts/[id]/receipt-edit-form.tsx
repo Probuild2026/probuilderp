@@ -10,18 +10,23 @@ import { Input } from "@/components/ui/input";
 
 export function ReceiptEditForm({
   receipt,
+  stages,
 }: {
   receipt: {
     id: string;
     clientInvoiceId: string;
+    projectId: string;
     date: string;
     amountReceived: string;
     mode: "CASH" | "BANK_TRANSFER" | "CHEQUE" | "UPI" | "CARD" | "OTHER";
+    channel: "BANK" | "CASH";
+    projectPaymentStageId: string | null;
     reference: string | null;
     tdsDeducted: boolean;
     tdsAmount: string;
     remarks: string | null;
   };
+  stages: { id: string; stageName: string }[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -29,6 +34,8 @@ export function ReceiptEditForm({
   const [date, setDate] = useState(receipt.date);
   const [amountReceived, setAmountReceived] = useState(receipt.amountReceived);
   const [mode, setMode] = useState(receipt.mode);
+  const [channel, setChannel] = useState<"BANK" | "CASH">(receipt.channel);
+  const [projectPaymentStageId, setProjectPaymentStageId] = useState(receipt.projectPaymentStageId ?? "");
   const [reference, setReference] = useState(receipt.reference ?? "");
   const [remarks, setRemarks] = useState(receipt.remarks ?? "");
 
@@ -47,6 +54,8 @@ export function ReceiptEditForm({
             date,
             amountReceived: Number(amountReceived || 0),
             mode,
+            channel,
+            projectPaymentStageId: projectPaymentStageId || undefined,
             reference: reference.trim() || undefined,
             tdsDeducted,
             tdsAmount: tdsDeducted ? Number(tdsAmount || 0) : 0,
@@ -68,6 +77,39 @@ export function ReceiptEditForm({
         <label className="space-y-2 text-sm">
           <div className="text-muted-foreground">Date</div>
           <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+        </label>
+
+        <label className="space-y-2 text-sm">
+          <div className="text-muted-foreground">Stage</div>
+          <select
+            className="h-10 w-full rounded-md border bg-background px-3"
+            value={projectPaymentStageId}
+            onChange={(e) => setProjectPaymentStageId(e.target.value)}
+          >
+            <option value="">Unallocated</option>
+            {stages.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.stageName}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="space-y-2 text-sm">
+          <div className="text-muted-foreground">Received as</div>
+          <select
+            className="h-10 w-full rounded-md border bg-background px-3"
+            value={channel}
+            onChange={(e) => {
+              const next = e.target.value as "BANK" | "CASH";
+              setChannel(next);
+              if (next === "CASH" && mode !== "CASH") setMode("CASH");
+              if (next === "BANK" && mode === "CASH") setMode("BANK_TRANSFER");
+            }}
+          >
+            <option value="BANK">Bank</option>
+            <option value="CASH">Cash</option>
+          </select>
         </label>
 
         <label className="space-y-2 text-sm">
@@ -144,4 +186,3 @@ export function ReceiptEditForm({
     </form>
   );
 }
-

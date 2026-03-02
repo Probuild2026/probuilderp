@@ -47,16 +47,30 @@ export function PaymentSchedule({
   const [details, setDetails] = useState<Stage | null>(null);
 
   const totals = useMemo(() => {
-    let exp = 0;
-    let act = 0;
+    let expBank = 0;
+    let expCash = 0;
+    let actBank = 0;
+    let actCash = 0;
+    let excessBank = 0;
+    let excessCash = 0;
     for (const s of stages) {
-      const ea = s.expectedAmount;
-      const ab = s.actualBank;
-      const ac = s.actualCash;
-      exp += ea;
-      act += ab + ac;
+      expBank += s.expectedBank;
+      expCash += s.expectedCash;
+      actBank += s.actualBank;
+      actCash += s.actualCash;
+      excessBank += Math.max(0, s.actualBank - s.expectedBank);
+      excessCash += Math.max(0, s.actualCash - s.expectedCash);
     }
-    return { expected: exp, actual: act, balance: exp - act };
+    return {
+      expectedBank: expBank,
+      expectedCash: expCash,
+      actualBank: actBank,
+      actualCash: actCash,
+      pendingBank: expBank - actBank,
+      pendingCash: expCash - actCash,
+      excessBank,
+      excessCash,
+    };
   }, [stages]);
 
   return (
@@ -131,25 +145,42 @@ export function PaymentSchedule({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-md border p-3">
-          <div className="text-xs text-muted-foreground">Expected Total</div>
-          <div className="mt-1 text-lg font-semibold tabular-nums">{formatINR(totals.expected)}</div>
+          <div className="text-xs text-muted-foreground">Expected Total (Bank)</div>
+          <div className="mt-1 text-lg font-semibold tabular-nums">{formatINR(totals.expectedBank)}</div>
         </div>
         <div className="rounded-md border p-3">
-          <div className="text-xs text-muted-foreground">Actual Received</div>
-          <div className="mt-1 text-lg font-semibold tabular-nums">{formatINR(totals.actual)}</div>
+          <div className="text-xs text-muted-foreground">Expected Total (Cash)</div>
+          <div className="mt-1 text-lg font-semibold tabular-nums">{formatINR(totals.expectedCash)}</div>
         </div>
         <div className="rounded-md border p-3">
-          <div className="text-xs text-muted-foreground">Balance</div>
           <div
-            className={cn(
-              "mt-1 text-lg font-semibold tabular-nums",
-              totals.balance <= 0 ? "text-emerald-600" : "text-amber-600",
-            )}
+            className={cn("mt-1 text-lg font-semibold tabular-nums", totals.pendingBank <= 0 ? "text-emerald-600" : "text-amber-600")}
           >
-            {formatINR(totals.balance)}
+            <div className="text-xs text-muted-foreground">Pending (Bank)</div>
+            <div className="mt-1 text-lg font-semibold tabular-nums">{formatINR(totals.pendingBank)}</div>
+          </div>
+        </div>
+        <div className="rounded-md border p-3">
+          <div className="text-xs text-muted-foreground">Actual Bank Received</div>
+          <div className="mt-1 text-lg font-semibold tabular-nums">{formatINR(totals.actualBank)}</div>
+        </div>
+        <div className="rounded-md border p-3">
+          <div className="text-xs text-muted-foreground">Actual Cash Received</div>
+          <div className="mt-1 text-lg font-semibold tabular-nums">{formatINR(totals.actualCash)}</div>
+        </div>
+        <div className="rounded-md border p-3">
+          <div className="text-xs text-muted-foreground">Pending (Cash)</div>
+          <div className={cn("mt-1 text-lg font-semibold tabular-nums", totals.pendingCash <= 0 ? "text-emerald-600" : "text-amber-600")}>
+            {formatINR(totals.pendingCash)}
           </div>
         </div>
       </div>
+
+      {(totals.excessBank > 0 || totals.excessCash > 0) && (
+        <div className="text-xs text-amber-600">
+          Excess collected: Bank {formatINR(totals.excessBank)} • Cash {formatINR(totals.excessCash)}
+        </div>
+      )}
 
       <Tabs defaultValue="summary">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -158,28 +189,118 @@ export function PaymentSchedule({
             <TabsTrigger value="full">Full breakdown</TabsTrigger>
           </TabsList>
           <div className="text-xs text-muted-foreground">
-            Tip: Summary fits on screen; open “Details” for bank/cash split.
+            Tip: On mobile, stages show as cards (no side scrolling).
           </div>
         </div>
 
         <TabsContent value="summary">
-          <div className="overflow-x-auto rounded-md border">
-            <Table className="min-w-[860px]">
+          <div className="space-y-2 md:hidden">
+            {stages.map((s) => {
+              const pendingBank = s.expectedBank - s.actualBank;
+              const pendingCash = s.expectedCash - s.actualCash;
+              const excessBank = Math.max(0, s.actualBank - s.expectedBank);
+              const excessCash = Math.max(0, s.actualCash - s.expectedCash);
+              return (
+                <div key={s.id} className="rounded-md border p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-medium">{s.stageName}</div>
+                      <div className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{s.scopeOfWork ?? "—"}</div>
+                    </div>
+                    <div className="text-right text-xs text-muted-foreground">{s.percent != null ? `${s.percent}%` : "—"}</div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    <div className="rounded border p-2">
+                      <div className="text-muted-foreground">Contract (Bank)</div>
+                      <div className="mt-0.5 font-medium tabular-nums">{formatINR(s.expectedBank)}</div>
+                    </div>
+                    <div className="rounded border p-2">
+                      <div className="text-muted-foreground">Contract (Cash)</div>
+                      <div className="mt-0.5 font-medium tabular-nums">{formatINR(s.expectedCash)}</div>
+                    </div>
+                    <div className="rounded border p-2">
+                      <div className="text-muted-foreground">Recvd (Bank)</div>
+                      <div className="mt-0.5 font-medium tabular-nums">{formatINR(s.actualBank)}</div>
+                    </div>
+                    <div className="rounded border p-2">
+                      <div className="text-muted-foreground">Recvd (Cash)</div>
+                      <div className="mt-0.5 font-medium tabular-nums">{formatINR(s.actualCash)}</div>
+                    </div>
+                    <div className="rounded border p-2">
+                      <div className="text-muted-foreground">Pending (Bank)</div>
+                      <div className={cn("mt-0.5 font-medium tabular-nums", pendingBank <= 0 ? "text-emerald-600" : "text-amber-600")}>
+                        {formatINR(pendingBank)}
+                      </div>
+                    </div>
+                    <div className="rounded border p-2">
+                      <div className="text-muted-foreground">Pending (Cash)</div>
+                      <div className={cn("mt-0.5 font-medium tabular-nums", pendingCash <= 0 ? "text-emerald-600" : "text-amber-600")}>
+                        {formatINR(pendingCash)}
+                      </div>
+                    </div>
+                    {(excessBank > 0 || excessCash > 0) && (
+                      <div className="col-span-2 text-xs text-amber-600">
+                        Excess: Bank {formatINR(excessBank)} • Cash {formatINR(excessCash)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-3 flex flex-wrap justify-end gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setDetails(s)}>
+                      Details
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setEditing(s)}>
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => {
+                        startTransition(async () => {
+                          try {
+                            await deletePaymentStage(s.id, projectId);
+                            toast.success("Stage deleted.");
+                          } catch (e) {
+                            toast.error(e instanceof Error ? e.message : "Delete failed.");
+                          }
+                        });
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+            {stages.length === 0 ? (
+              <div className="rounded-md border py-10 text-center text-sm text-muted-foreground">
+                No schedule yet. Import your CSV or add stages manually.
+              </div>
+            ) : null}
+          </div>
+
+          <div className="hidden overflow-x-auto rounded-md border md:block">
+            <Table className="min-w-[1400px]">
               <TableHeader className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
                 <TableRow>
                   <TableHead>Stage</TableHead>
                   <TableHead className="text-right">%</TableHead>
-                  <TableHead className="text-right">Expected</TableHead>
-                  <TableHead className="text-right">Actual</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
+                  <TableHead className="text-right">Contract Bank</TableHead>
+                  <TableHead className="text-right">Contract Cash</TableHead>
+                  <TableHead className="text-right">Recvd Bank</TableHead>
+                  <TableHead className="text-right">Recvd Cash</TableHead>
+                  <TableHead className="text-right">Pending Bank</TableHead>
+                  <TableHead className="text-right">Pending Cash</TableHead>
+                  <TableHead className="text-right">Excess Bank</TableHead>
+                  <TableHead className="text-right">Excess Cash</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {stages.map((s) => {
-                  const expected = s.expectedAmount;
-                  const actual = s.actualBank + s.actualCash;
-                  const bal = expected - actual;
+                  const pendingBank = s.expectedBank - s.actualBank;
+                  const pendingCash = s.expectedCash - s.actualCash;
+                  const excessBank = Math.max(0, s.actualBank - s.expectedBank);
+                  const excessCash = Math.max(0, s.actualCash - s.expectedCash);
                   return (
                     <TableRow key={s.id}>
                       <TableCell>
@@ -189,11 +310,18 @@ export function PaymentSchedule({
                         </div>
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{s.percent != null ? String(s.percent) : "—"}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(s.expectedAmount)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(actual)}</TableCell>
-                      <TableCell className={cn("text-right tabular-nums", bal <= 0 ? "text-emerald-600" : "")}>
-                        {formatINR(bal)}
+                      <TableCell className="text-right tabular-nums">{formatINR(s.expectedBank)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(s.expectedCash)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(s.actualBank)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(s.actualCash)}</TableCell>
+                      <TableCell className={cn("text-right tabular-nums", pendingBank <= 0 ? "text-emerald-600" : "text-amber-600")}>
+                        {formatINR(pendingBank)}
                       </TableCell>
+                      <TableCell className={cn("text-right tabular-nums", pendingCash <= 0 ? "text-emerald-600" : "text-amber-600")}>
+                        {formatINR(pendingCash)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(excessBank)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(excessCash)}</TableCell>
                       <TableCell className="text-right">
                         <div className="inline-flex flex-wrap justify-end gap-2">
                           <Button size="sm" variant="outline" onClick={() => setDetails(s)}>
@@ -225,7 +353,7 @@ export function PaymentSchedule({
                 })}
                 {stages.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                    <TableCell colSpan={13} className="py-10 text-center text-sm text-muted-foreground">
                       No schedule yet. Import your CSV or add stages manually.
                     </TableCell>
                   </TableRow>
@@ -237,41 +365,48 @@ export function PaymentSchedule({
 
         <TabsContent value="full">
           <div className="overflow-x-auto rounded-md border">
-            <Table className="min-w-[1100px]">
+            <Table className="min-w-[1700px]">
               <TableHeader className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
                 <TableRow>
                   <TableHead>Stage</TableHead>
                   <TableHead>Scope</TableHead>
                   <TableHead className="text-right">%</TableHead>
-                  <TableHead className="text-right">Expected</TableHead>
-                  <TableHead className="text-right">Bank</TableHead>
-                  <TableHead className="text-right">Cash</TableHead>
-                  <TableHead className="text-right">Actual Bank</TableHead>
-                  <TableHead className="text-right">Actual Cash</TableHead>
-                  <TableHead className="text-right">Actual Total</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
+                  <TableHead className="text-right">Contract Bank</TableHead>
+                  <TableHead className="text-right">Contract Cash</TableHead>
+                  <TableHead className="text-right">Recvd Bank</TableHead>
+                  <TableHead className="text-right">Recvd Cash</TableHead>
+                  <TableHead className="text-right">Pending Bank</TableHead>
+                  <TableHead className="text-right">Pending Cash</TableHead>
+                  <TableHead className="text-right">Excess Bank</TableHead>
+                  <TableHead className="text-right">Excess Cash</TableHead>
+                  <TableHead className="text-right">Expected date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {stages.map((s) => {
-                  const expected = s.expectedAmount;
-                  const actual = s.actualBank + s.actualCash;
-                  const bal = expected - actual;
+                  const pendingBank = s.expectedBank - s.actualBank;
+                  const pendingCash = s.expectedCash - s.actualCash;
+                  const excessBank = Math.max(0, s.actualBank - s.expectedBank);
+                  const excessCash = Math.max(0, s.actualCash - s.expectedCash);
                   return (
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">{s.stageName}</TableCell>
                       <TableCell className="max-w-[420px] truncate">{s.scopeOfWork ?? "—"}</TableCell>
                       <TableCell className="text-right tabular-nums">{s.percent != null ? String(s.percent) : "—"}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(s.expectedAmount)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(s.expectedBank)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(s.expectedCash)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(s.actualBank)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(s.actualCash)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(actual)}</TableCell>
-                      <TableCell className={cn("text-right tabular-nums", bal <= 0 ? "text-emerald-600" : "")}>
-                        {formatINR(bal)}
+                      <TableCell className={cn("text-right tabular-nums", pendingBank <= 0 ? "text-emerald-600" : "text-amber-600")}>
+                        {formatINR(pendingBank)}
                       </TableCell>
+                      <TableCell className={cn("text-right tabular-nums", pendingCash <= 0 ? "text-emerald-600" : "text-amber-600")}>
+                        {formatINR(pendingCash)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(excessBank)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(excessCash)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{s.expectedDate || "—"}</TableCell>
                       <TableCell className="text-right">
                         <div className="inline-flex gap-2">
                           <Button size="sm" variant="outline" onClick={() => setEditing(s)}>
@@ -342,12 +477,34 @@ export function PaymentSchedule({
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="rounded-md border p-3">
-                  <div className="text-xs text-muted-foreground">Expected total</div>
-                  <div className="mt-1 font-semibold tabular-nums">{formatINR(details.expectedAmount)}</div>
+                  <div className="text-xs text-muted-foreground">Pending bank</div>
+                  <div
+                    className={cn(
+                      "mt-1 font-semibold tabular-nums",
+                      details.expectedBank - details.actualBank <= 0 ? "text-emerald-600" : "text-amber-600",
+                    )}
+                  >
+                    {formatINR(details.expectedBank - details.actualBank)}
+                  </div>
                 </div>
                 <div className="rounded-md border p-3">
-                  <div className="text-xs text-muted-foreground">Actual total</div>
-                  <div className="mt-1 font-semibold tabular-nums">{formatINR(details.actualBank + details.actualCash)}</div>
+                  <div className="text-xs text-muted-foreground">Pending cash</div>
+                  <div
+                    className={cn(
+                      "mt-1 font-semibold tabular-nums",
+                      details.expectedCash - details.actualCash <= 0 ? "text-emerald-600" : "text-amber-600",
+                    )}
+                  >
+                    {formatINR(details.expectedCash - details.actualCash)}
+                  </div>
+                </div>
+                <div className="rounded-md border p-3">
+                  <div className="text-xs text-muted-foreground">Excess bank</div>
+                  <div className="mt-1 font-semibold tabular-nums">{formatINR(Math.max(0, details.actualBank - details.expectedBank))}</div>
+                </div>
+                <div className="rounded-md border p-3">
+                  <div className="text-xs text-muted-foreground">Excess cash</div>
+                  <div className="mt-1 font-semibold tabular-nums">{formatINR(Math.max(0, details.actualCash - details.expectedCash))}</div>
                 </div>
               </div>
               {(details.expectedDate || details.actualDate || details.notes) && (
@@ -422,41 +579,44 @@ export function PaymentSchedule({
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="space-y-2 text-sm">
-                  <div className="text-muted-foreground">Expected total</div>
-                  <Input
-                    name="expectedAmount"
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
-                    defaultValue={money(editing.expectedAmount)}
-                    required
-                  />
-                </label>
-                <label className="space-y-2 text-sm">
                   <div className="text-muted-foreground">Expected date (optional)</div>
                   <Input name="expectedDate" type="date" defaultValue={editing.expectedDate} />
                 </label>
                 <label className="space-y-2 text-sm">
                   <div className="text-muted-foreground">Expected bank</div>
-                  <Input name="expectedBank" type="number" inputMode="decimal" step="0.01" defaultValue={money(editing.expectedBank)} />
+                  <Input
+                    name="expectedBank"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    defaultValue={money(editing.expectedBank)}
+                    required
+                  />
                 </label>
                 <label className="space-y-2 text-sm">
                   <div className="text-muted-foreground">Expected cash</div>
-                  <Input name="expectedCash" type="number" inputMode="decimal" step="0.01" defaultValue={money(editing.expectedCash)} />
+                  <Input
+                    name="expectedCash"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    defaultValue={money(editing.expectedCash)}
+                    required
+                  />
                 </label>
               </div>
 
               <Separator />
 
+              <div className="rounded-md border p-3 text-xs text-muted-foreground">
+                Expected total = Expected bank + Expected cash.
+              </div>
+
+              <div className="rounded-md border p-3 text-xs text-muted-foreground">
+                Actual Bank/Cash values are calculated from Receipts tagged to this stage.
+              </div>
+
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label className="space-y-2 text-sm">
-                  <div className="text-muted-foreground">Actual bank received</div>
-                  <Input name="actualBank" type="number" inputMode="decimal" step="0.01" defaultValue={money(editing.actualBank)} />
-                </label>
-                <label className="space-y-2 text-sm">
-                  <div className="text-muted-foreground">Actual cash received</div>
-                  <Input name="actualCash" type="number" inputMode="decimal" step="0.01" defaultValue={money(editing.actualCash)} />
-                </label>
                 <label className="space-y-2 text-sm">
                   <div className="text-muted-foreground">Actual date (optional)</div>
                   <Input name="actualDate" type="date" defaultValue={editing.actualDate} />
