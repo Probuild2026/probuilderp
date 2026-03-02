@@ -278,11 +278,13 @@ export function PaymentSchedule({
             ) : null}
           </div>
 
-          <div className="hidden overflow-x-auto rounded-md border md:block">
+          <div className="relative hidden overflow-x-auto rounded-md border md:block">
             <Table className="min-w-[1400px]">
               <TableHeader className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
                 <TableRow>
-                  <TableHead>Stage</TableHead>
+                  <TableHead className="sticky left-0 z-30 min-w-[260px] bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+                    Stage
+                  </TableHead>
                   <TableHead className="text-right">%</TableHead>
                   <TableHead className="text-right">Contract Bank</TableHead>
                   <TableHead className="text-right">Contract Cash</TableHead>
@@ -292,7 +294,9 @@ export function PaymentSchedule({
                   <TableHead className="text-right">Pending Cash</TableHead>
                   <TableHead className="text-right">Excess Bank</TableHead>
                   <TableHead className="text-right">Excess Cash</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="sticky right-0 z-30 bg-background/95 text-right backdrop-blur supports-[backdrop-filter]:bg-background/70">
+                    Actions
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -303,7 +307,7 @@ export function PaymentSchedule({
                   const excessCash = Math.max(0, s.actualCash - s.expectedCash);
                   return (
                     <TableRow key={s.id}>
-                      <TableCell>
+                      <TableCell className="sticky left-0 z-20 min-w-[260px] bg-background">
                         <div className="font-medium">{s.stageName}</div>
                         <div className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
                           {s.scopeOfWork ?? "—"}
@@ -322,7 +326,7 @@ export function PaymentSchedule({
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(excessBank)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(excessCash)}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="sticky right-0 z-20 bg-background text-right">
                         <div className="inline-flex flex-wrap justify-end gap-2">
                           <Button size="sm" variant="outline" onClick={() => setDetails(s)}>
                             Details
@@ -364,11 +368,16 @@ export function PaymentSchedule({
         </TabsContent>
 
         <TabsContent value="full">
-          <div className="overflow-x-auto rounded-md border">
+          <div className="rounded-md border p-3 text-sm text-muted-foreground md:hidden">
+            Full breakdown is best viewed on desktop.
+          </div>
+          <div className="relative hidden overflow-x-auto rounded-md border md:block">
             <Table className="min-w-[1700px]">
               <TableHeader className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
                 <TableRow>
-                  <TableHead>Stage</TableHead>
+                  <TableHead className="sticky left-0 z-30 min-w-[260px] bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+                    Stage
+                  </TableHead>
                   <TableHead>Scope</TableHead>
                   <TableHead className="text-right">%</TableHead>
                   <TableHead className="text-right">Contract Bank</TableHead>
@@ -380,7 +389,9 @@ export function PaymentSchedule({
                   <TableHead className="text-right">Excess Bank</TableHead>
                   <TableHead className="text-right">Excess Cash</TableHead>
                   <TableHead className="text-right">Expected date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="sticky right-0 z-30 bg-background/95 text-right backdrop-blur supports-[backdrop-filter]:bg-background/70">
+                    Actions
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -391,7 +402,7 @@ export function PaymentSchedule({
                   const excessCash = Math.max(0, s.actualCash - s.expectedCash);
                   return (
                     <TableRow key={s.id}>
-                      <TableCell className="font-medium">{s.stageName}</TableCell>
+                      <TableCell className="sticky left-0 z-20 min-w-[260px] bg-background font-medium">{s.stageName}</TableCell>
                       <TableCell className="max-w-[420px] truncate">{s.scopeOfWork ?? "—"}</TableCell>
                       <TableCell className="text-right tabular-nums">{s.percent != null ? String(s.percent) : "—"}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(s.expectedBank)}</TableCell>
@@ -407,7 +418,7 @@ export function PaymentSchedule({
                       <TableCell className="text-right tabular-nums">{formatINR(excessBank)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(excessCash)}</TableCell>
                       <TableCell className="text-right tabular-nums">{s.expectedDate || "—"}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="sticky right-0 z-20 bg-background text-right">
                         <div className="inline-flex gap-2">
                           <Button size="sm" variant="outline" onClick={() => setEditing(s)}>
                             Edit
@@ -435,7 +446,7 @@ export function PaymentSchedule({
                 })}
                 {stages.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="py-10 text-center text-sm text-muted-foreground">
+                    <TableCell colSpan={13} className="py-10 text-center text-sm text-muted-foreground">
                       No schedule yet. Import your CSV or add stages manually.
                     </TableCell>
                   </TableRow>
