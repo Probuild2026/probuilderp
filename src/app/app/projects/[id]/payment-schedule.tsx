@@ -279,22 +279,39 @@ export function PaymentSchedule({
           </div>
 
           <div className="relative hidden overflow-x-auto rounded-md border md:block">
-            <Table className="min-w-[1400px]">
+            <div className="max-h-[60vh] overflow-auto">
+            <Table className="min-w-[1220px] text-xs">
               <TableHeader className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
                 <TableRow>
-                  <TableHead className="sticky left-0 z-30 min-w-[260px] bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+                  <TableHead className="stage-col sticky left-0 z-30 w-[180px] max-w-[180px] bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
                     Stage
                   </TableHead>
-                  <TableHead className="text-right">%</TableHead>
-                  <TableHead className="text-right">Contract Bank</TableHead>
-                  <TableHead className="text-right">Contract Cash</TableHead>
-                  <TableHead className="text-right">Recvd Bank</TableHead>
-                  <TableHead className="text-right">Recvd Cash</TableHead>
-                  <TableHead className="text-right">Pending Bank</TableHead>
-                  <TableHead className="text-right">Pending Cash</TableHead>
-                  <TableHead className="text-right">Excess Bank</TableHead>
-                  <TableHead className="text-right">Excess Cash</TableHead>
-                  <TableHead className="sticky right-0 z-30 bg-background/95 text-right backdrop-blur supports-[backdrop-filter]:bg-background/70">
+                  <TableHead className="w-[52px] text-right">%</TableHead>
+                  <TableHead className="amount-col w-[110px] text-right" title="Contract Bank">
+                    C.Bank
+                  </TableHead>
+                  <TableHead className="amount-col w-[110px] text-right" title="Contract Cash">
+                    C.Cash
+                  </TableHead>
+                  <TableHead className="amount-col w-[110px] text-right" title="Received Bank">
+                    R.Bank
+                  </TableHead>
+                  <TableHead className="amount-col w-[110px] text-right" title="Received Cash">
+                    R.Cash
+                  </TableHead>
+                  <TableHead className="amount-col w-[110px] text-right" title="Pending Bank">
+                    P.Bank
+                  </TableHead>
+                  <TableHead className="amount-col w-[110px] text-right" title="Pending Cash">
+                    P.Cash
+                  </TableHead>
+                  <TableHead className="amount-col w-[110px] text-right" title="Excess Bank">
+                    Ex.Bank
+                  </TableHead>
+                  <TableHead className="amount-col w-[110px] text-right" title="Excess Cash">
+                    Ex.Cash
+                  </TableHead>
+                  <TableHead className="actions-col sticky right-0 z-30 bg-background/95 text-right backdrop-blur supports-[backdrop-filter]:bg-background/70">
                     Actions
                   </TableHead>
                 </TableRow>
@@ -307,36 +324,37 @@ export function PaymentSchedule({
                   const excessCash = Math.max(0, s.actualCash - s.expectedCash);
                   return (
                     <TableRow key={s.id}>
-                      <TableCell className="sticky left-0 z-20 min-w-[260px] bg-background">
-                        <div className="font-medium">{s.stageName}</div>
-                        <div className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                      <TableCell className="stage-col sticky left-0 z-20 w-[180px] max-w-[180px] bg-background align-top">
+                        <div className="break-words text-sm font-medium leading-4">{s.stageName}</div>
+                        <div className="mt-1 break-words text-[11px] leading-4 text-muted-foreground">
                           {s.scopeOfWork ?? "—"}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">{s.percent != null ? String(s.percent) : "—"}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(s.expectedBank)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(s.expectedCash)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(s.actualBank)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(s.actualCash)}</TableCell>
-                      <TableCell className={cn("text-right tabular-nums", pendingBank <= 0 ? "text-emerald-600" : "text-amber-600")}>
+                      <TableCell className="w-[52px] text-right tabular-nums">{s.percent != null ? String(s.percent) : "—"}</TableCell>
+                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(s.expectedBank)}</TableCell>
+                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(s.expectedCash)}</TableCell>
+                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(s.actualBank)}</TableCell>
+                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(s.actualCash)}</TableCell>
+                      <TableCell className={cn("amount-col w-[110px] text-right tabular-nums", pendingBank <= 0 ? "text-emerald-600" : "text-amber-600")}>
                         {formatINR(pendingBank)}
                       </TableCell>
-                      <TableCell className={cn("text-right tabular-nums", pendingCash <= 0 ? "text-emerald-600" : "text-amber-600")}>
+                      <TableCell className={cn("amount-col w-[110px] text-right tabular-nums", pendingCash <= 0 ? "text-emerald-600" : "text-amber-600")}>
                         {formatINR(pendingCash)}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(excessBank)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(excessCash)}</TableCell>
-                      <TableCell className="sticky right-0 z-20 bg-background text-right">
-                        <div className="inline-flex flex-wrap justify-end gap-2">
-                          <Button size="sm" variant="outline" onClick={() => setDetails(s)}>
+                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(excessBank)}</TableCell>
+                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(excessCash)}</TableCell>
+                      <TableCell className="actions-col sticky right-0 z-20 w-[190px] bg-background text-right">
+                        <div className="inline-flex flex-wrap justify-end gap-1">
+                          <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => setDetails(s)}>
                             Details
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => setEditing(s)}>
+                          <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => setEditing(s)}>
                             Edit
                           </Button>
                           <Button
                             size="sm"
                             variant="destructive"
+                            className="h-7 px-2 text-[11px]"
                             onClick={() => {
                               startTransition(async () => {
                                 try {
@@ -364,6 +382,7 @@ export function PaymentSchedule({
                 ) : null}
               </TableBody>
             </Table>
+            </div>
           </div>
         </TabsContent>
 
@@ -372,24 +391,41 @@ export function PaymentSchedule({
             Full breakdown is best viewed on desktop.
           </div>
           <div className="relative hidden overflow-x-auto rounded-md border md:block">
-            <Table className="min-w-[1700px]">
+            <div className="max-h-[60vh] overflow-auto">
+            <Table className="min-w-[1540px] text-xs">
               <TableHeader className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
                 <TableRow>
-                  <TableHead className="sticky left-0 z-30 min-w-[260px] bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+                  <TableHead className="stage-col sticky left-0 z-30 w-[180px] max-w-[180px] bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
                     Stage
                   </TableHead>
-                  <TableHead>Scope</TableHead>
-                  <TableHead className="text-right">%</TableHead>
-                  <TableHead className="text-right">Contract Bank</TableHead>
-                  <TableHead className="text-right">Contract Cash</TableHead>
-                  <TableHead className="text-right">Recvd Bank</TableHead>
-                  <TableHead className="text-right">Recvd Cash</TableHead>
-                  <TableHead className="text-right">Pending Bank</TableHead>
-                  <TableHead className="text-right">Pending Cash</TableHead>
-                  <TableHead className="text-right">Excess Bank</TableHead>
-                  <TableHead className="text-right">Excess Cash</TableHead>
-                  <TableHead className="text-right">Expected date</TableHead>
-                  <TableHead className="sticky right-0 z-30 bg-background/95 text-right backdrop-blur supports-[backdrop-filter]:bg-background/70">
+                  <TableHead className="w-[220px]">Scope</TableHead>
+                  <TableHead className="w-[52px] text-right">%</TableHead>
+                  <TableHead className="amount-col w-[110px] text-right" title="Contract Bank">
+                    C.Bank
+                  </TableHead>
+                  <TableHead className="amount-col w-[110px] text-right" title="Contract Cash">
+                    C.Cash
+                  </TableHead>
+                  <TableHead className="amount-col w-[110px] text-right" title="Received Bank">
+                    R.Bank
+                  </TableHead>
+                  <TableHead className="amount-col w-[110px] text-right" title="Received Cash">
+                    R.Cash
+                  </TableHead>
+                  <TableHead className="amount-col w-[110px] text-right" title="Pending Bank">
+                    P.Bank
+                  </TableHead>
+                  <TableHead className="amount-col w-[110px] text-right" title="Pending Cash">
+                    P.Cash
+                  </TableHead>
+                  <TableHead className="amount-col w-[110px] text-right" title="Excess Bank">
+                    Ex.Bank
+                  </TableHead>
+                  <TableHead className="amount-col w-[110px] text-right" title="Excess Cash">
+                    Ex.Cash
+                  </TableHead>
+                  <TableHead className="w-[110px] text-right">Exp Date</TableHead>
+                  <TableHead className="actions-col sticky right-0 z-30 bg-background/95 text-right backdrop-blur supports-[backdrop-filter]:bg-background/70">
                     Actions
                   </TableHead>
                 </TableRow>
@@ -402,30 +438,33 @@ export function PaymentSchedule({
                   const excessCash = Math.max(0, s.actualCash - s.expectedCash);
                   return (
                     <TableRow key={s.id}>
-                      <TableCell className="sticky left-0 z-20 min-w-[260px] bg-background font-medium">{s.stageName}</TableCell>
-                      <TableCell className="max-w-[420px] truncate">{s.scopeOfWork ?? "—"}</TableCell>
-                      <TableCell className="text-right tabular-nums">{s.percent != null ? String(s.percent) : "—"}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(s.expectedBank)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(s.expectedCash)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(s.actualBank)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(s.actualCash)}</TableCell>
-                      <TableCell className={cn("text-right tabular-nums", pendingBank <= 0 ? "text-emerald-600" : "text-amber-600")}>
+                      <TableCell className="stage-col sticky left-0 z-20 w-[180px] max-w-[180px] bg-background align-top">
+                        <div className="break-words text-sm font-medium leading-4">{s.stageName}</div>
+                      </TableCell>
+                      <TableCell className="max-w-[220px] break-words text-[11px] leading-4 text-muted-foreground">{s.scopeOfWork ?? "—"}</TableCell>
+                      <TableCell className="w-[52px] text-right tabular-nums">{s.percent != null ? String(s.percent) : "—"}</TableCell>
+                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(s.expectedBank)}</TableCell>
+                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(s.expectedCash)}</TableCell>
+                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(s.actualBank)}</TableCell>
+                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(s.actualCash)}</TableCell>
+                      <TableCell className={cn("amount-col w-[110px] text-right tabular-nums", pendingBank <= 0 ? "text-emerald-600" : "text-amber-600")}>
                         {formatINR(pendingBank)}
                       </TableCell>
-                      <TableCell className={cn("text-right tabular-nums", pendingCash <= 0 ? "text-emerald-600" : "text-amber-600")}>
+                      <TableCell className={cn("amount-col w-[110px] text-right tabular-nums", pendingCash <= 0 ? "text-emerald-600" : "text-amber-600")}>
                         {formatINR(pendingCash)}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(excessBank)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(excessCash)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{s.expectedDate || "—"}</TableCell>
-                      <TableCell className="sticky right-0 z-20 bg-background text-right">
-                        <div className="inline-flex gap-2">
-                          <Button size="sm" variant="outline" onClick={() => setEditing(s)}>
+                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(excessBank)}</TableCell>
+                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(excessCash)}</TableCell>
+                      <TableCell className="w-[110px] text-right tabular-nums">{s.expectedDate || "—"}</TableCell>
+                      <TableCell className="actions-col sticky right-0 z-20 w-[140px] bg-background text-right">
+                        <div className="inline-flex gap-1">
+                          <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => setEditing(s)}>
                             Edit
                           </Button>
                           <Button
                             size="sm"
                             variant="destructive"
+                            className="h-7 px-2 text-[11px]"
                             onClick={() => {
                               startTransition(async () => {
                                 try {
@@ -453,6 +492,7 @@ export function PaymentSchedule({
                 ) : null}
               </TableBody>
             </Table>
+            </div>
           </div>
         </TabsContent>
       </Tabs>
