@@ -19,7 +19,7 @@ export async function GET(req: Request) {
 
   const tenantId = session.user.tenantId;
 
-  const [projects, clients, vendors, bills, invoices, payments, receipts] = await Promise.all([
+  const [projects, clients, vendors, partners, bills, invoices, payments, receipts] = await Promise.all([
     prisma.project.findMany({
       where: { tenantId, name: { contains: q, mode: "insensitive" } },
       take: 8,
@@ -34,6 +34,11 @@ export async function GET(req: Request) {
       where: { tenantId, name: { contains: q, mode: "insensitive" } },
       take: 8,
       select: { id: true, name: true, trade: true },
+    }),
+    prisma.partner.findMany({
+      where: { tenantId, name: { contains: q, mode: "insensitive" } },
+      take: 8,
+      select: { id: true, name: true, pan: true },
     }),
     prisma.purchaseInvoice.findMany({
       where: {
@@ -119,6 +124,13 @@ export async function GET(req: Request) {
       title: v.name,
       subtitle: v.trade ? v.trade : "Vendor",
       href: `/app/vendors?q=${encodeURIComponent(v.name)}`,
+    })),
+    ...partners.map((p) => ({
+      type: "partner" as const,
+      id: p.id,
+      title: p.name,
+      subtitle: p.pan ? `PAN ${p.pan}` : "Partner",
+      href: `/app/partners/${p.id}`,
     })),
     ...bills.map((b) => ({
       type: "bill" as const,

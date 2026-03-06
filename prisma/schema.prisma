@@ -122,6 +122,20 @@ enum TransactionType {
   TRANSFER
 }
 
+enum PartnerRemunerationType {
+  SALARY
+  BONUS
+  COMMISSION
+  OTHER
+}
+
+enum PartnerTdsStatus {
+  NOT_APPLICABLE
+  TO_BE_DEDUCTED
+  DEDUCTED_NOT_PAID
+  PAID
+}
+
 enum AllocationDocumentType {
   CLIENT_INVOICE
   EXPENSE
@@ -195,6 +209,11 @@ model Tenant {
   transactionAllocations TransactionAllocation[]
   labourSheets           LabourSheet[]
   labourSheetLines       LabourSheetLine[]
+  partners               Partner[]
+  partnerRemunerations   PartnerRemuneration[]
+  partnerDrawings        PartnerDrawing[]
+  partnerTdsPayments     PartnerTdsPayment[]
+  projectProfitAllocations ProjectProfitAllocation[]
 }
 
 model TenantProfile {
@@ -433,11 +452,135 @@ model Project {
   attachments     Attachment[]
   paymentStages   ProjectPaymentStage[]
   labourSheets    LabourSheet[]
+  partnerRemunerations   PartnerRemuneration[]
+  partnerDrawings        PartnerDrawing[]
+  projectProfitAllocations ProjectProfitAllocation[]
 
   @@index([tenantId])
   @@index([tenantId, name])
   @@index([tenantId, clientId])
   @@index([tenantId, status])
+}
+
+model Partner {
+  id                  String  @id @default(cuid())
+  tenantId            Int     @default(1)
+  name                String
+  pan                 String?
+  profitRatio         Decimal @default(0) @db.Decimal(5, 2)
+  capitalContribution Decimal? @db.Decimal(14, 2)
+  isActive            Boolean @default(true)
+  notes               String?
+
+  remunerations PartnerRemuneration[]
+  drawings      PartnerDrawing[]
+  tdsPayments   PartnerTdsPayment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, name])
+  @@index([tenantId, isActive])
+}
+
+model PartnerRemuneration {
+  id          String                  @id @default(cuid())
+  tenantId    Int                     @default(1)
+  partnerId   String
+  projectId   String?
+  date        DateTime                @db.Date
+  type        PartnerRemunerationType
+  grossAmount Decimal                 @db.Decimal(14, 2)
+  tdsRate     Decimal                 @default(10) @db.Decimal(5, 2)
+  tdsAmount   Decimal                 @default(0) @db.Decimal(14, 2)
+  netPayable  Decimal                 @db.Decimal(14, 2)
+  paymentMode PaymentMode?
+  paymentDate DateTime?               @db.Date
+  tdsStatus   PartnerTdsStatus        @default(NOT_APPLICABLE)
+  fy          String
+  note        String?
+
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, partnerId, date])
+  @@index([tenantId, projectId, date])
+  @@index([tenantId, fy])
+}
+
+model PartnerDrawing {
+  id        String      @id @default(cuid())
+  tenantId  Int         @default(1)
+  partnerId String
+  projectId String?
+  date      DateTime    @db.Date
+  amount    Decimal     @db.Decimal(14, 2)
+  mode      PaymentMode
+  note      String?
+
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, partnerId, date])
+  @@index([tenantId, projectId, date])
+}
+
+model PartnerTdsPayment {
+  id            String   @id @default(cuid())
+  tenantId      Int      @default(1)
+  partnerId     String
+  fy            String
+  section       String   @default("194T")
+  challanNo     String?
+  periodFrom    DateTime? @db.Date
+  periodTo      DateTime? @db.Date
+  tdsPaidAmount Decimal  @db.Decimal(14, 2)
+  paymentDate   DateTime @db.Date
+  note          String?
+
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, partnerId, paymentDate])
+  @@index([tenantId, fy])
+}
+
+model ProjectProfitAllocation {
+  id                 String  @id @default(cuid())
+  tenantId           Int     @default(1)
+  projectId          String
+  fy                 String
+  profitBeforePartner Decimal @db.Decimal(14, 2)
+  totalPartnerRemu    Decimal @db.Decimal(14, 2)
+  profitAfterRemu     Decimal @db.Decimal(14, 2)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, projectId, fy])
+  @@index([tenantId])
+  @@index([tenantId, projectId])
+  @@index([tenantId, fy])
 }
 
 model Item {

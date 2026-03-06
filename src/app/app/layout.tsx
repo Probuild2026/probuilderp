@@ -9,9 +9,14 @@ import { SignOutButton } from "@/components/auth/signout-button";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 import { PROJECT_FILTER_COOKIE } from "@/lib/project-filter";
-import { Input } from "@/components/ui/input";
 import { Prisma } from "@prisma/client";
 import { CommandPalette, CommandPaletteSearch } from "@/components/app/command-palette";
+
+function isDbUnavailable(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  if (error instanceof Prisma.PrismaClientKnownRequestError) return error.code === "P1001" || error.code === "P1002";
+  return message.includes("Can't reach database server") || message.includes("P1001");
+}
 
 export default async function AppLayout({
   children,
@@ -21,15 +26,23 @@ export default async function AppLayout({
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/login");
 
-  const [projects, cookieStore] = await Promise.all([
-    prisma.project.findMany({
+  const cookieStore = await cookies();
+  let projects: Array<{ id: string; name: string }> = [];
+  let dbUnavailable = false;
+  try {
+    projects = await prisma.project.findMany({
       where: { tenantId: session.user.tenantId },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
       take: 500,
-    }),
-    cookies(),
-  ]);
+    });
+  } catch (e) {
+    if (isDbUnavailable(e)) {
+      dbUnavailable = true;
+    } else {
+      throw e;
+    }
+  }
   const selectedProjectId = cookieStore.get(PROJECT_FILTER_COOKIE)?.value ?? "";
 
   let profile: {
@@ -40,42 +53,46 @@ export default async function AppLayout({
     accentColor: string | null;
     logoUrl: string | null;
   } | null = null;
-  try {
-    const res = await prisma.tenantProfile.findUnique({
-      where: { tenantId: session.user.tenantId },
-      select: {
-        legalName: true,
-        tradeName: true,
-        brandName: true,
-        primaryColor: true,
-        accentColor: true,
-        logoUrl: true,
-      },
-    });
-    profile = res;
-  } catch (e) {
-    // If the DB migration hasn't been applied yet, fall back to older columns.
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2022") {
+  if (!dbUnavailable) {
+    try {
       const res = await prisma.tenantProfile.findUnique({
         where: { tenantId: session.user.tenantId },
         select: {
           legalName: true,
           tradeName: true,
+          brandName: true,
+          primaryColor: true,
+          accentColor: true,
           logoUrl: true,
         },
       });
-      profile = res
-        ? {
-            legalName: res.legalName,
-            tradeName: res.tradeName ?? null,
-            brandName: null,
-            primaryColor: null,
-            accentColor: null,
-            logoUrl: res.logoUrl ?? null,
-          }
-        : null;
-    } else {
-      throw e;
+      profile = res;
+    } catch (e) {
+      // If the DB migration hasn't been applied yet, fall back to older columns.
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2022") {
+        const res = await prisma.tenantProfile.findUnique({
+          where: { tenantId: session.user.tenantId },
+          select: {
+            legalName: true,
+            tradeName: true,
+            logoUrl: true,
+          },
+        });
+        profile = res
+          ? {
+              legalName: res.legalName,
+              tradeName: res.tradeName ?? null,
+              brandName: null,
+              primaryColor: null,
+              accentColor: null,
+              logoUrl: res.logoUrl ?? null,
+            }
+          : null;
+      } else if (isDbUnavailable(e)) {
+        dbUnavailable = true;
+      } else {
+        throw e;
+      }
     }
   }
 
@@ -132,6 +149,11 @@ export default async function AppLayout({
               <CommandPaletteSearch placeholder="Search…" />
             </div>
           </div>
+          {dbUnavailable ? (
+            <div className="border-t border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200 md:px-4">
+              Database temporarily unreachable. Some pages may load with limited data until connectivity is restored.
+            </div>
+          ) : null}
         </header>
         <CommandPalette />
         <main className="min-w-0 flex-1">{children}</main>

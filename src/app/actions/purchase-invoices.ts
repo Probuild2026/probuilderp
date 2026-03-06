@@ -31,6 +31,22 @@ const updatePurchaseInvoiceSchema = createPurchaseInvoiceSchema.extend({
   id: z.string().min(1),
 });
 
+const upsertPurchaseInvoiceLineSchema = z
+  .object({
+    id: z.string().min(1).optional(),
+    purchaseInvoiceId: z.string().min(1),
+    itemId: z.string().min(1),
+    projectId: z.string().min(1).optional(),
+    quantity: z.coerce.number().positive(),
+    rate: z.coerce.number().nonnegative(),
+  })
+  .strict();
+
+const deletePurchaseInvoiceLineSchema = z.object({
+  id: z.string().min(1),
+  purchaseInvoiceId: z.string().min(1),
+});
+
 function parseDateOnly(value: string) {
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) throw new Error("Invalid date");
@@ -176,5 +192,86 @@ export async function deletePurchaseInvoice(id: string): Promise<ActionResult<{ 
     return { ok: true, data: { id } };
   } catch {
     return unknownError("Failed to delete bill.");
+  }
+}
+
+export async function upsertPurchaseInvoiceLine(input: unknown): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return { ok: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } };
+
+  const parsed = upsertPurchaseInvoiceLineSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: { code: "VALIDATION", message: "Invalid input", fieldErrors: zodToFieldErrors(parsed.error) } };
+  }
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const invoice = await tx.purchaseInvoice.findFirst({
+        where: { tenantId: session.user.tenantId, id: parsed.data.purchaseInvoiceId },
+        select: { id: true, projectId: true },
+      });
+      if (!invoice) return { ok: false as const };
+
+      const finalProjectId = parsed.data.projectId?.trim() || invoice.projectId;
+      const amount = Number((parsed.data.quantity * parsed.data.rate).toFixed(2));
+
+      if (parsed.data.id) {
+        const updated = await tx.purchaseInvoiceLine.updateMany({
+          where: { tenantId: session.user.tenantId, id: parsed.data.id, purchaseInvoiceId: invoice.id },
+          data: {
+            itemId: parsed.data.itemId,
+            projectId: finalProjectId,
+            quantity: new Prisma.Decimal(parsed.data.quantity),
+            rate: new Prisma.Decimal(parsed.data.rate),
+            amount: new Prisma.Decimal(amount),
+          },
+        });
+        if (updated.count === 0) return { ok: false as const };
+        return { ok: true as const, id: parsed.data.id };
+      }
+
+      const created = await tx.purchaseInvoiceLine.create({
+        data: {
+          tenantId: session.user.tenantId,
+          purchaseInvoiceId: invoice.id,
+          itemId: parsed.data.itemId,
+          projectId: finalProjectId,
+          quantity: new Prisma.Decimal(parsed.data.quantity),
+          rate: new Prisma.Decimal(parsed.data.rate),
+          amount: new Prisma.Decimal(amount),
+        },
+        select: { id: true },
+      });
+      return { ok: true as const, id: created.id };
+    });
+
+    if (!result.ok) return { ok: false, error: { code: "NOT_FOUND", message: "Bill or line item not found." } };
+    return { ok: true, data: { id: result.id } };
+  } catch {
+    return unknownError("Failed to save line item.");
+  }
+}
+
+export async function deletePurchaseInvoiceLine(input: unknown): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return { ok: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } };
+
+  const parsed = deletePurchaseInvoiceLineSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: { code: "VALIDATION", message: "Invalid input", fieldErrors: zodToFieldErrors(parsed.error) } };
+  }
+
+  try {
+    const deleted = await prisma.purchaseInvoiceLine.deleteMany({
+      where: {
+        tenantId: session.user.tenantId,
+        id: parsed.data.id,
+        purchaseInvoiceId: parsed.data.purchaseInvoiceId,
+      },
+    });
+    if (deleted.count === 0) return { ok: false, error: { code: "NOT_FOUND", message: "Line item not found." } };
+    return { ok: true, data: { id: parsed.data.id } };
+  } catch {
+    return unknownError("Failed to delete line item.");
   }
 }

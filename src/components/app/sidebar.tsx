@@ -21,9 +21,9 @@ import {
   Upload,
   UsersRound,
   Wallet,
-  Settings,
   Truck,
   Users,
+  UserRoundCog,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,7 @@ export const navGroups = [
     items: [
       { href: "/app/clients", label: "Clients", icon: Users },
       { href: "/app/vendors", label: "Vendors", icon: Truck },
+      { href: "/app/partners", label: "Partners", icon: UserRoundCog },
     ],
   },
   {

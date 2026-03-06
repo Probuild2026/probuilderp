@@ -26,6 +26,7 @@ export default async function TransactionsPage() {
         toAccount: { name: string; type: string } | null;
       }>
     | null = null;
+  let dbUnavailable = false;
 
   try {
     txns = await prisma.transaction.findMany({
@@ -43,12 +44,20 @@ export default async function TransactionsPage() {
       },
     });
   } catch (e) {
-    if (e instanceof Prisma.PrismaClientKnownRequestError && (e.code === "P2021" || e.code === "P2022")) {
+    if (
+      (e instanceof Prisma.PrismaClientKnownRequestError && (e.code === "P2021" || e.code === "P2022" || e.code === "P1001")) ||
+      (e instanceof Error && e.message.includes("Can't reach database server"))
+    ) {
       txns = null;
+      dbUnavailable =
+        (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P1001") ||
+        (e instanceof Error && e.message.includes("Can't reach database server"));
     } else {
       throw e;
     }
   }
+
+  const hasTransferRows = (txns ?? []).some((t) => t.type === "TRANSFER");
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
@@ -60,9 +69,11 @@ export default async function TransactionsPage() {
 
       {txns === null ? (
         <div className="rounded-md border bg-muted/20 p-4 text-sm">
-          <div className="font-medium">Database update required</div>
+          <div className="font-medium">{dbUnavailable ? "Database temporarily unreachable" : "Database update required"}</div>
           <div className="mt-1 text-muted-foreground">
-            Your app code is deployed, but your database is missing required tables/columns. Run Prisma migrations against the Vercel DB, then refresh.
+            {dbUnavailable
+              ? "The app could not connect to the database. Check DATABASE_URL / Prisma Postgres status in Vercel, then refresh."
+              : "Your app code is deployed, but your database is missing required tables/columns. Run Prisma migrations against the Vercel DB, then refresh."}
           </div>
           <pre className="mt-3 overflow-x-auto rounded-md bg-black/40 p-3 text-xs">
 {`cd "/Users/roshanvinayan/Documents/Probuild ERP/probuild-erp"
@@ -81,8 +92,8 @@ DATABASE_URL='postgres://...your-vercel-db-url...' npx prisma db seed`}
               <TableHead className="w-[110px]">Date</TableHead>
               <TableHead>Type</TableHead>
               <TableHead className="hidden lg:table-cell">Category</TableHead>
-              <TableHead className="hidden md:table-cell">From</TableHead>
-              <TableHead className="hidden md:table-cell">To</TableHead>
+              {hasTransferRows ? <TableHead className="hidden md:table-cell">From</TableHead> : null}
+              {hasTransferRows ? <TableHead className="hidden md:table-cell">To</TableHead> : null}
               <TableHead className="hidden lg:table-cell">Project</TableHead>
               <TableHead className="text-right">Amount</TableHead>
             </TableRow>
@@ -90,7 +101,7 @@ DATABASE_URL='postgres://...your-vercel-db-url...' npx prisma db seed`}
           <TableBody>
             {(txns ?? []).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={hasTransferRows ? 7 : 5} className="py-8 text-center text-sm text-muted-foreground">
                   No transactions yet.
                 </TableCell>
               </TableRow>
@@ -106,9 +117,9 @@ DATABASE_URL='postgres://...your-vercel-db-url...' npx prisma db seed`}
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell">{t.category?.name ?? "—"}</TableCell>
-                  <TableCell className="hidden md:table-cell">{t.fromAccount?.name ?? "—"}</TableCell>
-                  <TableCell className="hidden md:table-cell">{t.toAccount?.name ?? "—"}</TableCell>
+                  <TableCell className="hidden lg:table-cell">{t.category?.name ?? t.type}</TableCell>
+                  {hasTransferRows ? <TableCell className="hidden md:table-cell">{t.type === "TRANSFER" ? t.fromAccount?.name ?? "—" : "—"}</TableCell> : null}
+                  {hasTransferRows ? <TableCell className="hidden md:table-cell">{t.type === "TRANSFER" ? t.toAccount?.name ?? "—" : "—"}</TableCell> : null}
                   <TableCell className="hidden lg:table-cell">{t.project?.name ?? "—"}</TableCell>
                   <TableCell className="whitespace-nowrap text-right tabular-nums">{formatINR(Number(t.amount))}</TableCell>
                 </TableRow>

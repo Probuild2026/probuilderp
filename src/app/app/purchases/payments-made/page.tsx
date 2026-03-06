@@ -5,15 +5,28 @@ import { Prisma } from "@prisma/client";
 import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatINR } from "@/lib/money";
 import { getSelectedProjectId } from "@/lib/project-filter";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
-export default async function PaymentsMadePage() {
+type PaymentsMadePageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function PaymentsMadePage({ searchParams }: PaymentsMadePageProps) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
+
+  const sp = (await searchParams) ?? {};
+  const qRaw = Array.isArray(sp.q) ? sp.q[0] : sp.q;
+  const fromRaw = Array.isArray(sp.from) ? sp.from[0] : sp.from;
+  const toRaw = Array.isArray(sp.to) ? sp.to[0] : sp.to;
+  const q = qRaw?.trim() ?? "";
+  const from = fromRaw?.trim() ?? "";
+  const to = toRaw?.trim() ?? "";
 
   const projectId = await getSelectedProjectId();
 
@@ -29,6 +42,7 @@ export default async function PaymentsMadePage() {
         project: { id: string; name: string } | null;
       }>
     | null = null;
+  let dbUnavailable = false;
   let allocationCountByTxnId: Map<string, number> = new Map();
 
   try {
@@ -37,6 +51,22 @@ export default async function PaymentsMadePage() {
         tenantId: session.user.tenantId,
         type: "EXPENSE",
         vendorId: { not: null },
+        ...(q
+          ? {
+              OR: [
+                { vendor: { name: { contains: q, mode: "insensitive" } } },
+                { reference: { contains: q, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+        ...(from || to
+          ? {
+              date: {
+                ...(from ? { gte: new Date(`${from}T00:00:00Z`) } : {}),
+                ...(to ? { lte: new Date(`${to}T23:59:59Z`) } : {}),
+              },
+            }
+          : {}),
         ...(projectId ? { projectId } : {}),
       },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
@@ -66,12 +96,30 @@ export default async function PaymentsMadePage() {
       }
     }
   } catch (e) {
-    if (e instanceof Prisma.PrismaClientKnownRequestError && (e.code === "P2021" || e.code === "P2022")) {
+    if (
+      (e instanceof Prisma.PrismaClientKnownRequestError && (e.code === "P2021" || e.code === "P2022" || e.code === "P1001")) ||
+      (e instanceof Error && e.message.includes("Can't reach database server"))
+    ) {
       txns = null;
+      dbUnavailable =
+        (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P1001") ||
+        (e instanceof Error && e.message.includes("Can't reach database server"));
     } else {
       throw e;
     }
   }
+
+  const totals = (txns ?? []).reduce(
+    (acc, row) => {
+      const cash = Number(row.amount);
+      const tds = Number(row.tdsAmount ?? 0);
+      acc.cash += cash;
+      acc.tds += tds;
+      acc.gross += cash + tds;
+      return acc;
+    },
+    { cash: 0, tds: 0, gross: 0 },
+  );
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
@@ -81,11 +129,30 @@ export default async function PaymentsMadePage() {
         action={{ label: "New Payment", href: "/app/purchases/payments-made/new" }}
       />
 
+      <form className="grid gap-2 rounded-md border p-3 md:grid-cols-[1fr_auto_auto_auto]" method="get">
+        <Input
+          name="q"
+          defaultValue={q}
+          placeholder="Search vendor/reference…"
+          className="md:max-w-xl"
+        />
+        <Input name="from" type="date" defaultValue={from} />
+        <Input name="to" type="date" defaultValue={to} />
+        <div className="flex gap-2">
+          <Button type="submit">Apply</Button>
+          <Button asChild variant="outline">
+            <Link href="/app/purchases/payments-made">Reset</Link>
+          </Button>
+        </div>
+      </form>
+
       {txns === null ? (
         <div className="rounded-md border bg-muted/20 p-4 text-sm">
-          <div className="font-medium">Database update required</div>
+          <div className="font-medium">{dbUnavailable ? "Database temporarily unreachable" : "Database update required"}</div>
           <div className="mt-1 text-muted-foreground">
-            Your app code is deployed, but your database is missing required tables/columns. Run Prisma migrations against the Vercel DB, then refresh.
+            {dbUnavailable
+              ? "The app could not connect to the database. Check DATABASE_URL / Prisma Postgres status in Vercel, then refresh."
+              : "Your app code is deployed, but your database is missing required tables/columns. Run Prisma migrations against the Vercel DB, then refresh."}
           </div>
           <pre className="mt-3 overflow-x-auto rounded-md bg-black/40 p-3 text-xs">
 {`cd "/Users/roshanvinayan/Documents/Probuild ERP/probuild-erp"
@@ -96,6 +163,10 @@ DATABASE_URL='postgres://...your-vercel-db-url...' npx prisma db seed`}
           </pre>
         </div>
       ) : null}
+
+      <div className="rounded-md border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+        Showing {(txns ?? []).length} payments • Cash {formatINR(totals.cash)} • TDS {formatINR(totals.tds)} • Gross {formatINR(totals.gross)}
+      </div>
 
       <Card>
         <CardContent className="p-0">

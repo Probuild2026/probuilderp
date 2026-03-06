@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { Info } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -33,6 +34,15 @@ type Stage = {
 
 function money(v: number) {
   return v.toFixed(2);
+}
+
+function displayDate(v: string) {
+  if (!v) return "";
+  const parts = v.split("-");
+  if (parts.length === 3 && parts[0].length === 4) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return v;
 }
 
 export function PaymentSchedule({
@@ -188,8 +198,12 @@ export function PaymentSchedule({
             <TabsTrigger value="summary">Summary</TabsTrigger>
             <TabsTrigger value="full">Full breakdown</TabsTrigger>
           </TabsList>
-          <div className="text-xs text-muted-foreground">
-            Tip: On mobile, stages show as cards (no side scrolling).
+          <div
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+            title="On mobile, stages show as cards (no side scrolling)."
+          >
+            <Info className="size-3.5" />
+            <span className="hidden sm:inline">Mobile cards view available</span>
           </div>
         </div>
 
@@ -280,35 +294,35 @@ export function PaymentSchedule({
 
           <div className="relative hidden overflow-x-auto rounded-md border md:block">
             <div className="max-h-[60vh] overflow-auto">
-            <Table className="min-w-[1220px] text-xs">
+            <Table className="min-w-[1180px] table-fixed text-xs">
               <TableHeader className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
                 <TableRow>
-                  <TableHead className="stage-col sticky left-0 z-30 w-[180px] max-w-[180px] bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+                  <TableHead className="stage-col sticky left-0 z-30 w-[220px] max-w-[220px] bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
                     Stage
                   </TableHead>
-                  <TableHead className="w-[52px] text-right">%</TableHead>
-                  <TableHead className="amount-col w-[110px] text-right" title="Contract Bank">
+                  <TableHead className="w-[56px] whitespace-nowrap text-right">%</TableHead>
+                  <TableHead className="amount-col w-[100px] whitespace-nowrap text-right" title="Contract Bank">
                     C.Bank
                   </TableHead>
-                  <TableHead className="amount-col w-[110px] text-right" title="Contract Cash">
+                  <TableHead className="amount-col w-[100px] whitespace-nowrap text-right" title="Contract Cash">
                     C.Cash
                   </TableHead>
-                  <TableHead className="amount-col w-[110px] text-right" title="Received Bank">
+                  <TableHead className="amount-col w-[100px] whitespace-nowrap text-right" title="Received Bank">
                     R.Bank
                   </TableHead>
-                  <TableHead className="amount-col w-[110px] text-right" title="Received Cash">
+                  <TableHead className="amount-col w-[100px] whitespace-nowrap text-right" title="Received Cash">
                     R.Cash
                   </TableHead>
-                  <TableHead className="amount-col w-[110px] text-right" title="Pending Bank">
+                  <TableHead className="amount-col w-[100px] whitespace-nowrap text-right" title="Pending Bank">
                     P.Bank
                   </TableHead>
-                  <TableHead className="amount-col w-[110px] text-right" title="Pending Cash">
+                  <TableHead className="amount-col w-[100px] whitespace-nowrap text-right" title="Pending Cash">
                     P.Cash
                   </TableHead>
-                  <TableHead className="amount-col w-[110px] text-right" title="Excess Bank">
+                  <TableHead className="amount-col w-[100px] whitespace-nowrap text-right" title="Excess Bank">
                     Ex.Bank
                   </TableHead>
-                  <TableHead className="amount-col w-[110px] text-right" title="Excess Cash">
+                  <TableHead className="amount-col w-[100px] whitespace-nowrap text-right" title="Excess Cash">
                     Ex.Cash
                   </TableHead>
                   <TableHead className="actions-col sticky right-0 z-30 bg-background/95 text-right backdrop-blur supports-[backdrop-filter]:bg-background/70">
@@ -324,26 +338,28 @@ export function PaymentSchedule({
                   const excessCash = Math.max(0, s.actualCash - s.expectedCash);
                   return (
                     <TableRow key={s.id}>
-                      <TableCell className="stage-col sticky left-0 z-20 w-[180px] max-w-[180px] bg-background align-top">
-                        <div className="break-words text-sm font-medium leading-4">{s.stageName}</div>
-                        <div className="mt-1 break-words text-[11px] leading-4 text-muted-foreground">
+                      <TableCell className="stage-col sticky left-0 z-20 w-[220px] max-w-[220px] bg-background align-top">
+                        <div className="truncate text-sm font-medium leading-4" title={s.stageName}>
+                          {s.stageName}
+                        </div>
+                        <div className="mt-1 line-clamp-2 overflow-hidden text-ellipsis text-[11px] leading-4 text-muted-foreground" title={s.scopeOfWork ?? "—"}>
                           {s.scopeOfWork ?? "—"}
                         </div>
                       </TableCell>
-                      <TableCell className="w-[52px] text-right tabular-nums">{s.percent != null ? String(s.percent) : "—"}</TableCell>
-                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(s.expectedBank)}</TableCell>
-                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(s.expectedCash)}</TableCell>
-                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(s.actualBank)}</TableCell>
-                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(s.actualCash)}</TableCell>
-                      <TableCell className={cn("amount-col w-[110px] text-right tabular-nums", pendingBank <= 0 ? "text-emerald-600" : "text-amber-600")}>
+                      <TableCell className="w-[56px] whitespace-nowrap text-right tabular-nums">{s.percent != null ? String(s.percent) : "—"}</TableCell>
+                      <TableCell className="amount-col w-[100px] whitespace-nowrap text-right tabular-nums">{formatINR(s.expectedBank)}</TableCell>
+                      <TableCell className="amount-col w-[100px] whitespace-nowrap text-right tabular-nums">{formatINR(s.expectedCash)}</TableCell>
+                      <TableCell className="amount-col w-[100px] whitespace-nowrap text-right tabular-nums">{formatINR(s.actualBank)}</TableCell>
+                      <TableCell className="amount-col w-[100px] whitespace-nowrap text-right tabular-nums">{formatINR(s.actualCash)}</TableCell>
+                      <TableCell className={cn("amount-col w-[100px] whitespace-nowrap text-right tabular-nums", pendingBank <= 0 ? "text-emerald-600" : "text-amber-600")}>
                         {formatINR(pendingBank)}
                       </TableCell>
-                      <TableCell className={cn("amount-col w-[110px] text-right tabular-nums", pendingCash <= 0 ? "text-emerald-600" : "text-amber-600")}>
+                      <TableCell className={cn("amount-col w-[100px] whitespace-nowrap text-right tabular-nums", pendingCash <= 0 ? "text-emerald-600" : "text-amber-600")}>
                         {formatINR(pendingCash)}
                       </TableCell>
-                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(excessBank)}</TableCell>
-                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(excessCash)}</TableCell>
-                      <TableCell className="actions-col sticky right-0 z-20 w-[190px] bg-background text-right">
+                      <TableCell className="amount-col w-[100px] whitespace-nowrap text-right tabular-nums">{formatINR(excessBank)}</TableCell>
+                      <TableCell className="amount-col w-[100px] whitespace-nowrap text-right tabular-nums">{formatINR(excessCash)}</TableCell>
+                      <TableCell className="actions-col sticky right-0 z-20 w-[170px] bg-background text-right">
                         <div className="inline-flex flex-wrap justify-end gap-1">
                           <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => setDetails(s)}>
                             Details
@@ -392,39 +408,39 @@ export function PaymentSchedule({
           </div>
           <div className="relative hidden overflow-x-auto rounded-md border md:block">
             <div className="max-h-[60vh] overflow-auto">
-            <Table className="min-w-[1540px] text-xs">
+            <Table className="min-w-[1320px] table-fixed text-xs">
               <TableHeader className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
                 <TableRow>
                   <TableHead className="stage-col sticky left-0 z-30 w-[180px] max-w-[180px] bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
                     Stage
                   </TableHead>
                   <TableHead className="w-[220px]">Scope</TableHead>
-                  <TableHead className="w-[52px] text-right">%</TableHead>
-                  <TableHead className="amount-col w-[110px] text-right" title="Contract Bank">
+                  <TableHead className="w-[56px] whitespace-nowrap text-right">%</TableHead>
+                  <TableHead className="amount-col w-[95px] whitespace-nowrap text-right" title="Contract Bank">
                     C.Bank
                   </TableHead>
-                  <TableHead className="amount-col w-[110px] text-right" title="Contract Cash">
+                  <TableHead className="amount-col w-[95px] whitespace-nowrap text-right" title="Contract Cash">
                     C.Cash
                   </TableHead>
-                  <TableHead className="amount-col w-[110px] text-right" title="Received Bank">
+                  <TableHead className="amount-col w-[95px] whitespace-nowrap text-right" title="Received Bank">
                     R.Bank
                   </TableHead>
-                  <TableHead className="amount-col w-[110px] text-right" title="Received Cash">
+                  <TableHead className="amount-col w-[95px] whitespace-nowrap text-right" title="Received Cash">
                     R.Cash
                   </TableHead>
-                  <TableHead className="amount-col w-[110px] text-right" title="Pending Bank">
+                  <TableHead className="amount-col w-[95px] whitespace-nowrap text-right" title="Pending Bank">
                     P.Bank
                   </TableHead>
-                  <TableHead className="amount-col w-[110px] text-right" title="Pending Cash">
+                  <TableHead className="amount-col w-[95px] whitespace-nowrap text-right" title="Pending Cash">
                     P.Cash
                   </TableHead>
-                  <TableHead className="amount-col w-[110px] text-right" title="Excess Bank">
+                  <TableHead className="amount-col w-[95px] whitespace-nowrap text-right" title="Excess Bank">
                     Ex.Bank
                   </TableHead>
-                  <TableHead className="amount-col w-[110px] text-right" title="Excess Cash">
+                  <TableHead className="amount-col w-[95px] whitespace-nowrap text-right" title="Excess Cash">
                     Ex.Cash
                   </TableHead>
-                  <TableHead className="w-[110px] text-right">Exp Date</TableHead>
+                  <TableHead className="w-[95px] whitespace-nowrap text-right">Exp Date</TableHead>
                   <TableHead className="actions-col sticky right-0 z-30 bg-background/95 text-right backdrop-blur supports-[backdrop-filter]:bg-background/70">
                     Actions
                   </TableHead>
@@ -441,21 +457,23 @@ export function PaymentSchedule({
                       <TableCell className="stage-col sticky left-0 z-20 w-[180px] max-w-[180px] bg-background align-top">
                         <div className="break-words text-sm font-medium leading-4">{s.stageName}</div>
                       </TableCell>
-                      <TableCell className="max-w-[220px] break-words text-[11px] leading-4 text-muted-foreground">{s.scopeOfWork ?? "—"}</TableCell>
-                      <TableCell className="w-[52px] text-right tabular-nums">{s.percent != null ? String(s.percent) : "—"}</TableCell>
-                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(s.expectedBank)}</TableCell>
-                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(s.expectedCash)}</TableCell>
-                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(s.actualBank)}</TableCell>
-                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(s.actualCash)}</TableCell>
-                      <TableCell className={cn("amount-col w-[110px] text-right tabular-nums", pendingBank <= 0 ? "text-emerald-600" : "text-amber-600")}>
+                      <TableCell className="max-w-[220px] truncate text-[11px] leading-4 text-muted-foreground" title={s.scopeOfWork ?? "—"}>
+                        {s.scopeOfWork ?? "—"}
+                      </TableCell>
+                      <TableCell className="w-[56px] whitespace-nowrap text-right tabular-nums">{s.percent != null ? String(s.percent) : "—"}</TableCell>
+                      <TableCell className="amount-col w-[95px] whitespace-nowrap text-right tabular-nums">{formatINR(s.expectedBank)}</TableCell>
+                      <TableCell className="amount-col w-[95px] whitespace-nowrap text-right tabular-nums">{formatINR(s.expectedCash)}</TableCell>
+                      <TableCell className="amount-col w-[95px] whitespace-nowrap text-right tabular-nums">{formatINR(s.actualBank)}</TableCell>
+                      <TableCell className="amount-col w-[95px] whitespace-nowrap text-right tabular-nums">{formatINR(s.actualCash)}</TableCell>
+                      <TableCell className={cn("amount-col w-[95px] whitespace-nowrap text-right tabular-nums", pendingBank <= 0 ? "text-emerald-600" : "text-amber-600")}>
                         {formatINR(pendingBank)}
                       </TableCell>
-                      <TableCell className={cn("amount-col w-[110px] text-right tabular-nums", pendingCash <= 0 ? "text-emerald-600" : "text-amber-600")}>
+                      <TableCell className={cn("amount-col w-[95px] whitespace-nowrap text-right tabular-nums", pendingCash <= 0 ? "text-emerald-600" : "text-amber-600")}>
                         {formatINR(pendingCash)}
                       </TableCell>
-                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(excessBank)}</TableCell>
-                      <TableCell className="amount-col w-[110px] text-right tabular-nums">{formatINR(excessCash)}</TableCell>
-                      <TableCell className="w-[110px] text-right tabular-nums">{s.expectedDate || "—"}</TableCell>
+                      <TableCell className="amount-col w-[95px] whitespace-nowrap text-right tabular-nums">{formatINR(excessBank)}</TableCell>
+                      <TableCell className="amount-col w-[95px] whitespace-nowrap text-right tabular-nums">{formatINR(excessCash)}</TableCell>
+                      <TableCell className="w-[95px] whitespace-nowrap text-right tabular-nums">{displayDate(s.expectedDate) || "—"}</TableCell>
                       <TableCell className="actions-col sticky right-0 z-20 w-[140px] bg-background text-right">
                         <div className="inline-flex gap-1">
                           <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => setEditing(s)}>
@@ -561,10 +579,10 @@ export function PaymentSchedule({
               {(details.expectedDate || details.actualDate || details.notes) && (
                 <div className="space-y-2">
                   {details.expectedDate ? (
-                    <div className="text-muted-foreground">Expected date: {details.expectedDate}</div>
+                    <div className="text-muted-foreground">Expected date: {displayDate(details.expectedDate)}</div>
                   ) : null}
                   {details.actualDate ? (
-                    <div className="text-muted-foreground">Actual date: {details.actualDate}</div>
+                    <div className="text-muted-foreground">Actual date: {displayDate(details.actualDate)}</div>
                   ) : null}
                   {details.notes ? <div className="text-muted-foreground">Notes: {details.notes}</div> : null}
                 </div>
@@ -631,7 +649,8 @@ export function PaymentSchedule({
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="space-y-2 text-sm">
                   <div className="text-muted-foreground">Expected date (optional)</div>
-                  <Input name="expectedDate" type="date" defaultValue={editing.expectedDate} />
+                  <Input name="expectedDate" placeholder="DD/MM/YYYY" defaultValue={displayDate(editing.expectedDate)} />
+                  <div className="text-[11px] text-muted-foreground">Use DD/MM/YYYY</div>
                 </label>
                 <label className="space-y-2 text-sm">
                   <div className="text-muted-foreground">Expected bank</div>
@@ -643,6 +662,7 @@ export function PaymentSchedule({
                     defaultValue={money(editing.expectedBank)}
                     required
                   />
+                  <div className="text-[11px] text-muted-foreground">Preview: {formatINR(editing.expectedBank)}</div>
                 </label>
                 <label className="space-y-2 text-sm">
                   <div className="text-muted-foreground">Expected cash</div>
@@ -654,6 +674,7 @@ export function PaymentSchedule({
                     defaultValue={money(editing.expectedCash)}
                     required
                   />
+                  <div className="text-[11px] text-muted-foreground">Preview: {formatINR(editing.expectedCash)}</div>
                 </label>
               </div>
 
@@ -670,7 +691,8 @@ export function PaymentSchedule({
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="space-y-2 text-sm">
                   <div className="text-muted-foreground">Actual date (optional)</div>
-                  <Input name="actualDate" type="date" defaultValue={editing.actualDate} />
+                  <Input name="actualDate" placeholder="DD/MM/YYYY" defaultValue={displayDate(editing.actualDate)} />
+                  <div className="text-[11px] text-muted-foreground">Use DD/MM/YYYY</div>
                 </label>
                 <label className="space-y-2 text-sm">
                   <div className="text-muted-foreground">Notes (optional)</div>

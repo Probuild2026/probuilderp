@@ -14,7 +14,28 @@ import { prisma } from "@/server/db";
 
 function parseDateOnly(value?: string) {
   if (!value) return null;
-  const date = new Date(`${value}T00:00:00`);
+  const raw = value.trim();
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+    const [dd, mm, yyyy] = raw.split("/").map(Number);
+    const date = new Date(Date.UTC(yyyy, mm - 1, dd));
+    if (
+      Number.isNaN(date.getTime()) ||
+      date.getUTCFullYear() !== yyyy ||
+      date.getUTCMonth() !== mm - 1 ||
+      date.getUTCDate() !== dd
+    ) {
+      return null;
+    }
+    return date;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const date = new Date(`${raw}T00:00:00Z`);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  const date = new Date(raw);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 

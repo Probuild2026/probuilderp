@@ -92,6 +92,11 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
           />
         </div>
       </div>
+      {deleteDisabled ? (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+          Delete is disabled because this bill has payments applied. Remove payment allocations first.
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Card>
@@ -140,15 +145,10 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
               projects={projects}
               vendors={vendors}
             />
-            {deleteDisabled ? (
-              <div className="mt-3 text-xs text-muted-foreground">
-                Delete is disabled because this bill has payments applied. Remove the payment allocations first (Payments Made → open payment).
-              </div>
-            ) : null}
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="lg:sticky lg:top-6 lg:self-start">
           <CardHeader>
             <CardTitle className="flex items-center justify-between gap-3">
               <span>Payments applied</span>

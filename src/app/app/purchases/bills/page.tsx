@@ -1,22 +1,54 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
+import { Prisma } from "@prisma/client";
 
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatINR } from "@/lib/money";
 import { getSelectedProjectId } from "@/lib/project-filter";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
-export default async function BillsPage() {
+type BillsPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function BillsPage({ searchParams }: BillsPageProps) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
 
+  const sp = (await searchParams) ?? {};
+  const qRaw = Array.isArray(sp.q) ? sp.q[0] : sp.q;
+  const fromRaw = Array.isArray(sp.from) ? sp.from[0] : sp.from;
+  const toRaw = Array.isArray(sp.to) ? sp.to[0] : sp.to;
+  const q = qRaw?.trim() ?? "";
+  const from = fromRaw?.trim() ?? "";
+  const to = toRaw?.trim() ?? "";
+
   const projectId = await getSelectedProjectId();
+  const where: Prisma.PurchaseInvoiceWhereInput = {
+    tenantId: session.user.tenantId,
+    ...(projectId ? { projectId } : {}),
+  };
+  if (q) {
+    where.OR = [
+      { invoiceNumber: { contains: q, mode: "insensitive" } },
+      { vendor: { name: { contains: q, mode: "insensitive" } } },
+      { project: { name: { contains: q, mode: "insensitive" } } },
+    ];
+  }
+  if (from || to) {
+    where.invoiceDate = {
+      ...(from ? { gte: new Date(`${from}T00:00:00Z`) } : {}),
+      ...(to ? { lte: new Date(`${to}T23:59:59Z`) } : {}),
+    };
+  }
+
   const bills = await prisma.purchaseInvoice.findMany({
-    where: { tenantId: session.user.tenantId, ...(projectId ? { projectId } : {}) },
+    where,
     orderBy: [{ invoiceDate: "desc" }, { createdAt: "desc" }],
     take: 200,
     select: {
@@ -52,19 +84,37 @@ export default async function BillsPage() {
         action={{ label: "New Bill", href: "/app/purchases/bills/new" }}
       />
 
+      <form className="grid gap-2 rounded-md border p-3 md:grid-cols-[1fr_auto_auto_auto]" method="get">
+        <Input
+          name="q"
+          defaultValue={q}
+          placeholder="Search bill #, vendor, project…"
+          className="md:max-w-xl"
+        />
+        <Input name="from" type="date" defaultValue={from} />
+        <Input name="to" type="date" defaultValue={to} />
+        <div className="flex gap-2">
+          <Button type="submit">Apply</Button>
+          <Button asChild variant="outline">
+            <Link href="/app/purchases/bills">Reset</Link>
+          </Button>
+        </div>
+      </form>
+
       <Card>
         <CardContent className="p-0">
-          <Table>
+          <div className="overflow-auto">
+          <Table className="min-w-[980px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[110px]">Date</TableHead>
                 <TableHead>Bill #</TableHead>
-                <TableHead>Vendor</TableHead>
+                <TableHead className="w-[300px]">Vendor</TableHead>
                 <TableHead className="hidden lg:table-cell">Project</TableHead>
-                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="sticky right-[88px] z-20 bg-background text-right">Total</TableHead>
                 <TableHead className="hidden sm:table-cell text-right">Paid</TableHead>
                 <TableHead className="hidden md:table-cell text-right">Balance</TableHead>
-                <TableHead className="w-[1%] text-right">Actions</TableHead>
+                <TableHead className="sticky right-0 z-20 w-[88px] bg-background text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -90,12 +140,14 @@ export default async function BillsPage() {
                           {b.vendor.name} • {b.project.name}
                         </div>
                       </TableCell>
-                      <TableCell className="max-w-[260px] truncate">{b.vendor.name}</TableCell>
+                      <TableCell className="max-w-[300px] truncate" title={b.vendor.name}>{b.vendor.name}</TableCell>
                       <TableCell className="hidden lg:table-cell max-w-[260px] truncate">{b.project.name}</TableCell>
-                      <TableCell className="whitespace-nowrap text-right tabular-nums">{formatINR(total)}</TableCell>
+                      <TableCell className="sticky right-[88px] z-10 whitespace-nowrap bg-background text-right tabular-nums">
+                        {formatINR(total)}
+                      </TableCell>
                       <TableCell className="hidden sm:table-cell whitespace-nowrap text-right tabular-nums">{formatINR(paidGross)}</TableCell>
                       <TableCell className="hidden md:table-cell whitespace-nowrap text-right tabular-nums">{formatINR(balance)}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="sticky right-0 z-10 bg-background text-right">
                         <div className="flex justify-end gap-2">
                           <Button asChild size="sm" variant="secondary">
                             <Link href={`/app/purchases/bills/${b.id}`}>View</Link>
@@ -108,6 +160,7 @@ export default async function BillsPage() {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

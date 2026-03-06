@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
+import { Prisma } from "@prisma/client";
 
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,12 @@ function formatINR(n: number) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(n);
 }
 
+function isDbUnavailable(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  if (error instanceof Prisma.PrismaClientKnownRequestError) return error.code === "P1001" || error.code === "P1002";
+  return message.includes("Can't reach database server") || message.includes("P1001");
+}
+
 export default async function AppHomePage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/login");
@@ -26,38 +33,57 @@ export default async function AppHomePage() {
   const from = startOfMonth(today);
   const to = today;
 
-  const [receivedAgg, billsAgg, expensesAgg, wagesAgg, projects] = await Promise.all([
-    prisma.receipt.aggregate({
-      where: { tenantId: session.user.tenantId, date: { gte: from, lte: to } },
-      _sum: { amountReceived: true },
-    }),
-    prisma.purchaseInvoice.aggregate({
-      where: { tenantId: session.user.tenantId, invoiceDate: { gte: from, lte: to } },
-      _sum: { total: true },
-    }),
-    prisma.expense.aggregate({
-      where: { tenantId: session.user.tenantId, date: { gte: from, lte: to } },
-      _sum: { totalAmount: true },
-    }),
-    prisma.labourSheet.aggregate({
-      where: { tenantId: session.user.tenantId, date: { gte: from, lte: to } },
-      _sum: { total: true },
-    }),
-    prisma.project.findMany({
-      where: { tenantId: session.user.tenantId },
-      orderBy: { createdAt: "desc" },
-      take: 25,
-      select: {
-        id: true,
-        name: true,
-        status: true,
-        client: { select: { name: true } },
-      },
-    }),
-  ]);
+  let totalReceived = 0;
+  let totalBills = 0;
+  let totalExpenses = 0;
+  let totalWages = 0;
+  let projects: Array<{ id: string; name: string; status: string; client: { name: string } | null }> = [];
+  let dbUnavailable = false;
 
-  const totalReceived = Number(receivedAgg._sum.amountReceived ?? 0);
-  const totalSpent = Number(billsAgg._sum.total ?? 0) + Number(expensesAgg._sum.totalAmount ?? 0) + Number(wagesAgg._sum.total ?? 0);
+  try {
+    const [receivedAgg, billsAgg, expensesAgg, wagesAgg, projectRows] = await Promise.all([
+      prisma.receipt.aggregate({
+        where: { tenantId: session.user.tenantId, date: { gte: from, lte: to } },
+        _sum: { amountReceived: true },
+      }),
+      prisma.purchaseInvoice.aggregate({
+        where: { tenantId: session.user.tenantId, invoiceDate: { gte: from, lte: to } },
+        _sum: { total: true },
+      }),
+      prisma.expense.aggregate({
+        where: { tenantId: session.user.tenantId, date: { gte: from, lte: to } },
+        _sum: { totalAmount: true },
+      }),
+      prisma.labourSheet.aggregate({
+        where: { tenantId: session.user.tenantId, date: { gte: from, lte: to } },
+        _sum: { total: true },
+      }),
+      prisma.project.findMany({
+        where: { tenantId: session.user.tenantId },
+        orderBy: { createdAt: "desc" },
+        take: 25,
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          client: { select: { name: true } },
+        },
+      }),
+    ]);
+    totalReceived = Number(receivedAgg._sum.amountReceived ?? 0);
+    totalBills = Number(billsAgg._sum.total ?? 0);
+    totalExpenses = Number(expensesAgg._sum.totalAmount ?? 0);
+    totalWages = Number(wagesAgg._sum.total ?? 0);
+    projects = projectRows;
+  } catch (e) {
+    if (isDbUnavailable(e)) {
+      dbUnavailable = true;
+    } else {
+      throw e;
+    }
+  }
+
+  const totalSpent = totalBills + totalExpenses + totalWages;
   const net = totalReceived - totalSpent;
 
   return (
@@ -95,6 +121,11 @@ export default async function AppHomePage() {
           </>
         }
       />
+      {dbUnavailable ? (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+          Database temporarily unreachable from Vercel. Dashboard metrics are hidden until connectivity is restored.
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="cursor-pointer transition hover:bg-muted/30">
