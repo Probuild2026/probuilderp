@@ -2,7 +2,7 @@
 
 import { PaymentMode, PartnerRemunerationType } from "@prisma/client";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import {
@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { PARTNER_DEFAULT_TDS_RATE, PARTNER_TDS_SECTION } from "@/lib/partner-finance";
+import { PARTNER_DEFAULT_TDS_RATE, PARTNER_TDS_SECTION, PARTNER_TDS_THRESHOLD } from "@/lib/partner-finance";
 import { formatINR } from "@/lib/money";
 
 type ProjectOption = { id: string; name: string };
@@ -26,14 +26,16 @@ export function PartnerEntryForms({
   partnerId,
   fy,
   projects,
+  existingGrossFY,
 }: {
   partnerId: string;
   fy: string;
   projects: ProjectOption[];
+  existingGrossFY: number;
 }) {
   return (
     <div className="grid gap-4 xl:grid-cols-2">
-      <AddRemunerationCard partnerId={partnerId} fy={fy} projects={projects} />
+      <AddRemunerationCard partnerId={partnerId} fy={fy} projects={projects} existingGrossFY={existingGrossFY} />
       <AddDrawingCard partnerId={partnerId} projects={projects} />
       <AddTdsPaymentCard partnerId={partnerId} fy={fy} />
       <ProjectProfitAllocationCard fy={fy} projects={projects} />
@@ -45,13 +47,16 @@ function AddRemunerationCard({
   partnerId,
   fy,
   projects,
+  existingGrossFY,
 }: {
   partnerId: string;
   fy: string;
   projects: ProjectOption[];
+  existingGrossFY: number;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const thresholdAlreadyCrossed = existingGrossFY > PARTNER_TDS_THRESHOLD;
   const [form, setForm] = useState<{
     projectId: string;
     date: string;
@@ -66,18 +71,40 @@ function AddRemunerationCard({
     date: "",
     type: PartnerRemunerationType.SALARY,
     grossAmount: "",
-    tdsRate: String(PARTNER_DEFAULT_TDS_RATE),
+    tdsRate: thresholdAlreadyCrossed ? String(PARTNER_DEFAULT_TDS_RATE) : "0",
     paymentMode: "",
     paymentDate: "",
     note: "",
   });
+  const currentGross = Number(form.grossAmount || 0);
+  const aggregateGross = existingGrossFY + (Number.isFinite(currentGross) ? Math.max(0, currentGross) : 0);
+  const thresholdCrossedForThisEntry = aggregateGross > PARTNER_TDS_THRESHOLD;
+  const effectiveRate =
+    thresholdCrossedForThisEntry
+      ? Number(form.tdsRate || 0) > 0
+        ? Number(form.tdsRate)
+        : PARTNER_DEFAULT_TDS_RATE
+      : 0;
+
+  useEffect(() => {
+    setForm((prev) => {
+      const currentRate = Number(prev.tdsRate || 0);
+      if (thresholdCrossedForThisEntry) {
+        if (currentRate > 0) return prev;
+        return { ...prev, tdsRate: String(PARTNER_DEFAULT_TDS_RATE) };
+      }
+      if (currentRate !== 0) return { ...prev, tdsRate: "0" };
+      return prev;
+    });
+  }, [thresholdCrossedForThisEntry]);
+
   const preview = useMemo(() => {
-    const gross = Number(form.grossAmount || 0);
-    const rate = Number(form.tdsRate || PARTNER_DEFAULT_TDS_RATE);
+    const gross = currentGross;
+    const rate = effectiveRate;
     if (!Number.isFinite(gross) || gross <= 0 || !Number.isFinite(rate) || rate < 0) return null;
     const tds = (gross * rate) / 100;
     return { gross, tds, net: gross - tds };
-  }, [form.grossAmount, form.tdsRate]);
+  }, [currentGross, effectiveRate]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -110,6 +137,11 @@ function AddRemunerationCard({
       </CardHeader>
       <CardContent>
         <form className="space-y-3" onSubmit={submit}>
+          {thresholdCrossedForThisEntry ? (
+            <div className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+              FY total remuneration exceeds ₹20,000, TDS @ 10% under Section 194T is applicable.
+            </div>
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label>Date</Label>
@@ -179,8 +211,8 @@ function AddRemunerationCard({
           </div>
           <div className="rounded-md border p-2 text-xs text-muted-foreground">
             {preview
-              ? `${PARTNER_TDS_SECTION} preview — Gross ${formatINR(preview.gross)}, TDS ${formatINR(preview.tds)}, Net ${formatINR(preview.net)}`
-              : `TDS is auto-checked against ₹20,000 FY threshold (${fy}).`}
+              ? `${PARTNER_TDS_SECTION} preview — FY gross ${formatINR(aggregateGross)}, Gross ${formatINR(preview.gross)}, TDS ${formatINR(preview.tds)}, Net ${formatINR(preview.net)}`
+              : `Current FY gross: ${formatINR(existingGrossFY)} • TDS is auto-checked against ₹20,000 threshold (${fy}).`}
           </div>
           <Button type="submit" disabled={pending}>{pending ? "Saving..." : "Save remuneration"}</Button>
         </form>

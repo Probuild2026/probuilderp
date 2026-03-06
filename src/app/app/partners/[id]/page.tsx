@@ -163,7 +163,7 @@ export default async function PartnerDetailPage({
         </Card>
       </div>
 
-      <PartnerEntryForms partnerId={partner.id} fy={fy} projects={projects} />
+      <PartnerEntryForms partnerId={partner.id} fy={fy} projects={projects} existingGrossFY={remGross} />
 
       <Card>
         <CardHeader>
@@ -179,24 +179,33 @@ export default async function PartnerDetailPage({
                 <TableHead className="text-right">Gross</TableHead>
                 <TableHead className="text-right">TDS</TableHead>
                 <TableHead className="text-right">Net</TableHead>
+                <TableHead>Payment</TableHead>
                 <TableHead>TDS status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {remunerations.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell>{row.date.toISOString().slice(0, 10)}</TableCell>
-                  <TableCell>{row.type}</TableCell>
-                  <TableCell>{row.project?.name ?? "-"}</TableCell>
-                  <TableCell className="text-right">{formatINR(asNumber(row.grossAmount))}</TableCell>
-                  <TableCell className="text-right">{formatINR(asNumber(row.tdsAmount))}</TableCell>
-                  <TableCell className="text-right">{formatINR(asNumber(row.netPayable))}</TableCell>
-                  <TableCell>{row.tdsStatus}</TableCell>
-                </TableRow>
-              ))}
+              {remunerations.map((row) => {
+                const tdsAmount = asNumber(row.tdsAmount);
+                const normalizedStatus = tdsAmount <= 0 ? "NOT_APPLICABLE" : row.tdsStatus;
+                return (
+                  <TableRow key={row.id}>
+                    <TableCell>{row.date.toISOString().slice(0, 10)}</TableCell>
+                    <TableCell>{row.type}</TableCell>
+                    <TableCell>{row.project?.name ?? "-"}</TableCell>
+                    <TableCell className="text-right">{formatINR(asNumber(row.grossAmount))}</TableCell>
+                    <TableCell className="text-right">{formatINR(tdsAmount)}</TableCell>
+                    <TableCell className="text-right">{formatINR(asNumber(row.netPayable))}</TableCell>
+                    <TableCell>
+                      {row.paymentMode ? row.paymentMode : "UNPAID"}
+                      {row.paymentDate ? ` • ${row.paymentDate.toISOString().slice(0, 10)}` : ""}
+                    </TableCell>
+                    <TableCell>{normalizedStatus}</TableCell>
+                  </TableRow>
+                );
+              })}
               {remunerations.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
                     No remuneration entries for this FY.
                   </TableCell>
                 </TableRow>

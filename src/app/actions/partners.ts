@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import {
   PARTNER_DEFAULT_TDS_RATE,
+  PARTNER_TDS_THRESHOLD,
   PARTNER_TDS_SECTION,
   computePartnerRemuneration,
   getFinancialYear,
@@ -150,10 +151,20 @@ export async function createPartnerRemuneration(input: unknown): Promise<ActionR
       _sum: { grossAmount: true },
     });
 
+    const existingGross = Number(existing._sum.grossAmount ?? 0);
+    const aggregateGross = existingGross + parsed.data.grossAmount;
+    const thresholdCrossed = aggregateGross > PARTNER_TDS_THRESHOLD;
+    const inputRate = Number(parsed.data.tdsRate ?? 0);
+    const appliedRate = thresholdCrossed
+      ? inputRate > 0
+        ? inputRate
+        : PARTNER_DEFAULT_TDS_RATE
+      : 0;
+
     const computed = computePartnerRemuneration({
       grossAmount: parsed.data.grossAmount,
-      fyGrossBeforeCurrent: Number(existing._sum.grossAmount ?? 0),
-      tdsRatePercent: parsed.data.tdsRate,
+      fyGrossBeforeCurrent: existingGross,
+      tdsRatePercent: appliedRate,
     });
 
     const created = await prisma.partnerRemuneration.create({
