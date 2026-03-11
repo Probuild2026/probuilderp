@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -35,7 +35,7 @@ export function VendorPaymentCreateForm({
   initial?: { vendorId?: string; projectId?: string; billId?: string; amount?: string };
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [saving, setSaving] = useState(false);
 
   const [vendorId, setVendorId] = useState(initial?.vendorId ?? vendors[0]?.id ?? "");
   const [bills, setBills] = useState<OpenBill[]>([]);
@@ -109,10 +109,11 @@ export function VendorPaymentCreateForm({
   return (
     <form
       className="space-y-5 rounded-md border p-4 md:p-6"
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
-
-        startTransition(async () => {
+        if (saving) return;
+        setSaving(true);
+        try {
           const allocations =
             flow === "BILLS"
               ? selectedRows.map((r) => ({ purchaseInvoiceId: r.id, grossAmount: r.gross }))
@@ -132,6 +133,7 @@ export function VendorPaymentCreateForm({
           const res = await createVendorPayment(payload);
           if (!res.ok) {
             toast.error(res.error.message);
+            setSaving(false);
             return;
           }
 
@@ -140,9 +142,14 @@ export function VendorPaymentCreateForm({
               Number(res.data.grossAmount),
             )}`,
           );
-          router.push("/app/purchases/payments-made");
+          router.replace("/app/purchases/payments-made");
           router.refresh();
-        });
+        } catch (err) {
+          console.error(err);
+          toast.error("Failed to save payment. Please try again.");
+        } finally {
+          setSaving(false);
+        }
       }}
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -320,8 +327,8 @@ export function VendorPaymentCreateForm({
       )}
 
       <div className="flex items-center justify-end gap-3">
-        <Button type="submit" disabled={pending || grossTotal <= 0}>
-          {pending ? "Saving…" : "Save payment"}
+        <Button type="submit" disabled={saving || grossTotal <= 0}>
+          {saving ? "Saving..." : "Save payment"}
         </Button>
       </div>
     </form>

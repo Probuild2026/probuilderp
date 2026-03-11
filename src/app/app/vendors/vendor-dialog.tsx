@@ -31,23 +31,24 @@ import { vendorCreateSchema, vendorMergeSchema, vendorUpdateSchema, type VendorC
 
 import { createVendor, deleteVendor, mergeVendors, updateVendor } from "./actions";
 
-function firstFormError(errors: Record<string, unknown>, path = ""): string | null {
+function collectFormErrors(errors: Record<string, unknown>, path = ""): string[] {
+  const issues: string[] = [];
   for (const [key, value] of Object.entries(errors ?? {})) {
     const fieldPath = path ? `${path}.${key}` : key;
     if (!value || typeof value !== "object") continue;
     if ("message" in value && typeof value.message === "string" && value.message.length > 0) {
-      return `${fieldPath}: ${value.message}`;
+      issues.push(`${fieldPath}: ${value.message}`);
     }
-    const nested = firstFormError(value as Record<string, unknown>, fieldPath);
-    if (nested) return nested;
+    issues.push(...collectFormErrors(value as Record<string, unknown>, fieldPath));
   }
-  return null;
+  return issues;
 }
 
 export function AddVendorDialog() {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [submitErrors, setSubmitErrors] = useState<string[]>([]);
 
   const form = useForm<VendorCreateInput>({
     resolver: zodResolver(vendorCreateSchema) as any,
@@ -79,6 +80,7 @@ export function AddVendorDialog() {
   const isTransporter = form.watch("isTransporter");
 
   function onSubmit(values: VendorCreateInput) {
+    setSubmitErrors([]);
     startTransition(async () => {
       try {
         await createVendor(values);
@@ -93,11 +95,20 @@ export function AddVendorDialog() {
     });
   }
 
-  const onInvalid = (errors: Record<string, unknown>) =>
-    toast.error(firstFormError(errors) ?? "Please fix the highlighted fields.");
+  const onInvalid = (errors: Record<string, unknown>) => {
+    const issues = collectFormErrors(errors);
+    setSubmitErrors(issues);
+    toast.error(issues[0] ?? "Please fix the highlighted fields.");
+  };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setSubmitErrors([]);
+      }}
+    >
       <DialogTrigger asChild>
         <Button>Add Vendor</Button>
       </DialogTrigger>
@@ -410,6 +421,16 @@ export function AddVendorDialog() {
                 ) : null}
               </div>
             ) : null}
+            {submitErrors.length > 0 ? (
+              <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+                <div className="mb-1 font-semibold">Please fix these fields:</div>
+                <ul className="list-disc space-y-1 pl-4">
+                  {submitErrors.map((issue) => (
+                    <li key={issue}>{issue}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             <Button type="button" disabled={pending} onClick={form.handleSubmit(onSubmit, onInvalid)}>
               {pending ? "Saving…" : "Save"}
             </Button>
@@ -453,6 +474,7 @@ export function EditVendorDialog({
   const [deletePending, startDeleteTransition] = useTransition();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [submitErrors, setSubmitErrors] = useState<string[]>([]);
 
   const form = useForm<VendorUpdateInput>({
     resolver: zodResolver(vendorUpdateSchema) as any,
@@ -487,6 +509,7 @@ export function EditVendorDialog({
   const isTransporter = form.watch("isTransporter");
 
   function onSubmit(values: VendorUpdateInput) {
+    setSubmitErrors([]);
     startTransition(async () => {
       try {
         await updateVendor(values);
@@ -517,11 +540,20 @@ export function EditVendorDialog({
     });
   }
 
-  const onInvalid = (errors: Record<string, unknown>) =>
-    toast.error(firstFormError(errors) ?? "Please fix the highlighted fields.");
+  const onInvalid = (errors: Record<string, unknown>) => {
+    const issues = collectFormErrors(errors);
+    setSubmitErrors(issues);
+    toast.error(issues[0] ?? "Please fix the highlighted fields.");
+  };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setSubmitErrors([]);
+      }}
+    >
       <DialogTrigger asChild>
         <Button size="sm" variant="secondary">
           Edit
@@ -850,6 +882,17 @@ export function EditVendorDialog({
                 </FormItem>
               )}
             />
+
+            {submitErrors.length > 0 ? (
+              <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+                <div className="mb-1 font-semibold">Please fix these fields:</div>
+                <ul className="list-disc space-y-1 pl-4">
+                  {submitErrors.map((issue) => (
+                    <li key={issue}>{issue}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant="destructive" disabled={pending || deletePending} onClick={onDelete}>
