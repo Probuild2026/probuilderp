@@ -33,6 +33,12 @@ export default async function VendorsPage({
         phone: string | null;
         email: string | null;
         address: string | null;
+        beneficiaryName: string | null;
+        bankName: string | null;
+        bankBranch: string | null;
+        bankAccountNumber: string | null;
+        ifscCode: string | null;
+        upiId: string | null;
         isSubcontractor: boolean;
         legalType: "INDIVIDUAL" | "HUF" | "FIRM" | "COMPANY" | "OTHER";
         active: boolean;
@@ -69,6 +75,12 @@ export default async function VendorsPage({
         phone: true,
         email: true,
         address: true,
+        beneficiaryName: true,
+        bankName: true,
+        bankBranch: true,
+        bankAccountNumber: true,
+        ifscCode: true,
+        upiId: true,
         isSubcontractor: true,
         legalType: true,
         active: true,

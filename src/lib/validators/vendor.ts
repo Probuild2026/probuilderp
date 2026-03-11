@@ -12,6 +12,14 @@ const optionalEmail = optionalTrimmed.refine((v) => !v || z.string().email().saf
   message: "Invalid email",
 });
 
+const optionalIfsc = optionalTrimmed.refine((v) => !v || /^[A-Za-z]{4}0[A-Za-z0-9]{6}$/.test(v), {
+  message: "Invalid IFSC code",
+});
+
+const optionalUpi = optionalTrimmed.refine((v) => !v || /^[A-Za-z0-9._-]{2,}@[A-Za-z]{2,}$/.test(v), {
+  message: "Invalid UPI ID",
+});
+
 const optionalNumber = (schema: z.ZodNumber) =>
   z.union([z.coerce.number(), z.literal("")]).transform((v) => (v === "" ? undefined : v)).pipe(schema.optional());
 
@@ -26,6 +34,12 @@ export const vendorCreateSchema = z.object({
   phone: optionalTrimmed,
   email: optionalEmail,
   address: optionalTrimmed,
+  beneficiaryName: optionalTrimmed,
+  bankName: optionalTrimmed,
+  bankBranch: optionalTrimmed,
+  bankAccountNumber: optionalTrimmed,
+  ifscCode: optionalIfsc,
+  upiId: optionalUpi,
   isSubcontractor: z.boolean().default(false),
   legalType: z.enum(["INDIVIDUAL", "HUF", "FIRM", "COMPANY", "OTHER"]).default("OTHER"),
   active: z.boolean().default(true),

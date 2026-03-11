@@ -384,6 +384,12 @@ model Vendor {
   phone           String?
   email           String?
   address         String?
+  beneficiaryName   String?
+  bankName          String?
+  bankBranch        String?
+  bankAccountNumber String?
+  ifscCode          String?
+  upiId             String?
   isSubcontractor Boolean         @default(false)
   active          Boolean         @default(true)
 

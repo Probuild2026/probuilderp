@@ -29,7 +29,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { vendorCreateSchema, vendorMergeSchema, vendorUpdateSchema, type VendorCreateInput, type VendorMergeInput, type VendorUpdateInput } from "@/lib/validators/vendor";
 
-import { createVendor, mergeVendors, updateVendor } from "./actions";
+import { createVendor, deleteVendor, mergeVendors, updateVendor } from "./actions";
 
 export function AddVendorDialog() {
   const [pending, startTransition] = useTransition();
@@ -46,6 +46,12 @@ export function AddVendorDialog() {
       phone: "",
       email: "",
       address: "",
+      beneficiaryName: "",
+      bankName: "",
+      bankBranch: "",
+      bankAccountNumber: "",
+      ifscCode: "",
+      upiId: "",
       isSubcontractor: false,
       legalType: "OTHER",
       active: true,
@@ -183,6 +189,90 @@ export function AddVendorDialog() {
                   </FormItem>
                 )}
               />
+            </div>
+
+            <div className="space-y-3 rounded-md border p-3">
+              <div className="text-sm font-medium">Payment details (optional)</div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="beneficiaryName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Beneficiary name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Name as per bank account" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="bankName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bank name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Bank name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="bankBranch"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Branch</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Branch (optional)" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="bankAccountNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Account number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Account number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="ifscCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>IFSC code</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. HDFC0001234" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="upiId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>UPI ID</FormLabel>
+                      <FormControl>
+                        <Input placeholder="name@bank" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -328,6 +418,12 @@ export function EditVendorDialog({
     phone: string | null;
     email: string | null;
     address: string | null;
+    beneficiaryName: string | null;
+    bankName: string | null;
+    bankBranch: string | null;
+    bankAccountNumber: string | null;
+    ifscCode: string | null;
+    upiId: string | null;
     isSubcontractor: boolean;
     legalType: "INDIVIDUAL" | "HUF" | "FIRM" | "COMPANY" | "OTHER";
     active: boolean;
@@ -340,6 +436,7 @@ export function EditVendorDialog({
   };
 }) {
   const [pending, startTransition] = useTransition();
+  const [deletePending, startDeleteTransition] = useTransition();
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
@@ -354,6 +451,12 @@ export function EditVendorDialog({
       phone: vendor.phone ?? "",
       email: vendor.email ?? "",
       address: vendor.address ?? "",
+      beneficiaryName: vendor.beneficiaryName ?? "",
+      bankName: vendor.bankName ?? "",
+      bankBranch: vendor.bankBranch ?? "",
+      bankAccountNumber: vendor.bankAccountNumber ?? "",
+      ifscCode: vendor.ifscCode ?? "",
+      upiId: vendor.upiId ?? "",
       isSubcontractor: vendor.isSubcontractor ?? false,
       legalType: vendor.legalType ?? "OTHER",
       active: vendor.active ?? true,
@@ -378,6 +481,23 @@ export function EditVendorDialog({
         router.refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to update vendor.");
+        console.error(e);
+      }
+    });
+  }
+
+  function onDelete() {
+    if (!confirm("Delete this vendor? You can only delete vendors with no linked bills, payments, expenses, or transactions.")) {
+      return;
+    }
+    startDeleteTransition(async () => {
+      try {
+        await deleteVendor(vendor.id);
+        toast.success("Vendor deleted.");
+        setOpen(false);
+        router.refresh();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to delete vendor.");
         console.error(e);
       }
     });
@@ -494,6 +614,90 @@ export function EditVendorDialog({
                   </FormItem>
                 )}
               />
+            </div>
+
+            <div className="space-y-3 rounded-md border p-3">
+              <div className="text-sm font-medium">Payment details (optional)</div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="beneficiaryName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Beneficiary name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Name as per bank account" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="bankName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bank name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Bank name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="bankBranch"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Branch</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Branch (optional)" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="bankAccountNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Account number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Account number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="ifscCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>IFSC code</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. HDFC0001234" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="upiId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>UPI ID</FormLabel>
+                      <FormControl>
+                        <Input placeholder="name@bank" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -632,9 +836,14 @@ export function EditVendorDialog({
               )}
             />
 
-            <Button type="button" disabled={pending} onClick={form.handleSubmit(onSubmit, onInvalid)}>
-              {pending ? "Saving…" : "Save changes"}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="destructive" disabled={pending || deletePending} onClick={onDelete}>
+                {deletePending ? "Deleting…" : "Delete vendor"}
+              </Button>
+              <Button type="button" disabled={pending || deletePending} onClick={form.handleSubmit(onSubmit, onInvalid)}>
+                {pending ? "Saving…" : "Save changes"}
+              </Button>
+            </div>
           </form>
         </Form>
       </DialogContent>

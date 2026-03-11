@@ -19,6 +19,12 @@ export async function createVendor(input: unknown) {
   const phone = parsed.phone?.trim() ? parsed.phone.trim() : null;
   const email = parsed.email?.trim() ? parsed.email.trim() : null;
   const address = parsed.address?.trim() ? parsed.address.trim() : null;
+  const beneficiaryName = parsed.beneficiaryName?.trim() ? parsed.beneficiaryName.trim() : null;
+  const bankName = parsed.bankName?.trim() ? parsed.bankName.trim() : null;
+  const bankBranch = parsed.bankBranch?.trim() ? parsed.bankBranch.trim() : null;
+  const bankAccountNumber = parsed.bankAccountNumber?.trim() ? parsed.bankAccountNumber.trim() : null;
+  const ifscCode = parsed.ifscCode?.trim() ? parsed.ifscCode.trim().toUpperCase() : null;
+  const upiId = parsed.upiId?.trim() ? parsed.upiId.trim() : null;
 
   await prisma.vendor.create({
     data: {
@@ -30,6 +36,12 @@ export async function createVendor(input: unknown) {
       phone,
       email,
       address,
+      beneficiaryName,
+      bankName,
+      bankBranch,
+      bankAccountNumber,
+      ifscCode,
+      upiId,
       isSubcontractor: parsed.isSubcontractor,
       legalType: parsed.legalType,
       active: parsed.active,
@@ -56,6 +68,12 @@ export async function updateVendor(input: unknown) {
   const phone = parsed.phone?.trim() ? parsed.phone.trim() : null;
   const email = parsed.email?.trim() ? parsed.email.trim() : null;
   const address = parsed.address?.trim() ? parsed.address.trim() : null;
+  const beneficiaryName = parsed.beneficiaryName?.trim() ? parsed.beneficiaryName.trim() : null;
+  const bankName = parsed.bankName?.trim() ? parsed.bankName.trim() : null;
+  const bankBranch = parsed.bankBranch?.trim() ? parsed.bankBranch.trim() : null;
+  const bankAccountNumber = parsed.bankAccountNumber?.trim() ? parsed.bankAccountNumber.trim() : null;
+  const ifscCode = parsed.ifscCode?.trim() ? parsed.ifscCode.trim().toUpperCase() : null;
+  const upiId = parsed.upiId?.trim() ? parsed.upiId.trim() : null;
 
   const res = await prisma.vendor.updateMany({
     where: { id: parsed.id, tenantId: session.user.tenantId },
@@ -67,6 +85,12 @@ export async function updateVendor(input: unknown) {
       phone,
       email,
       address,
+      beneficiaryName,
+      bankName,
+      bankBranch,
+      bankAccountNumber,
+      ifscCode,
+      upiId,
       isSubcontractor: parsed.isSubcontractor,
       legalType: parsed.legalType,
       active: parsed.active,
@@ -81,6 +105,49 @@ export async function updateVendor(input: unknown) {
   if (res.count === 0) throw new Error("Vendor not found.");
 
   revalidatePath("/app/vendors");
+}
+
+export async function deleteVendor(id: string) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) throw new Error("Unauthorized");
+
+  const tenantId = session.user.tenantId;
+
+  const vendor = await prisma.vendor.findFirst({
+    where: { id, tenantId },
+    select: { id: true },
+  });
+  if (!vendor) throw new Error("Vendor not found.");
+
+  const [expenseCount, billCount, paymentCount, transactionCount, voucherCount] = await prisma.$transaction([
+    prisma.expense.count({ where: { tenantId, vendorId: id } }),
+    prisma.purchaseInvoice.count({ where: { tenantId, vendorId: id } }),
+    prisma.vendorPayment.count({ where: { tenantId, vendorId: id } }),
+    prisma.transaction.count({ where: { tenantId, vendorId: id } }),
+    prisma.paymentVoucher.count({ where: { tenantId, vendorId: id } }),
+  ]);
+
+  const linkedParts = [
+    expenseCount ? `${expenseCount} expense${expenseCount === 1 ? "" : "s"}` : "",
+    billCount ? `${billCount} bill${billCount === 1 ? "" : "s"}` : "",
+    paymentCount ? `${paymentCount} payment${paymentCount === 1 ? "" : "s"}` : "",
+    transactionCount ? `${transactionCount} transaction${transactionCount === 1 ? "" : "s"}` : "",
+    voucherCount ? `${voucherCount} voucher${voucherCount === 1 ? "" : "s"}` : "",
+  ].filter(Boolean);
+
+  if (linkedParts.length > 0) {
+    throw new Error(`Cannot delete vendor with linked records (${linkedParts.join(", ")}). Merge vendors or remove linked records first.`);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.itemVendor.deleteMany({
+      where: { tenantId, vendorId: id },
+    });
+    await tx.vendor.delete({ where: { id } });
+  });
+
+  revalidatePath("/app/vendors");
+  revalidatePath("/app/items");
 }
 
 export async function mergeVendors(input: unknown) {
