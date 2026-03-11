@@ -21,10 +21,16 @@ const optionalUpi = optionalTrimmed.refine((v) => !v || /^[A-Za-z0-9._-]{2,}@[A-
 });
 
 const optionalNumber = (schema: z.ZodNumber) =>
-  z.union([z.coerce.number(), z.literal("")]).transform((v) => (v === "" ? undefined : v)).pipe(schema.optional());
+  z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? undefined : v),
+    z.coerce.number().pipe(schema).optional()
+  );
 
 const numberWithDefault = (schema: z.ZodNumber, defaultValue: number) =>
-  z.union([z.coerce.number(), z.literal("")]).transform((v) => (v === "" ? defaultValue : v)).pipe(schema);
+  z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? defaultValue : v),
+    z.coerce.number().pipe(schema)
+  );
 
 export const vendorCreateSchema = z.object({
   name: z.string().min(1),

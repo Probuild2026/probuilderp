@@ -31,6 +31,19 @@ import { vendorCreateSchema, vendorMergeSchema, vendorUpdateSchema, type VendorC
 
 import { createVendor, deleteVendor, mergeVendors, updateVendor } from "./actions";
 
+function firstFormError(errors: Record<string, unknown>, path = ""): string | null {
+  for (const [key, value] of Object.entries(errors ?? {})) {
+    const fieldPath = path ? `${path}.${key}` : key;
+    if (!value || typeof value !== "object") continue;
+    if ("message" in value && typeof value.message === "string" && value.message.length > 0) {
+      return `${fieldPath}: ${value.message}`;
+    }
+    const nested = firstFormError(value as Record<string, unknown>, fieldPath);
+    if (nested) return nested;
+  }
+  return null;
+}
+
 export function AddVendorDialog() {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -80,7 +93,8 @@ export function AddVendorDialog() {
     });
   }
 
-  const onInvalid = () => toast.error("Please fix the highlighted fields.");
+  const onInvalid = (errors: Record<string, unknown>) =>
+    toast.error(firstFormError(errors) ?? "Please fix the highlighted fields.");
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -503,7 +517,8 @@ export function EditVendorDialog({
     });
   }
 
-  const onInvalid = () => toast.error("Please fix the highlighted fields.");
+  const onInvalid = (errors: Record<string, unknown>) =>
+    toast.error(firstFormError(errors) ?? "Please fix the highlighted fields.");
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
