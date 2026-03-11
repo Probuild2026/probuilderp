@@ -72,29 +72,29 @@ export default async function ExpensesPage({
       />
 
       <div className="overflow-x-auto rounded-md border">
-        <Table>
+        <Table className="w-full table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead>Date</TableHead>
-            <TableHead>Project</TableHead>
-            <TableHead>Vendor/Labour</TableHead>
-            <TableHead>Type</TableHead>
+            <TableHead className="w-[90px]">Date</TableHead>
+            <TableHead className="w-[130px]">Project</TableHead>
+            <TableHead className="w-[150px]">Vendor/Labour</TableHead>
+            <TableHead className="w-[110px]">Type</TableHead>
             <TableHead>Narration</TableHead>
-            <TableHead className="text-right">Total</TableHead>
-            <TableHead>Paid via</TableHead>
-            <TableHead>Bills</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <TableHead className="w-[100px] text-right">Total</TableHead>
+            <TableHead className="w-[100px]">Paid via</TableHead>
+            <TableHead className="w-[50px]">Bills</TableHead>
+            <TableHead className="w-[70px] text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {expenses.map((e) => (
             <TableRow key={e.id}>
-              <TableCell>{e.date.toISOString().slice(0, 10)}</TableCell>
-              <TableCell>{e.project.name}</TableCell>
-              <TableCell>{e.vendor?.name ?? e.labourer?.name ?? "-"}</TableCell>
-              <TableCell>{e.expenseType}</TableCell>
-              <TableCell className="max-w-[320px] whitespace-normal break-words">{e.narration ?? "—"}</TableCell>
-              <TableCell className="text-right tabular-nums">{formatINR(Number(e.totalAmount))}</TableCell>
+              <TableCell className="align-top">{e.date.toISOString().slice(0, 10)}</TableCell>
+              <TableCell className="align-top truncate">{e.project.name}</TableCell>
+              <TableCell className="align-top truncate">{e.vendor?.name ?? e.labourer?.name ?? "-"}</TableCell>
+              <TableCell className="align-top">{e.expenseType}</TableCell>
+              <TableCell className="align-top whitespace-normal break-words">{e.narration ?? "—"}</TableCell>
+              <TableCell className="align-top text-right tabular-nums">{formatINR(Number(e.totalAmount))}</TableCell>
               <TableCell>{e.paymentMode ?? "-"}</TableCell>
               <TableCell>{attachmentCountByExpense.get(e.id) ?? 0}</TableCell>
               <TableCell className="text-right">
