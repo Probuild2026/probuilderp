@@ -93,7 +93,7 @@ export default async function ExpensesPage({
               <TableCell>{e.project.name}</TableCell>
               <TableCell>{e.vendor?.name ?? e.labourer?.name ?? "-"}</TableCell>
               <TableCell>{e.expenseType}</TableCell>
-              <TableCell className="max-w-[320px] truncate">{e.narration ?? "—"}</TableCell>
+              <TableCell className="max-w-[320px] whitespace-normal break-words">{e.narration ?? "—"}</TableCell>
               <TableCell className="text-right tabular-nums">{formatINR(Number(e.totalAmount))}</TableCell>
               <TableCell>{e.paymentMode ?? "-"}</TableCell>
               <TableCell>{attachmentCountByExpense.get(e.id) ?? 0}</TableCell>
