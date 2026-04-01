@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 
+import { ExportLinks } from "@/components/app/export-links";
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { buildInclusiveDateRange, parseDateRangeParams } from "@/lib/date-range";
 import { formatINR } from "@/lib/money";
 import { getSelectedProjectId } from "@/lib/project-filter";
 import { authOptions } from "@/server/auth";
@@ -12,16 +15,24 @@ import { prisma } from "@/server/db";
 
 import { deleteReceipt } from "./actions";
 
-export default async function ReceiptsPage() {
+export default async function ReceiptsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
 
+  const sp = (await searchParams) ?? {};
+  const { from, to } = parseDateRangeParams(sp);
+  const dateRange = buildInclusiveDateRange(from, to);
   const projectId = await getSelectedProjectId();
 
   const receipts = await prisma.receipt.findMany({
     where: {
       tenantId: session.user.tenantId,
       ...(projectId ? { clientInvoice: { projectId } } : {}),
+      ...(dateRange ? { date: dateRange } : {}),
     },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     take: 200,
@@ -49,11 +60,25 @@ export default async function ReceiptsPage() {
         description="Payments received against invoices (including TDS)."
         action={{ label: "New receipt", href: "/app/sales/receipts/new" }}
         actions={
-          <Button asChild variant="outline">
-            <Link href="/app/sales/invoices">Go to invoices</Link>
-          </Button>
+          <>
+            <ExportLinks hrefBase="/api/exports/receipts" params={{ from, to }} />
+            <Button asChild variant="outline">
+              <Link href="/app/sales/invoices">Go to invoices</Link>
+            </Button>
+          </>
         }
       />
+
+      <form className="grid gap-2 rounded-md border p-3 md:grid-cols-[auto_auto_auto]" method="get">
+        <Input name="from" type="date" defaultValue={from} />
+        <Input name="to" type="date" defaultValue={to} />
+        <div className="flex gap-2">
+          <Button type="submit">Apply</Button>
+          <Button asChild variant="outline">
+            <Link href="/app/sales/receipts">Reset</Link>
+          </Button>
+        </div>
+      </form>
 
       <Card>
         <CardContent className="p-0">

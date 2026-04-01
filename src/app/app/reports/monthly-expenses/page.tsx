@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 
+import { ExportLinks } from "@/components/app/export-links";
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,12 +34,15 @@ export default async function MonthlyExpensesReportPage({
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 md:p-6">
       <PageHeader
-        title="Monthly Expense CSV"
-        description="Auditor-friendly export for a selected month."
+        title="Monthly Outflow Export"
+        description="Auditor-friendly monthly outflow register across bills, expenses, wages, and payments made."
         actions={
-          <Button asChild variant="outline">
-            <Link href="/app">Back</Link>
-          </Button>
+          <>
+            <ExportLinks hrefBase="/api/reports/expenses-csv" params={{ month }} />
+            <Button asChild variant="outline">
+              <Link href="/app">Back</Link>
+            </Button>
+          </>
         }
         filters={
           <div className="text-sm text-muted-foreground">
@@ -53,13 +57,10 @@ export default async function MonthlyExpensesReportPage({
           <Input type="month" name="month" defaultValue={month} />
         </label>
         <Button type="submit">Update</Button>
-        <Button asChild variant="secondary">
-          <a href={`/api/reports/expenses-csv?month=${encodeURIComponent(month)}`}>Download CSV</a>
-        </Button>
       </form>
 
       <div className="rounded-md border p-4 text-sm text-muted-foreground">
-        Includes: project, vendor/labour, GST split, payment mode, narration, bill count.
+        Includes: row type, project, party, tax split, totals, cash/TDS/gross, payment mode, reference, narration, and linked counts across bills, expenses, wages, and payments made.
       </div>
     </div>
   );

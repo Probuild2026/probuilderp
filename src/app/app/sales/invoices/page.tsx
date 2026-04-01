@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 
+import { ExportLinks } from "@/components/app/export-links";
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { buildInclusiveDateRange, parseDateRangeParams } from "@/lib/date-range";
 import { formatINR } from "@/lib/money";
 import { getSelectedProjectId } from "@/lib/project-filter";
 import { authOptions } from "@/server/auth";
@@ -16,16 +19,24 @@ function statusFromSettled(total: number, settled: number) {
   return "DUE";
 }
 
-export default async function InvoicesPage() {
+export default async function InvoicesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
 
+  const sp = (await searchParams) ?? {};
+  const { from, to } = parseDateRangeParams(sp);
+  const dateRange = buildInclusiveDateRange(from, to);
   const projectId = await getSelectedProjectId();
 
   const invoices = await prisma.clientInvoice.findMany({
     where: {
       tenantId: session.user.tenantId,
       ...(projectId ? { projectId } : {}),
+      ...(dateRange ? { invoiceDate: dateRange } : {}),
     },
     orderBy: [{ invoiceDate: "desc" }, { createdAt: "desc" }],
     take: 200,
@@ -70,7 +81,19 @@ export default async function InvoicesPage() {
         title="Invoices"
         description="Create GST invoices and track receipts + TDS."
         action={{ label: "New invoice", href: "/app/sales/invoices/new" }}
+        actions={<ExportLinks hrefBase="/api/exports/invoices" params={{ from, to }} />}
       />
+
+      <form className="grid gap-2 rounded-md border p-3 md:grid-cols-[auto_auto_auto]" method="get">
+        <Input name="from" type="date" defaultValue={from} />
+        <Input name="to" type="date" defaultValue={to} />
+        <div className="flex gap-2">
+          <Button type="submit">Apply</Button>
+          <Button asChild variant="outline">
+            <Link href="/app/sales/invoices">Reset</Link>
+          </Button>
+        </div>
+      </form>
 
       <Card>
         <CardContent className="p-0">

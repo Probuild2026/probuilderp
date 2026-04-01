@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 
+import { ExportLinks } from "@/components/app/export-links";
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { buildInclusiveDateRange, getSingleSearchParam, parseDateRangeParams } from "@/lib/date-range";
 import { formatINR } from "@/lib/money";
 import { getSelectedProjectId } from "@/lib/project-filter";
 import { authOptions } from "@/server/auth";
@@ -19,13 +21,16 @@ export default async function ExpensesPage({
   if (!session?.user) return null;
 
   const sp = (await searchParams) ?? {};
-  const q = typeof sp.q === "string" ? sp.q : "";
+  const q = getSingleSearchParam(sp, "q");
+  const { from, to } = parseDateRangeParams(sp);
+  const dateRange = buildInclusiveDateRange(from, to);
   const projectId = await getSelectedProjectId();
 
   const expenses = await prisma.expense.findMany({
     where: {
       tenantId: session.user.tenantId,
       ...(projectId ? { projectId } : {}),
+      ...(dateRange ? { date: dateRange } : {}),
       ...(q
         ? {
             OR: [
@@ -58,9 +63,12 @@ export default async function ExpensesPage({
         title="Expenses"
         description="Daily expenses, labour, overheads."
         action={{ label: "New Expense", href: "/app/expenses/new" }}
+        actions={<ExportLinks hrefBase="/api/exports/expenses" params={{ q, from, to }} />}
         filters={
           <form className="flex flex-wrap gap-3" action="/app/expenses" method="get">
             <Input name="q" placeholder="Search narration/vendor/project..." defaultValue={q} className="max-w-sm" />
+            <Input name="from" type="date" defaultValue={from} />
+            <Input name="to" type="date" defaultValue={to} />
             <button className="h-10 rounded-md bg-primary px-4 text-sm text-primary-foreground" type="submit">
               Apply
             </button>

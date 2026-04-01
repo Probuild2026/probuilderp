@@ -57,7 +57,7 @@ export const navGroups = [
     header: "Analysis",
     items: [
       { href: "/app/reports", label: "Reports", icon: BarChart3 },
-      { href: "/app/reports/monthly-expenses", label: "Monthly CSV", icon: Receipt },
+      { href: "/app/reports/monthly-expenses", label: "Monthly Outflows", icon: Receipt },
       { href: "/app/imports", label: "Import CSV", icon: Upload },
     ],
   },

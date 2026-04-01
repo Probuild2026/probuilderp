@@ -2,11 +2,13 @@ import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { Prisma } from "@prisma/client";
 
+import { ExportLinks } from "@/components/app/export-links";
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { buildInclusiveDateRange, getSingleSearchParam, parseDateRangeParams } from "@/lib/date-range";
 import { formatINR } from "@/lib/money";
 import { getSelectedProjectId } from "@/lib/project-filter";
 import { authOptions } from "@/server/auth";
@@ -21,12 +23,9 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
   if (!session?.user) return null;
 
   const sp = (await searchParams) ?? {};
-  const qRaw = Array.isArray(sp.q) ? sp.q[0] : sp.q;
-  const fromRaw = Array.isArray(sp.from) ? sp.from[0] : sp.from;
-  const toRaw = Array.isArray(sp.to) ? sp.to[0] : sp.to;
-  const q = qRaw?.trim() ?? "";
-  const from = fromRaw?.trim() ?? "";
-  const to = toRaw?.trim() ?? "";
+  const q = getSingleSearchParam(sp, "q");
+  const { from, to } = parseDateRangeParams(sp);
+  const dateRange = buildInclusiveDateRange(from, to);
 
   const projectId = await getSelectedProjectId();
   const where: Prisma.PurchaseInvoiceWhereInput = {
@@ -41,10 +40,7 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
     ];
   }
   if (from || to) {
-    where.invoiceDate = {
-      ...(from ? { gte: new Date(`${from}T00:00:00Z`) } : {}),
-      ...(to ? { lte: new Date(`${to}T23:59:59Z`) } : {}),
-    };
+    where.invoiceDate = dateRange;
   }
 
   const bills = await prisma.purchaseInvoice.findMany({
@@ -82,6 +78,7 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
         title="Bills"
         description="Vendor bills (purchase invoices). Payments are tracked separately."
         action={{ label: "New Bill", href: "/app/purchases/bills/new" }}
+        actions={<ExportLinks hrefBase="/api/exports/bills" params={{ q, from, to }} />}
       />
 
       <form className="grid gap-2 rounded-md border p-3 md:grid-cols-[1fr_auto_auto_auto]" method="get">

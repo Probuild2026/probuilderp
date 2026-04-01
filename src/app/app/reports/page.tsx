@@ -12,12 +12,12 @@ export default function ReportsHomePage() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Monthly CSV</CardTitle>
+            <CardTitle>Monthly Outflows</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
-            <div>Export monthly expenses with project and category filters.</div>
+            <div>Export the monthly outflow register across bills, expenses, wages, and payments made.</div>
             <Button asChild>
-              <Link href="/app/reports/monthly-expenses">Open Monthly CSV</Link>
+              <Link href="/app/reports/monthly-expenses">Open Monthly Export</Link>
             </Button>
           </CardContent>
         </Card>

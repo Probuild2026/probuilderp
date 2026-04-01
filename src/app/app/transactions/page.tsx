@@ -1,17 +1,29 @@
+import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { Prisma } from "@prisma/client";
 
+import { ExportLinks } from "@/components/app/export-links";
 import { PageHeader } from "@/components/app/page-header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { buildInclusiveDateRange, parseDateRangeParams } from "@/lib/date-range";
 import { formatINR } from "@/lib/money";
 import { getSelectedProjectId } from "@/lib/project-filter";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
-export default async function TransactionsPage() {
+export default async function TransactionsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
 
+  const sp = (await searchParams) ?? {};
+  const { from, to } = parseDateRangeParams(sp);
+  const dateRange = buildInclusiveDateRange(from, to);
   const projectId = await getSelectedProjectId();
 
   let txns:
@@ -19,7 +31,7 @@ export default async function TransactionsPage() {
         id: string;
         type: string;
         date: Date;
-        amount: any;
+        amount: Prisma.Decimal;
         project: { name: string } | null;
         category: { name: string } | null;
         fromAccount: { name: string; type: string } | null;
@@ -33,6 +45,7 @@ export default async function TransactionsPage() {
       where: {
         tenantId: session.user.tenantId,
         ...(projectId ? { projectId } : {}),
+        ...(dateRange ? { date: dateRange } : {}),
       },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       take: 200,
@@ -65,7 +78,19 @@ export default async function TransactionsPage() {
         title="Transactions"
         description="Quick income/expense/transfer entries (mobile-first)."
         action={{ label: "New", href: "/app/transactions/new" }}
+        actions={<ExportLinks hrefBase="/api/exports/transactions" params={{ from, to }} />}
       />
+
+      <form className="grid gap-2 rounded-md border p-3 md:grid-cols-[auto_auto_auto]" method="get">
+        <Input name="from" type="date" defaultValue={from} />
+        <Input name="to" type="date" defaultValue={to} />
+        <div className="flex gap-2">
+          <Button type="submit">Apply</Button>
+          <Button asChild variant="outline">
+            <Link href="/app/transactions">Reset</Link>
+          </Button>
+        </div>
+      </form>
 
       {txns === null ? (
         <div className="rounded-md border bg-muted/20 p-4 text-sm">

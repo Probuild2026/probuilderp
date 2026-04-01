@@ -2,11 +2,13 @@ import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { Prisma } from "@prisma/client";
 
+import { ExportLinks } from "@/components/app/export-links";
 import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { buildInclusiveDateRange, getSingleSearchParam, parseDateRangeParams } from "@/lib/date-range";
 import { formatINR } from "@/lib/money";
 import { getSelectedProjectId } from "@/lib/project-filter";
 import { authOptions } from "@/server/auth";
@@ -21,12 +23,9 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
   if (!session?.user) return null;
 
   const sp = (await searchParams) ?? {};
-  const qRaw = Array.isArray(sp.q) ? sp.q[0] : sp.q;
-  const fromRaw = Array.isArray(sp.from) ? sp.from[0] : sp.from;
-  const toRaw = Array.isArray(sp.to) ? sp.to[0] : sp.to;
-  const q = qRaw?.trim() ?? "";
-  const from = fromRaw?.trim() ?? "";
-  const to = toRaw?.trim() ?? "";
+  const q = getSingleSearchParam(sp, "q");
+  const { from, to } = parseDateRangeParams(sp);
+  const dateRange = buildInclusiveDateRange(from, to);
 
   const projectId = await getSelectedProjectId();
 
@@ -34,8 +33,8 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
     | Array<{
         id: string;
         date: Date;
-        amount: any;
-        tdsAmount: any;
+        amount: Prisma.Decimal;
+        tdsAmount: Prisma.Decimal;
         mode: string | null;
         reference: string | null;
         vendor: { id: string; name: string } | null;
@@ -60,12 +59,7 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
             }
           : {}),
         ...(from || to
-          ? {
-              date: {
-                ...(from ? { gte: new Date(`${from}T00:00:00Z`) } : {}),
-                ...(to ? { lte: new Date(`${to}T23:59:59Z`) } : {}),
-              },
-            }
+          ? { date: dateRange }
           : {}),
         ...(projectId ? { projectId } : {}),
       },
@@ -127,6 +121,7 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
         title="Payments Made"
         description="Vendor/Subcontractor payments. TDS (194C) is auto-calculated for this flow."
         action={{ label: "New Payment", href: "/app/purchases/payments-made/new" }}
+        actions={<ExportLinks hrefBase="/api/exports/payments-made" params={{ q, from, to }} />}
       />
 
       <form className="grid gap-2 rounded-md border p-3 md:grid-cols-[1fr_auto_auto_auto]" method="get">
