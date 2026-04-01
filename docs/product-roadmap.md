@@ -115,12 +115,14 @@ Started in this branch:
 
 - Receivables aging report
 - Payables aging report
+- Vendor ledger
+- Client ledger
 - Reports dashboard links for both
 
 Next immediate tickets after that:
 
-1. Vendor ledger
-2. Client ledger
-3. GST purchase register
-4. GST sales register
-5. TDS dashboard
+1. GST purchase register
+2. GST sales register
+3. TDS dashboard
+4. Approval statuses
+5. Audit trail

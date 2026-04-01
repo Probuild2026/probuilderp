@@ -48,10 +48,34 @@ export default function ReportsHomePage() {
 
         <Card>
           <CardHeader>
+            <CardTitle>Client Ledger</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <div>See invoice and receipt movement with opening balance, running receivable balance, and exports.</div>
+            <Button asChild>
+              <Link href="/app/reports/client-ledger">Open Client Ledger</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Vendor Ledger</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <div>See bill and payment movement with opening balance, running payable balance, and exports.</div>
+            <Button asChild>
+              <Link href="/app/reports/vendor-ledger">Open Vendor Ledger</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>Next in Phase 1</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <div>Vendor ledger, client ledger, GST registers, TDS dashboard, approvals, audit trail, and month lock.</div>
+            <div>GST purchase register, GST sales register, TDS dashboard, approvals, audit trail, and month lock.</div>
             <div className="rounded-md border bg-muted/20 p-2">Backlog is documented in `docs/product-roadmap.md`.</div>
           </CardContent>
         </Card>
