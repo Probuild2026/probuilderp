@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getSingleSearchParam } from "@/lib/date-range";
 import { createTabularExportResponse, type ExportFormat } from "@/lib/tabular-export";
 import { getSelectedProjectId } from "@/lib/project-filter";
+import { safeWriteAuditLog } from "@/server/audit";
 import { buildMonthlyOutflowDataset } from "@/server/exports/module-datasets";
 import { authOptions } from "@/server/auth";
 
@@ -29,6 +30,16 @@ export async function GET(request: Request) {
     tenantId: session.user.tenantId,
     projectId: await getSelectedProjectId(),
     month,
+  });
+
+  await safeWriteAuditLog({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    userEmail: session.user.email,
+    action: "EXPORT",
+    entityType: "MONTHLY_OUTFLOW",
+    summary: `Monthly outflow report exported as ${format}.`,
+    metadata: { month, format },
   });
 
   return createTabularExportResponse(dataset, format);

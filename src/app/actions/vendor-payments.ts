@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { calculateTDS194C, determineTDS194CRatePct } from "@/lib/tds";
 import { authOptions } from "@/server/auth";
+import { writeAuditLog } from "@/server/audit";
 import { prisma } from "@/server/db";
 
 import { type ActionError, type ActionResult, unknownError, zodToFieldErrors } from "./_result";
@@ -222,7 +223,7 @@ export async function createVendorPayment(input: unknown): Promise<
 
             const rounded = unrounded.map((a) => ({ ...a, tdsAmount: a.tdsAmount.toDecimalPlaces(2) }));
             const sum = rounded.reduce((acc, a) => acc.add(a.tdsAmount), new Prisma.Decimal(0));
-            let diff = totalTds.sub(sum);
+            const diff = totalTds.sub(sum);
             if (rounded.length > 0 && !diff.isZero()) {
               const last = rounded[rounded.length - 1]!;
               last.tdsAmount = last.tdsAmount.add(diff).toDecimalPlaces(2);
@@ -277,6 +278,25 @@ export async function createVendorPayment(input: unknown): Promise<
           })),
         });
       }
+
+      await writeAuditLog(tx, {
+        tenantId: session.user.tenantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        action: "CREATE",
+        entityType: "PAYMENT_MADE",
+        entityId: txn.id,
+        summary: "Vendor payment recorded.",
+        metadata: {
+          vendorId: parsed.data.vendorId,
+          projectId: txn.projectId,
+          grossAmount: Number(grossTotal),
+          cashPaid: Number(cashPaid),
+          tdsAmount: Number(totalTds),
+          mode: parsed.data.mode,
+          billCount: allocationRows.length,
+        },
+      });
 
       return {
         ok: true,
@@ -349,6 +369,22 @@ export async function updateVendorPaymentMeta(input: unknown): Promise<ActionRes
         where: { tenantId: session.user.tenantId, transactionId: parsed.data.id },
         data: { projectId },
       });
+
+      await writeAuditLog(tx, {
+        tenantId: session.user.tenantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        action: "UPDATE",
+        entityType: "PAYMENT_MADE",
+        entityId: parsed.data.id,
+        summary: "Vendor payment details updated.",
+        metadata: {
+          date: parsed.data.date,
+          mode: parsed.data.mode,
+          projectId,
+          reference: parsed.data.reference?.trim() || null,
+        },
+      });
     });
 
     revalidatePath("/app/purchases/payments-made");
@@ -369,9 +405,25 @@ export async function deleteVendorPayment(id: string): Promise<ActionResult<{ id
     await prisma.$transaction(async (tx) => {
       const txn = await tx.transaction.findFirst({
         where: { tenantId: session.user.tenantId, id, type: "EXPENSE", vendorId: { not: null } },
-        select: { id: true },
+        select: { id: true, vendorId: true, projectId: true, amount: true, tdsAmount: true },
       });
       if (!txn) throw new Error("Payment not found.");
+
+      await writeAuditLog(tx, {
+        tenantId: session.user.tenantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        action: "DELETE",
+        entityType: "PAYMENT_MADE",
+        entityId: txn.id,
+        summary: "Vendor payment deleted.",
+        metadata: {
+          vendorId: txn.vendorId,
+          projectId: txn.projectId,
+          cashPaid: Number(txn.amount),
+          tdsAmount: Number(txn.tdsAmount ?? 0),
+        },
+      });
 
       await tx.attachment.deleteMany({
         where: { tenantId: session.user.tenantId, entityType: "TRANSACTION", entityId: id },

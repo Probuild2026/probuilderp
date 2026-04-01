@@ -5,6 +5,7 @@ import { parseApprovalStatus } from "@/lib/approval-status";
 import { getSingleSearchParam, parseDateRangeParams } from "@/lib/date-range";
 import { createTabularExportResponse, type ExportFormat } from "@/lib/tabular-export";
 import { getSelectedProjectId } from "@/lib/project-filter";
+import { safeWriteAuditLog } from "@/server/audit";
 import { buildModuleDataset, type ExportModule } from "@/server/exports/module-datasets";
 import { authOptions } from "@/server/auth";
 
@@ -47,6 +48,23 @@ export async function GET(request: Request, { params }: { params: Promise<{ modu
     to,
     q,
     approval,
+  });
+
+  await safeWriteAuditLog({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    userEmail: session.user.email,
+    action: "EXPORT",
+    entityType: String(module).toUpperCase(),
+    summary: `${module} exported as ${format}.`,
+    metadata: {
+      module,
+      format,
+      from: from || null,
+      to: to || null,
+      q: q || null,
+      approval: approval || null,
+    },
   });
 
   return createTabularExportResponse(dataset, format);

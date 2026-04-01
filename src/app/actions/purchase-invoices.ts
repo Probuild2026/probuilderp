@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { computeGstComponents } from "@/server/domain/gst";
 import { authOptions } from "@/server/auth";
+import { safeWriteAuditLog } from "@/server/audit";
 import { prisma } from "@/server/db";
 
 import { type ActionResult, unknownError, zodToFieldErrors } from "./_result";
@@ -106,6 +107,21 @@ export async function createPurchaseInvoice(input: unknown): Promise<ActionResul
       },
       select: { id: true },
     });
+    await safeWriteAuditLog({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      userEmail: session.user.email,
+      action: "CREATE",
+      entityType: "BILL",
+      entityId: created.id,
+      summary: `Bill ${parsed.data.invoiceNumber.trim()} created.`,
+      metadata: {
+        invoiceNumber: parsed.data.invoiceNumber.trim(),
+        vendorId: parsed.data.vendorId,
+        projectId: parsed.data.projectId,
+        total: parsed.data.total,
+      },
+    });
     return { ok: true, data: created };
   } catch {
     return unknownError("Failed to create bill.");
@@ -150,6 +166,21 @@ export async function updatePurchaseInvoice(input: unknown): Promise<ActionResul
       },
     });
     if (res.count === 0) return { ok: false, error: { code: "NOT_FOUND", message: "Bill not found." } };
+    await safeWriteAuditLog({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      userEmail: session.user.email,
+      action: "UPDATE",
+      entityType: "BILL",
+      entityId: parsed.data.id,
+      summary: `Bill ${parsed.data.invoiceNumber.trim()} updated.`,
+      metadata: {
+        invoiceNumber: parsed.data.invoiceNumber.trim(),
+        vendorId: parsed.data.vendorId,
+        projectId: parsed.data.projectId,
+        total: parsed.data.total,
+      },
+    });
     return { ok: true, data: { id: parsed.data.id } };
   } catch {
     return unknownError("Failed to update bill.");
@@ -164,7 +195,7 @@ export async function deletePurchaseInvoice(id: string): Promise<ActionResult<{ 
     const res = await prisma.$transaction(async (tx) => {
       const invoice = await tx.purchaseInvoice.findFirst({
         where: { tenantId: session.user.tenantId, id },
-        select: { id: true },
+        select: { id: true, invoiceNumber: true },
       });
       if (!invoice) return { ok: false as const, code: "NOT_FOUND" as const };
 
@@ -179,7 +210,7 @@ export async function deletePurchaseInvoice(id: string): Promise<ActionResult<{ 
       await tx.purchaseInvoiceLine.deleteMany({ where: { tenantId: session.user.tenantId, purchaseInvoiceId: id } });
       const del = await tx.purchaseInvoice.deleteMany({ where: { tenantId: session.user.tenantId, id } });
       if (del.count === 0) return { ok: false as const, code: "NOT_FOUND" as const };
-      return { ok: true as const };
+      return { ok: true as const, invoiceNumber: invoice.invoiceNumber };
     });
 
     if (!res.ok) {
@@ -187,6 +218,19 @@ export async function deletePurchaseInvoice(id: string): Promise<ActionResult<{ 
       if (res.code === "HAS_PAYMENTS") {
         return { ok: false, error: { code: "VALIDATION", message: "Cannot delete this bill because payments are already applied. Remove the payment allocations first." } };
       }
+    }
+
+    if (res.ok) {
+      await safeWriteAuditLog({
+        tenantId: session.user.tenantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        action: "DELETE",
+        entityType: "BILL",
+        entityId: id,
+        summary: `Bill ${res.invoiceNumber} deleted.`,
+        metadata: { invoiceNumber: res.invoiceNumber },
+      });
     }
 
     return { ok: true, data: { id } };

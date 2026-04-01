@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth/next";
 
 import { expenseCreateSchema, expenseUpdateSchema } from "@/lib/validators/expense";
 import { authOptions } from "@/server/auth";
+import { safeWriteAuditLog } from "@/server/audit";
 import { prisma } from "@/server/db";
 import { saveUploadToDisk, tryDeleteStoredFile } from "@/server/storage";
 
@@ -87,6 +88,23 @@ export async function createExpense(formData: FormData) {
     });
   }
 
+  await safeWriteAuditLog({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    userEmail: session.user.email,
+    action: "CREATE",
+    entityType: "EXPENSE",
+    entityId: expense.id,
+    summary: "Expense created.",
+    metadata: {
+      projectId: expense.projectId,
+      vendorId: expense.vendorId,
+      labourerId: expense.labourerId,
+      totalAmount: Number(expense.totalAmount),
+      expenseType: expense.expenseType,
+    },
+  });
+
   revalidatePath("/app/expenses");
 }
 
@@ -163,6 +181,23 @@ export async function updateExpense(formData: FormData) {
     });
   }
 
+  await safeWriteAuditLog({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    userEmail: session.user.email,
+    action: "UPDATE",
+    entityType: "EXPENSE",
+    entityId: expense.id,
+    summary: "Expense updated.",
+    metadata: {
+      projectId: expense.projectId,
+      vendorId: expense.vendorId,
+      labourerId: expense.labourerId,
+      totalAmount: Number(expense.totalAmount),
+      expenseType: expense.expenseType,
+    },
+  });
+
   revalidatePath("/app/expenses");
   revalidatePath(`/app/expenses/${expense.id}`);
 }
@@ -170,6 +205,12 @@ export async function updateExpense(formData: FormData) {
 export async function deleteExpense(id: string) {
   const session = await getServerSession(authOptions);
   if (!session?.user) throw new Error("Unauthorized");
+
+  const expense = await prisma.expense.findFirst({
+    where: { id, tenantId: session.user.tenantId },
+    select: { id: true, projectId: true, vendorId: true, labourerId: true, totalAmount: true, expenseType: true },
+  });
+  if (!expense) throw new Error("Expense not found");
 
   const attachments = await prisma.attachment.findMany({
     where: { tenantId: session.user.tenantId, entityType: "EXPENSE", entityId: id },
@@ -184,6 +225,23 @@ export async function deleteExpense(id: string) {
   });
 
   await Promise.allSettled(attachments.map((a) => tryDeleteStoredFile(a.storagePath)));
+
+  await safeWriteAuditLog({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    userEmail: session.user.email,
+    action: "DELETE",
+    entityType: "EXPENSE",
+    entityId: expense.id,
+    summary: "Expense deleted.",
+    metadata: {
+      projectId: expense.projectId,
+      vendorId: expense.vendorId,
+      labourerId: expense.labourerId,
+      totalAmount: Number(expense.totalAmount),
+      expenseType: expense.expenseType,
+    },
+  });
 
   revalidatePath("/app/expenses");
 }

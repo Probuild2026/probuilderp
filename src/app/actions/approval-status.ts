@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { authOptions } from "@/server/auth";
+import { writeAuditLog } from "@/server/audit";
 import { prisma } from "@/server/db";
 
 import { type ActionResult } from "./_result";
@@ -63,6 +64,18 @@ export async function updateApprovalStatus(input: unknown): Promise<ActionResult
           where: { tenantId: session.user.tenantId, id: parsed.data.id },
           data: { approvalStatus: parsed.data.status },
         });
+        if (result.count > 0) {
+          await writeAuditLog(tx, {
+            tenantId: session.user.tenantId,
+            userId: session.user.id,
+            userEmail: session.user.email,
+            action: "STATUS_CHANGED",
+            entityType: "BILL",
+            entityId: parsed.data.id,
+            summary: `Bill review status changed to ${parsed.data.status}.`,
+            metadata: { status: parsed.data.status },
+          });
+        }
         return result.count > 0;
       }
 
@@ -71,6 +84,18 @@ export async function updateApprovalStatus(input: unknown): Promise<ActionResult
           where: { tenantId: session.user.tenantId, id: parsed.data.id },
           data: { approvalStatus: parsed.data.status },
         });
+        if (result.count > 0) {
+          await writeAuditLog(tx, {
+            tenantId: session.user.tenantId,
+            userId: session.user.id,
+            userEmail: session.user.email,
+            action: "STATUS_CHANGED",
+            entityType: "EXPENSE",
+            entityId: parsed.data.id,
+            summary: `Expense review status changed to ${parsed.data.status}.`,
+            metadata: { status: parsed.data.status },
+          });
+        }
         return result.count > 0;
       }
 
@@ -79,6 +104,18 @@ export async function updateApprovalStatus(input: unknown): Promise<ActionResult
           where: { tenantId: session.user.tenantId, id: parsed.data.id, type: "EXPENSE", vendorId: { not: null } },
           data: { approvalStatus: parsed.data.status },
         });
+        if (result.count > 0) {
+          await writeAuditLog(tx, {
+            tenantId: session.user.tenantId,
+            userId: session.user.id,
+            userEmail: session.user.email,
+            action: "STATUS_CHANGED",
+            entityType: "PAYMENT_MADE",
+            entityId: parsed.data.id,
+            summary: `Payment review status changed to ${parsed.data.status}.`,
+            metadata: { status: parsed.data.status },
+          });
+        }
         return result.count > 0;
       }
 
@@ -101,6 +138,17 @@ export async function updateApprovalStatus(input: unknown): Promise<ActionResult
           });
         }
 
+        await writeAuditLog(tx, {
+          tenantId: session.user.tenantId,
+          userId: session.user.id,
+          userEmail: session.user.email,
+          action: "STATUS_CHANGED",
+          entityType: "WAGE_SHEET",
+          entityId: parsed.data.id,
+          summary: `Wage sheet review status changed to ${parsed.data.status}.`,
+          metadata: { status: parsed.data.status },
+        });
+
         return true;
       }
 
@@ -121,6 +169,17 @@ export async function updateApprovalStatus(input: unknown): Promise<ActionResult
           data: { approvalStatus: parsed.data.status },
         });
       }
+
+      await writeAuditLog(tx, {
+        tenantId: session.user.tenantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        action: "STATUS_CHANGED",
+        entityType: "RECEIPT",
+        entityId: parsed.data.id,
+        summary: `Receipt review status changed to ${parsed.data.status}.`,
+        metadata: { status: parsed.data.status },
+      });
 
       return true;
     });

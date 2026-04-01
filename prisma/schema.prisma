@@ -222,6 +222,7 @@ model Tenant {
   partnerTdsPayments     PartnerTdsPayment[]
   vendorTdsPayments      VendorTdsPayment[]
   projectProfitAllocations ProjectProfitAllocation[]
+  auditLogs              AuditLog[]
 }
 
 model TenantProfile {
@@ -1137,6 +1138,25 @@ model VendorPayment {
   @@index([tenantId])
   @@index([tenantId, vendorId, date])
   @@index([tenantId, purchaseInvoiceId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   Int      @default(1)
+  userId     String?
+  userEmail  String?
+  action     String
+  entityType String
+  entityId   String?
+  summary    String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, action, createdAt])
+  @@index([tenantId, entityType, entityId, createdAt])
 }
 
 // --- Accounting ---

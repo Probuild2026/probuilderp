@@ -108,10 +108,22 @@ export default function ReportsHomePage() {
 
         <Card>
           <CardHeader>
+            <CardTitle>Audit Log</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <div>See who created, changed, deleted, exported, or reclassified finance records.</div>
+            <Button asChild>
+              <Link href="/app/reports/audit-log">Open Audit Log</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>Next in Phase 1</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <div>Approval statuses, audit trail, month lock, and mobile list redesign kickoff.</div>
+            <div>Month lock, close controls, and mobile-first list redesign are the next finance-control items.</div>
             <div className="rounded-md border bg-muted/20 p-2">Backlog is documented in `docs/product-roadmap.md`.</div>
           </CardContent>
         </Card>

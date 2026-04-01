@@ -7,6 +7,7 @@ import { getServerSession } from "next-auth/next";
 import { type ActionResult, unknownError, zodToFieldErrors } from "@/app/actions/_result";
 import { receiptCreateSchema, receiptUpdateSchema } from "@/lib/validators/receipt";
 import { authOptions } from "@/server/auth";
+import { writeAuditLog } from "@/server/audit";
 import { prisma } from "@/server/db";
 
 function parseDateOnly(value: string) {
@@ -77,7 +78,7 @@ export async function createReceipt(formData: FormData) {
     });
 
     // Receipt is a document/voucher; link it to the money transaction.
-    await tx.receipt.create({
+    const receipt = await tx.receipt.create({
       data: {
         tenantId: session.user.tenantId,
         clientInvoiceId: parsed.clientInvoiceId,
@@ -92,6 +93,7 @@ export async function createReceipt(formData: FormData) {
         tdsAmount: parsed.tdsDeducted ? tdsAmount : null,
         remarks: parsed.remarks?.trim() ? parsed.remarks.trim() : null,
       },
+      select: { id: true },
     });
 
     // Allocation settles the invoice (gross = cash received + TDS).
@@ -105,6 +107,23 @@ export async function createReceipt(formData: FormData) {
         cashAmount: parsed.amountReceived,
         tdsAmount,
         grossAmount: parsed.amountReceived + tdsAmount,
+      },
+    });
+
+    await writeAuditLog(tx, {
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      userEmail: session.user.email,
+      action: "CREATE",
+      entityType: "RECEIPT",
+      entityId: receipt.id,
+      summary: `Receipt created for invoice ${invoice.invoiceNumber}.`,
+      metadata: {
+        clientInvoiceId: parsed.clientInvoiceId,
+        projectId: invoice.projectId,
+        amountReceived: parsed.amountReceived,
+        tdsAmount,
+        mode: parsed.mode,
       },
     });
 
@@ -124,9 +143,24 @@ export async function deleteReceipt(id: string, clientInvoiceId: string) {
   await prisma.$transaction(async (tx) => {
     const receipt = await tx.receipt.findFirst({
       where: { id, tenantId: session.user.tenantId },
-      select: { id: true, transactionId: true, projectPaymentStageId: true },
+      select: { id: true, transactionId: true, projectPaymentStageId: true, amountReceived: true, tdsAmount: true, clientInvoiceId: true },
     });
     if (!receipt) return;
+
+    await writeAuditLog(tx, {
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      userEmail: session.user.email,
+      action: "DELETE",
+      entityType: "RECEIPT",
+      entityId: receipt.id,
+      summary: "Receipt deleted.",
+      metadata: {
+        clientInvoiceId: receipt.clientInvoiceId,
+        amountReceived: Number(receipt.amountReceived),
+        tdsAmount: Number(receipt.tdsAmount ?? 0),
+      },
+    });
 
     await tx.receipt.deleteMany({ where: { id, tenantId: session.user.tenantId } });
 
@@ -270,6 +304,23 @@ export async function updateReceipt(input: unknown): Promise<ActionResult<{ id: 
           },
         });
       }
+
+      await writeAuditLog(tx, {
+        tenantId: session.user.tenantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        action: "UPDATE",
+        entityType: "RECEIPT",
+        entityId: parsed.data.id,
+        summary: `Receipt updated for invoice ${invoice.invoiceNumber}.`,
+        metadata: {
+          clientInvoiceId: parsed.data.clientInvoiceId,
+          projectId: invoice.projectId,
+          amountReceived: cashAmount,
+          tdsAmount,
+          mode: parsed.data.mode,
+        },
+      });
 
       if (existing.projectPaymentStageId && existing.projectPaymentStageId !== parsed.data.projectPaymentStageId) {
         await recomputeStageCollections(tx, session.user.tenantId, existing.projectPaymentStageId);

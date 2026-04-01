@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getSingleSearchParam } from "@/lib/date-range";
 import { getSelectedProjectId } from "@/lib/project-filter";
 import { createTabularExportResponse, type ExportFormat } from "@/lib/tabular-export";
+import { safeWriteAuditLog } from "@/server/audit";
 import { authOptions } from "@/server/auth";
 import { buildAgingReport, type AgingKind } from "@/server/reports/aging";
 
@@ -34,6 +35,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ kind
     projectId: await getSelectedProjectId(),
     kind,
     asOf,
+  });
+
+  await safeWriteAuditLog({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    userEmail: session.user.email,
+    action: "EXPORT",
+    entityType: `AGING_${kind.toUpperCase()}`,
+    summary: `${kind} aging exported as ${format}.`,
+    metadata: { kind, asOf: asOf || null, format },
   });
 
   return createTabularExportResponse(report.dataset, format);

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { parseDateRangeParams, getSingleSearchParam } from "@/lib/date-range";
 import { getSelectedProjectId } from "@/lib/project-filter";
 import { createTabularExportResponse, type ExportFormat } from "@/lib/tabular-export";
+import { safeWriteAuditLog } from "@/server/audit";
 import { authOptions } from "@/server/auth";
 import { buildLedgerReport, type LedgerKind } from "@/server/reports/ledger";
 
@@ -35,6 +36,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ kind
     kind,
     from,
     to,
+  });
+
+  await safeWriteAuditLog({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    userEmail: session.user.email,
+    action: "EXPORT",
+    entityType: `LEDGER_${kind.toUpperCase()}`,
+    summary: `${kind} ledger exported as ${format}.`,
+    metadata: { kind, from: from || null, to: to || null, format },
   });
 
   return createTabularExportResponse(report.dataset, format);

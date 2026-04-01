@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 
 import { authOptions } from "@/server/auth";
+import { writeAuditLog } from "@/server/audit";
 import { prisma } from "@/server/db";
 
 import { type ActionResult, unknownError, zodToFieldErrors } from "./_result";
@@ -115,6 +116,22 @@ export async function createLabourSheet(input: unknown): Promise<ActionResult<{ 
         select: { id: true },
       });
 
+      await writeAuditLog(tx, {
+        tenantId: session.user.tenantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        action: "CREATE",
+        entityType: "WAGE_SHEET",
+        entityId: sheet.id,
+        summary: "Wage sheet created.",
+        metadata: {
+          projectId: parsed.data.projectId,
+          total,
+          mode: parsed.data.mode,
+          lineCount: parsed.data.lines.length,
+        },
+      });
+
       return sheet;
     });
 
@@ -222,6 +239,22 @@ export async function updateLabourSheet(input: unknown): Promise<ActionResult<{ 
         })),
       });
 
+      await writeAuditLog(tx, {
+        tenantId: session.user.tenantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        action: "UPDATE",
+        entityType: "WAGE_SHEET",
+        entityId: parsed.data.id,
+        summary: "Wage sheet updated.",
+        metadata: {
+          projectId: parsed.data.projectId,
+          total,
+          mode: parsed.data.mode,
+          lineCount: parsed.data.lines.length,
+        },
+      });
+
       return { ok: true as const };
     });
 
@@ -245,9 +278,23 @@ export async function deleteLabourSheet(id: string): Promise<ActionResult<{ id: 
     await prisma.$transaction(async (tx) => {
       const sheet = await tx.labourSheet.findFirst({
         where: { tenantId: session.user.tenantId, id },
-        select: { id: true, transactionId: true },
+        select: { id: true, transactionId: true, projectId: true, total: true },
       });
       if (!sheet) return;
+
+      await writeAuditLog(tx, {
+        tenantId: session.user.tenantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        action: "DELETE",
+        entityType: "WAGE_SHEET",
+        entityId: sheet.id,
+        summary: "Wage sheet deleted.",
+        metadata: {
+          projectId: sheet.projectId,
+          total: Number(sheet.total),
+        },
+      });
 
       await tx.labourSheetLine.deleteMany({ where: { tenantId: session.user.tenantId, labourSheetId: id } });
       await tx.labourSheet.deleteMany({ where: { tenantId: session.user.tenantId, id } });
