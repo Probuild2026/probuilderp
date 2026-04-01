@@ -117,12 +117,14 @@ Started in this branch:
 - Payables aging report
 - Vendor ledger
 - Client ledger
+- GST purchase register
+- GST sales register
 - Reports dashboard links for both
 
 Next immediate tickets after that:
 
-1. GST purchase register
-2. GST sales register
-3. TDS dashboard
-4. Approval statuses
-5. Audit trail
+1. TDS dashboard
+2. Approval statuses
+3. Audit trail
+4. Month lock / period lock
+5. Mobile list redesign kickoff

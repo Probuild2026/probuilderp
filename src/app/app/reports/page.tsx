@@ -72,10 +72,34 @@ export default function ReportsHomePage() {
 
         <Card>
           <CardHeader>
+            <CardTitle>GST Purchase Register</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <div>Combine purchase bills and direct expenses into an export-ready GST input register.</div>
+            <Button asChild>
+              <Link href="/app/reports/gst-purchase-register">Open Purchase Register</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>GST Sales Register</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <div>Track invoice-date GST output rows with receipt linkage against each invoice.</div>
+            <Button asChild>
+              <Link href="/app/reports/gst-sales-register">Open Sales Register</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>Next in Phase 1</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <div>GST purchase register, GST sales register, TDS dashboard, approvals, audit trail, and month lock.</div>
+            <div>TDS dashboard, approvals, audit trail, and month lock.</div>
             <div className="rounded-md border bg-muted/20 p-2">Backlog is documented in `docs/product-roadmap.md`.</div>
           </CardContent>
         </Card>
