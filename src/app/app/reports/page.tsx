@@ -96,10 +96,22 @@ export default function ReportsHomePage() {
 
         <Card>
           <CardHeader>
+            <CardTitle>TDS Dashboard</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <div>Review FY-wide TDS deducted, paid, and pending across Section 194C and Section 194T.</div>
+            <Button asChild>
+              <Link href="/app/reports/tds-dashboard">Open TDS Dashboard</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>Next in Phase 1</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <div>TDS dashboard, approvals, audit trail, and month lock.</div>
+            <div>Approval statuses, audit trail, month lock, and mobile list redesign kickoff.</div>
             <div className="rounded-md border bg-muted/20 p-2">Backlog is documented in `docs/product-roadmap.md`.</div>
           </CardContent>
         </Card>

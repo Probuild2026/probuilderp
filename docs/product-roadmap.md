@@ -119,12 +119,13 @@ Started in this branch:
 - Client ledger
 - GST purchase register
 - GST sales register
+- TDS dashboard
 - Reports dashboard links for both
 
 Next immediate tickets after that:
 
-1. TDS dashboard
-2. Approval statuses
-3. Audit trail
-4. Month lock / period lock
-5. Mobile list redesign kickoff
+1. Approval statuses
+2. Audit trail
+3. Month lock / period lock
+4. Mobile list redesign kickoff
+5. Data quality exception dashboard
