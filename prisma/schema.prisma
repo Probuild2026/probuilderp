@@ -213,6 +213,7 @@ model Tenant {
   partnerRemunerations   PartnerRemuneration[]
   partnerDrawings        PartnerDrawing[]
   partnerTdsPayments     PartnerTdsPayment[]
+  vendorTdsPayments      VendorTdsPayment[]
   projectProfitAllocations ProjectProfitAllocation[]
 }
 
@@ -413,6 +414,7 @@ model Vendor {
   expenses         Expense[]
   purchaseInvoices PurchaseInvoice[]
   vendorPayments   VendorPayment[]
+  tdsPayments      VendorTdsPayment[]
   transactions     Transaction[]
 
   createdAt DateTime @default(now())
@@ -565,6 +567,30 @@ model PartnerTdsPayment {
 
   @@index([tenantId])
   @@index([tenantId, partnerId, paymentDate])
+  @@index([tenantId, fy])
+}
+
+model VendorTdsPayment {
+  id            String   @id @default(cuid())
+  tenantId      Int      @default(1)
+  vendorId      String
+  fy            String
+  section       String   @default("194C")
+  challanNo     String?
+  periodFrom    DateTime? @db.Date
+  periodTo      DateTime? @db.Date
+  tdsPaidAmount Decimal  @db.Decimal(14, 2)
+  paymentDate   DateTime @db.Date
+  note          String?
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, vendorId, paymentDate])
   @@index([tenantId, fy])
 }
 

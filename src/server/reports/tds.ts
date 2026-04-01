@@ -32,6 +32,18 @@ export type TdsPartnerRow = {
   note: string;
 };
 
+export type VendorTdsPaymentRecord = {
+  id: string;
+  vendorId: string;
+  vendorName: string;
+  challanNo: string;
+  periodFrom: string;
+  periodTo: string;
+  paymentDate: string;
+  tdsPaidAmount: number;
+  note: string;
+};
+
 export type TdsDashboardReport = {
   fy: string;
   title: string;
@@ -42,8 +54,13 @@ export type TdsDashboardReport = {
   sections: TdsSectionSummary[];
   vendorRows: TdsVendorRow[];
   partnerRows: TdsPartnerRow[];
+  vendorTdsPayments: VendorTdsPaymentRecord[];
   dataset: TabularDataset;
 };
+
+function dateOnly(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
 
 function round2(value: number) {
   return Number(value.toFixed(2));
@@ -73,7 +90,7 @@ export async function buildTdsDashboardReport({
   const fyValue = normalizeFy(fy);
   const { start, end } = financialYearBounds(fyValue);
 
-  const [vendorPayments, partnerRemunerations, partnerTdsPayments] = await Promise.all([
+  const [vendorPayments, vendorTdsPayments, partnerRemunerations, partnerTdsPayments] = await Promise.all([
     prisma.transaction.findMany({
       where: {
         tenantId,
@@ -87,6 +104,21 @@ export async function buildTdsDashboardReport({
         amount: true,
         tdsAmount: true,
         tdsBaseAmount: true,
+        vendor: { select: { name: true } },
+      },
+    }),
+    prisma.vendorTdsPayment.findMany({
+      where: { tenantId, fy: fyValue },
+      orderBy: [{ paymentDate: "asc" }, { createdAt: "asc" }],
+      select: {
+        id: true,
+        vendorId: true,
+        challanNo: true,
+        periodFrom: true,
+        periodTo: true,
+        paymentDate: true,
+        tdsPaidAmount: true,
+        note: true,
         vendor: { select: { name: true } },
       },
     }),
@@ -133,13 +165,57 @@ export async function buildTdsDashboardReport({
     vendors.set(vendorId, row);
   }
 
-  const vendorRows = [...vendors.values()]
-    .map((row) => ({
-      ...row,
+  const vendorPaidById = new Map<string, number>();
+  const vendorTdsPaymentRecords = vendorTdsPayments.map((payment) => ({
+    id: payment.id,
+    vendorId: payment.vendorId,
+    vendorName: payment.vendor.name,
+    challanNo: payment.challanNo ?? "",
+    periodFrom: payment.periodFrom ? dateOnly(payment.periodFrom) : "",
+    periodTo: payment.periodTo ? dateOnly(payment.periodTo) : "",
+    paymentDate: dateOnly(payment.paymentDate),
+    tdsPaidAmount: round2(Number(payment.tdsPaidAmount)),
+    note: payment.note ?? "",
+  }));
+
+  for (const payment of vendorTdsPayments) {
+    vendorPaidById.set(
+      payment.vendorId,
+      round2((vendorPaidById.get(payment.vendorId) ?? 0) + Number(payment.tdsPaidAmount)),
+    );
+
+    if (vendors.has(payment.vendorId)) continue;
+    vendors.set(payment.vendorId, {
+      vendorId: payment.vendorId,
+      vendorName: payment.vendor.name,
+      grossPaid: 0,
+      taxableBase: 0,
+      tdsDeducted: 0,
       tdsPaid: 0,
-      tdsPending: round2(row.tdsDeducted),
-      note: row.tdsDeducted > 0 ? "194C payment tracking is not stored yet; paid is shown as 0." : "",
-    }))
+      tdsPending: 0,
+      note: "",
+    });
+  }
+
+  const vendorRows = [...vendors.values()]
+    .map((row) => {
+      const tdsPaid = vendorPaidById.get(row.vendorId) ?? 0;
+      const tdsPending = Math.max(0, round2(row.tdsDeducted - tdsPaid));
+
+      let note = "No TDS deducted.";
+      if (row.tdsDeducted <= 0 && tdsPaid > 0) note = "TDS payment recorded without deducted vendor payments in this FY.";
+      else if (tdsPaid > row.tdsDeducted && row.tdsDeducted > 0) note = "Recorded TDS payment exceeds deducted amount for this FY.";
+      else if (row.tdsDeducted > 0 && tdsPaid <= 0) note = "TDS deducted but not remitted yet.";
+      else if (row.tdsDeducted > 0 && tdsPending > 0) note = "TDS deducted and partly remitted.";
+      else if (row.tdsDeducted > 0) note = "TDS deducted and remitted.";
+
+      return {
+        ...row,
+        tdsPaid,
+        tdsPending,
+        note,
+      };
+    })
     .sort((left, right) => left.vendorName.localeCompare(right.vendorName));
 
   const partnerPaidById = new Map<string, number>();
@@ -200,7 +276,7 @@ export async function buildTdsDashboardReport({
   const section194C: TdsSectionSummary = {
     section: "194C",
     deducted: round2(vendorRows.reduce((acc, row) => acc + row.tdsDeducted, 0)),
-    paid: 0,
+    paid: round2(vendorRows.reduce((acc, row) => acc + row.tdsPaid, 0)),
     pending: round2(vendorRows.reduce((acc, row) => acc + row.tdsPending, 0)),
   };
 
@@ -219,19 +295,20 @@ export async function buildTdsDashboardReport({
   return {
     fy: fyValue,
     title: "TDS Dashboard",
-    note: "This is a tenant-level FY view. Section 194C deducted amounts come from vendor payment transactions. Section 194T paid amounts come from partner TDS payment records. 194C challan/remittance tracking is not modeled yet, so 194C paid remains 0 until that workflow is added.",
+    note: "This is a tenant-level FY view. Use Section 194C rows for vendor/subcontractor TDS and Section 194T rows for partner remuneration TDS. Record each 194C challan/remittance against the relevant vendor so paid and pending numbers stay accurate.",
     totalDeducted,
     totalPaid,
     totalPending,
     sections,
     vendorRows,
     partnerRows,
+    vendorTdsPayments: vendorTdsPaymentRecords,
     dataset: {
       title: "TDS Dashboard",
       filenameBase: `tds-dashboard-${fyValue}`,
       metaLines: [
         `Financial year: ${fyValue}`,
-        "194C paid is shown as 0 because remittance tracking is not yet stored in the data model.",
+        "194C paid amounts come from recorded vendor TDS remittance rows.",
       ],
       columns: [
         { key: "section", label: "Section", width: 10 },

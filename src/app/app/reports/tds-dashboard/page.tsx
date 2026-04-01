@@ -16,5 +16,11 @@ export default async function TdsDashboardPage({
   const fy = typeof sp.fy === "string" ? sp.fy : "";
   const report = await buildTdsDashboardReport({ tenantId: session.user.tenantId, fy });
 
-  return <TdsDashboardView report={report} hrefBase="/api/reports/tds-dashboard" resetHref="/app/reports/tds-dashboard" />;
+  return (
+    <TdsDashboardView
+      report={report}
+      hrefBase="/api/reports/tds-dashboard"
+      resetHref="/app/reports/tds-dashboard"
+    />
+  );
 }

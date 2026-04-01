@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatINR } from "@/lib/money";
 import { type TdsDashboardReport } from "@/server/reports/tds";
+import { VendorTdsPaymentCard } from "@/app/app/reports/tds-dashboard/vendor-tds-payment-card";
 
 export function TdsDashboardView({
   report,
@@ -96,6 +97,26 @@ export function TdsDashboardView({
         ))}
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-[1.2fr_1.8fr]">
+        <VendorTdsPaymentCard
+          key={`${report.fy}:${report.vendorRows.map((row) => row.vendorId).join(",")}`}
+          fy={report.fy}
+          vendors={report.vendorRows.map((row) => ({ id: row.vendorId, name: row.vendorName, pending: row.tdsPending }))}
+        />
+
+        <Card>
+          <CardHeader>
+            <CardTitle>How to Use This Screen</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <div>1. Record vendor payments first. If TDS was deducted, it will appear in Section 194C as deducted.</div>
+            <div>2. When the actual TDS challan is paid, use `Record 194C Remittance` to mark it as paid.</div>
+            <div>3. Use pending amounts as the amount still due to be deposited, not the vendor payable amount.</div>
+            <div>4. Section 194T is driven by partner remuneration entries and partner TDS payment records.</div>
+          </CardContent>
+        </Card>
+      </div>
+
       {report.note ? <div className="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">{report.note}</div> : null}
 
       <Card>
@@ -174,6 +195,48 @@ export function TdsDashboardView({
                       <TableCell className="text-right tabular-nums">{formatINR(row.tdsDeducted)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(row.tdsPaid)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(row.tdsPending)}</TableCell>
+                      <TableCell className="max-w-[320px] truncate">{row.note || "-"}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Recorded 194C Remittances</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Vendor</TableHead>
+                  <TableHead>Challan</TableHead>
+                  <TableHead>Period</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Note</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {report.vendorTdsPayments.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                      No 194C remittances recorded for this FY.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  report.vendorTdsPayments.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell className="font-medium">{row.vendorName}</TableCell>
+                      <TableCell>{row.challanNo || "-"}</TableCell>
+                      <TableCell>{row.periodFrom || row.periodTo ? `${row.periodFrom || "Start"} to ${row.periodTo || "End"}` : "-"}</TableCell>
+                      <TableCell>{row.paymentDate}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(row.tdsPaidAmount)}</TableCell>
                       <TableCell className="max-w-[320px] truncate">{row.note || "-"}</TableCell>
                     </TableRow>
                   ))
