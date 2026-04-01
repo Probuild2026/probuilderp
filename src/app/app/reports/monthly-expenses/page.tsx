@@ -60,7 +60,7 @@ export default async function MonthlyExpensesReportPage({
       </form>
 
       <div className="rounded-md border p-4 text-sm text-muted-foreground">
-        Includes: row type, project, party, tax split, totals, cash/TDS/gross, payment mode, reference, narration, and linked counts across bills, expenses, wages, and payments made.
+        Includes: row type, review status, project, party, tax split, totals, cash/TDS/gross, payment mode, reference, narration, and linked counts across bills, expenses, wages, and payments made.
       </div>
     </div>
   );

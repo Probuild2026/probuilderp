@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 
 import { deleteLabourSheet } from "@/app/actions/wages";
+import { ApprovalStatusControl } from "@/components/app/approval-status-control";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatINR } from "@/lib/money";
@@ -95,6 +96,15 @@ export default async function WagesDetailPage({ params }: { params: Promise<{ id
         </Card>
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Review Status</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ApprovalStatusControl target="wage" id={sheet.id} status={sheet.approvalStatus} showHelp />
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -147,4 +157,3 @@ export default async function WagesDetailPage({ params }: { params: Promise<{ id
     </div>
   );
 }
-

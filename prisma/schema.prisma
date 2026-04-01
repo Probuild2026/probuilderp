@@ -21,6 +21,13 @@ enum ProjectStatus {
   CANCELLED
 }
 
+enum ApprovalStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  CANCELLED
+}
+
 enum ItemType {
   MATERIAL
   LABOUR
@@ -677,6 +684,7 @@ model Expense {
   paymentMode     PaymentMode?
   narration       String?
   expenseType     ExpenseType
+  approvalStatus  ApprovalStatus @default(APPROVED)
 
   project  Project   @relation(fields: [projectId], references: [id], onDelete: Restrict)
   vendor   Vendor?   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
@@ -692,6 +700,7 @@ model Expense {
   @@index([tenantId, vendorId, date])
   @@index([tenantId, labourerId, date])
   @@index([tenantId, expenseType])
+  @@index([tenantId, approvalStatus])
 }
 
 model Labourer {
@@ -864,6 +873,7 @@ model Transaction {
   reference     String?
   note          String?
   description   String?
+  approvalStatus ApprovalStatus @default(APPROVED)
 
   project     Project?                @relation(fields: [projectId], references: [id], onDelete: SetNull)
   client      Client?                 @relation(fields: [clientId], references: [id], onDelete: SetNull)
@@ -890,6 +900,7 @@ model Transaction {
   @@index([tenantId, toAccountId, date])
   @@index([tenantId, categoryId, date])
   @@index([tenantId, mode, date])
+  @@index([tenantId, approvalStatus])
 }
 
 model TransactionAllocation {
@@ -928,6 +939,7 @@ model LabourSheet {
   reference String?
   note      String?
   total     Decimal     @db.Decimal(14, 2)
+  approvalStatus ApprovalStatus @default(APPROVED)
 
   transactionId String?      @unique
   transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
@@ -942,6 +954,7 @@ model LabourSheet {
 
   @@index([tenantId])
   @@index([tenantId, projectId, date])
+  @@index([tenantId, approvalStatus])
 }
 
 model LabourSheetLine {
@@ -984,6 +997,7 @@ model PurchaseInvoice {
   tdsRate       Decimal? @db.Decimal(5, 2)
   tdsAmount     Decimal? @db.Decimal(14, 2)
   netPayable    Decimal? @db.Decimal(14, 2)
+  approvalStatus ApprovalStatus @default(APPROVED)
 
   vendor  Vendor  @relation(fields: [vendorId], references: [id], onDelete: Restrict)
   project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
@@ -1000,6 +1014,7 @@ model PurchaseInvoice {
   @@index([tenantId])
   @@index([tenantId, vendorId, invoiceDate])
   @@index([tenantId, projectId, invoiceDate])
+  @@index([tenantId, approvalStatus])
 }
 
 model PurchaseInvoiceLine {
@@ -1080,6 +1095,7 @@ model Receipt {
   tdsDeducted     Boolean     @default(false)
   tdsAmount       Decimal?    @db.Decimal(14, 2)
   remarks         String?
+  approvalStatus  ApprovalStatus @default(APPROVED)
 
   clientInvoice ClientInvoice @relation(fields: [clientInvoiceId], references: [id], onDelete: Cascade)
   transaction   Transaction?  @relation(fields: [transactionId], references: [id], onDelete: SetNull)
@@ -1094,6 +1110,7 @@ model Receipt {
   @@index([tenantId, clientInvoiceId, date])
   @@index([tenantId, transactionId])
   @@index([tenantId, projectPaymentStageId, date])
+  @@index([tenantId, approvalStatus])
 }
 
 model VendorPayment {

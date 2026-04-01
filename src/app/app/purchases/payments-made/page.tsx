@@ -2,11 +2,14 @@ import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { Prisma } from "@prisma/client";
 
+import { ApprovalStatusBadge } from "@/components/app/approval-status-badge";
+import { ApprovalStatusGuide } from "@/components/app/approval-status-guide";
 import { ExportLinks } from "@/components/app/export-links";
 import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { approvalStatusLabels, approvalStatusValues, parseApprovalStatus } from "@/lib/approval-status";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { buildInclusiveDateRange, getSingleSearchParam, parseDateRangeParams } from "@/lib/date-range";
 import { formatINR } from "@/lib/money";
@@ -24,6 +27,7 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
 
   const sp = (await searchParams) ?? {};
   const q = getSingleSearchParam(sp, "q");
+  const approval = parseApprovalStatus(getSingleSearchParam(sp, "approval"));
   const { from, to } = parseDateRangeParams(sp);
   const dateRange = buildInclusiveDateRange(from, to);
 
@@ -37,6 +41,7 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
         tdsAmount: Prisma.Decimal;
         mode: string | null;
         reference: string | null;
+        approvalStatus: "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "CANCELLED";
         vendor: { id: string; name: string } | null;
         project: { id: string; name: string } | null;
       }>
@@ -61,6 +66,7 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
         ...(from || to
           ? { date: dateRange }
           : {}),
+        ...(approval ? { approvalStatus: approval } : {}),
         ...(projectId ? { projectId } : {}),
       },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
@@ -72,6 +78,7 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
         tdsAmount: true,
         mode: true,
         reference: true,
+        approvalStatus: true,
         vendor: { select: { id: true, name: true } },
         project: { select: { id: true, name: true } },
       },
@@ -121,16 +128,28 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
         title="Payments Made"
         description="Vendor/Subcontractor payments. TDS (194C) is auto-calculated for this flow."
         action={{ label: "New Payment", href: "/app/purchases/payments-made/new" }}
-        actions={<ExportLinks hrefBase="/api/exports/payments-made" params={{ q, from, to }} />}
+        actions={<ExportLinks hrefBase="/api/exports/payments-made" params={{ q, from, to, approval }} />}
       />
 
-      <form className="grid gap-2 rounded-md border p-3 md:grid-cols-[1fr_auto_auto_auto]" method="get">
+      <form className="grid gap-2 rounded-md border p-3 md:grid-cols-[1fr_auto_auto_auto_auto]" method="get">
         <Input
           name="q"
           defaultValue={q}
           placeholder="Search vendor/reference…"
           className="md:max-w-xl"
         />
+        <select
+          name="approval"
+          defaultValue={approval ?? ""}
+          className="h-10 rounded-md border bg-background px-3 text-sm"
+        >
+          <option value="">All review statuses</option>
+          {approvalStatusValues.map((status) => (
+            <option key={status} value={status}>
+              {approvalStatusLabels[status]}
+            </option>
+          ))}
+        </select>
         <Input name="from" type="date" defaultValue={from} />
         <Input name="to" type="date" defaultValue={to} />
         <div className="flex gap-2">
@@ -140,6 +159,8 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
           </Button>
         </div>
       </form>
+
+      <ApprovalStatusGuide />
 
       {txns === null ? (
         <div className="rounded-md border bg-muted/20 p-4 text-sm">
@@ -176,6 +197,7 @@ DATABASE_URL='postgres://...your-vercel-db-url...' npx prisma db seed`}
                 <TableHead className="hidden md:table-cell text-right">Gross</TableHead>
                 <TableHead className="hidden md:table-cell">Mode</TableHead>
                 <TableHead className="hidden xl:table-cell">Reference</TableHead>
+                <TableHead className="hidden md:table-cell">Review</TableHead>
                 <TableHead className="hidden md:table-cell text-right">Bills</TableHead>
                 <TableHead className="w-[1%] text-right">Open</TableHead>
               </TableRow>
@@ -183,7 +205,7 @@ DATABASE_URL='postgres://...your-vercel-db-url...' npx prisma db seed`}
             <TableBody>
               {(txns ?? []).length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={11} className="py-10 text-center text-sm text-muted-foreground">
                     No payments yet.
                   </TableCell>
                 </TableRow>
@@ -202,7 +224,7 @@ DATABASE_URL='postgres://...your-vercel-db-url...' npx prisma db seed`}
                             {t.vendor?.name ?? "-"}
                           </Link>
                           <div className="mt-0.5 truncate text-xs text-muted-foreground lg:hidden">
-                            {t.project?.name ?? "—"} • {t.mode ?? "—"} • Bills {bills}
+                            {t.project?.name ?? "—"} • {t.mode ?? "—"} • {approvalStatusLabels[t.approvalStatus]} • Bills {bills}
                           </div>
                         </div>
                       </TableCell>
@@ -212,6 +234,7 @@ DATABASE_URL='postgres://...your-vercel-db-url...' npx prisma db seed`}
                       <TableCell className="hidden md:table-cell whitespace-nowrap text-right tabular-nums">{formatINR(gross)}</TableCell>
                       <TableCell className="hidden md:table-cell whitespace-nowrap">{t.mode ?? "-"}</TableCell>
                       <TableCell className="hidden xl:table-cell max-w-[260px] truncate">{t.reference ?? "-"}</TableCell>
+                      <TableCell className="hidden md:table-cell"><ApprovalStatusBadge status={t.approvalStatus} /></TableCell>
                       <TableCell className="hidden md:table-cell whitespace-nowrap text-right tabular-nums">{bills}</TableCell>
                       <TableCell className="text-right">
                         <Button asChild size="sm" variant="secondary">

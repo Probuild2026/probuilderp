@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 
+import { ApprovalStatusControl } from "@/components/app/approval-status-control";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatINR } from "@/lib/money";
@@ -97,6 +98,15 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
           <CardContent className="text-lg font-semibold tabular-nums">{formatINR(gross)}</CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Review Status</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ApprovalStatusControl target="receipt" id={receipt.id} status={receipt.approvalStatus} showHelp />
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>

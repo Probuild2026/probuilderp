@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 
+import { ApprovalStatusControl } from "@/components/app/approval-status-control";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatINR } from "@/lib/money";
@@ -108,6 +109,15 @@ export default async function ExpenseDetailPage({ params }: { params: Promise<{ 
           <CardContent className="text-sm font-medium">{expense.vendor?.name ?? expense.labourer?.name ?? "—"}</CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Review Status</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ApprovalStatusControl target="expense" id={expense.id} status={expense.approvalStatus} showHelp />
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>

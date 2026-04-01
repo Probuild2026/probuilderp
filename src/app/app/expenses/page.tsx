@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 
+import { ApprovalStatusBadge } from "@/components/app/approval-status-badge";
+import { ApprovalStatusGuide } from "@/components/app/approval-status-guide";
 import { ExportLinks } from "@/components/app/export-links";
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { approvalStatusLabels, approvalStatusValues, parseApprovalStatus } from "@/lib/approval-status";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { buildInclusiveDateRange, getSingleSearchParam, parseDateRangeParams } from "@/lib/date-range";
 import { formatINR } from "@/lib/money";
@@ -22,6 +25,7 @@ export default async function ExpensesPage({
 
   const sp = (await searchParams) ?? {};
   const q = getSingleSearchParam(sp, "q");
+  const approval = parseApprovalStatus(getSingleSearchParam(sp, "approval"));
   const { from, to } = parseDateRangeParams(sp);
   const dateRange = buildInclusiveDateRange(from, to);
   const projectId = await getSelectedProjectId();
@@ -31,6 +35,7 @@ export default async function ExpensesPage({
       tenantId: session.user.tenantId,
       ...(projectId ? { projectId } : {}),
       ...(dateRange ? { date: dateRange } : {}),
+      ...(approval ? { approvalStatus: approval } : {}),
       ...(q
         ? {
             OR: [
@@ -63,10 +68,22 @@ export default async function ExpensesPage({
         title="Expenses"
         description="Daily expenses, labour, overheads."
         action={{ label: "New Expense", href: "/app/expenses/new" }}
-        actions={<ExportLinks hrefBase="/api/exports/expenses" params={{ q, from, to }} />}
+        actions={<ExportLinks hrefBase="/api/exports/expenses" params={{ q, from, to, approval }} />}
         filters={
           <form className="flex flex-wrap gap-3" action="/app/expenses" method="get">
             <Input name="q" placeholder="Search narration/vendor/project..." defaultValue={q} className="max-w-sm" />
+            <select
+              name="approval"
+              defaultValue={approval ?? ""}
+              className="h-10 rounded-md border bg-background px-3 text-sm"
+            >
+              <option value="">All review statuses</option>
+              {approvalStatusValues.map((status) => (
+                <option key={status} value={status}>
+                  {approvalStatusLabels[status]}
+                </option>
+              ))}
+            </select>
             <Input name="from" type="date" defaultValue={from} />
             <Input name="to" type="date" defaultValue={to} />
             <button className="h-10 rounded-md bg-primary px-4 text-sm text-primary-foreground" type="submit">
@@ -79,6 +96,8 @@ export default async function ExpensesPage({
         }
       />
 
+      <ApprovalStatusGuide />
+
       <div className="overflow-x-auto rounded-md border">
         <Table className="w-full table-fixed">
         <TableHeader>
@@ -90,6 +109,7 @@ export default async function ExpensesPage({
             <TableHead>Narration</TableHead>
             <TableHead className="w-[100px] text-right">Total</TableHead>
             <TableHead className="w-[100px]">Paid via</TableHead>
+            <TableHead className="w-[140px]">Review</TableHead>
             <TableHead className="w-[50px]">Bills</TableHead>
             <TableHead className="w-[70px] text-right">Actions</TableHead>
           </TableRow>
@@ -104,6 +124,7 @@ export default async function ExpensesPage({
               <TableCell className="align-top whitespace-normal break-words">{e.narration ?? "—"}</TableCell>
               <TableCell className="align-top text-right tabular-nums">{formatINR(Number(e.totalAmount))}</TableCell>
               <TableCell>{e.paymentMode ?? "-"}</TableCell>
+              <TableCell><ApprovalStatusBadge status={e.approvalStatus} /></TableCell>
               <TableCell>{attachmentCountByExpense.get(e.id) ?? 0}</TableCell>
               <TableCell className="text-right">
                 <Button asChild size="sm" variant="outline">
@@ -114,7 +135,7 @@ export default async function ExpensesPage({
           ))}
           {expenses.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
+              <TableCell colSpan={10} className="py-10 text-center text-sm text-muted-foreground">
                 No expenses yet.
               </TableCell>
             </TableRow>

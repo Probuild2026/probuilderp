@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { NextResponse } from "next/server";
 
+import { parseApprovalStatus } from "@/lib/approval-status";
 import { getSingleSearchParam, parseDateRangeParams } from "@/lib/date-range";
 import { createTabularExportResponse, type ExportFormat } from "@/lib/tabular-export";
 import { getSelectedProjectId } from "@/lib/project-filter";
@@ -35,6 +36,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ modu
   const url = new URL(request.url);
   const { from, to } = parseDateRangeParams(url.searchParams);
   const q = getSingleSearchParam(url.searchParams, "q");
+  const approval = parseApprovalStatus(getSingleSearchParam(url.searchParams, "approval"));
   const formatRaw = getSingleSearchParam(url.searchParams, "format");
   const format: ExportFormat = isExportFormat(formatRaw) ? formatRaw : "csv";
 
@@ -44,6 +46,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ modu
     from,
     to,
     q,
+    approval,
   });
 
   return createTabularExportResponse(dataset, format);

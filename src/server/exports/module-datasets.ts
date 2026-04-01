@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { type ApprovalStatus, Prisma } from "@prisma/client";
 
 import { buildInclusiveDateRange, buildMonthInterval, formatMonthLabel } from "@/lib/date-range";
 import { type TabularDataset } from "@/lib/tabular-export";
@@ -19,6 +19,7 @@ type ModuleFilters = {
   from?: string;
   to?: string;
   q?: string;
+  approval?: ApprovalStatus;
 };
 
 function dateOnly(value: Date) {
@@ -40,6 +41,7 @@ async function buildTransactionsDataset(filters: ModuleFilters): Promise<Tabular
       tenantId: filters.tenantId,
       ...(filters.projectId ? { projectId: filters.projectId } : {}),
       ...(dateRange ? { date: dateRange } : {}),
+      ...(filters.approval ? { approvalStatus: filters.approval } : {}),
     },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     include: {
@@ -62,6 +64,7 @@ async function buildTransactionsDataset(filters: ModuleFilters): Promise<Tabular
       { key: "toAccount", label: "To", width: 18 },
       { key: "mode", label: "Mode", width: 14 },
       { key: "reference", label: "Reference", width: 18 },
+      { key: "approvalStatus", label: "Approval", width: 18 },
       { key: "amount", label: "Amount", width: 14, align: "right" },
       { key: "tdsAmount", label: "TDS", width: 12, align: "right" },
       { key: "narration", label: "Narration", width: 28 },
@@ -75,6 +78,7 @@ async function buildTransactionsDataset(filters: ModuleFilters): Promise<Tabular
       toAccount: txn.toAccount?.name ?? "",
       mode: txn.mode ?? "",
       reference: txn.reference ?? "",
+      approvalStatus: txn.approvalStatus,
       amount: numberValue(txn.amount),
       tdsAmount: numberValue(txn.tdsAmount),
       narration: combinedText(txn.note, txn.description),
@@ -98,6 +102,7 @@ async function buildExpensesDataset(filters: ModuleFilters): Promise<TabularData
             ],
           }
         : {}),
+      ...(filters.approval ? { approvalStatus: filters.approval } : {}),
     },
     include: {
       project: { select: { name: true } },
@@ -132,6 +137,7 @@ async function buildExpensesDataset(filters: ModuleFilters): Promise<TabularData
       { key: "igst", label: "IGST", width: 12, align: "right" },
       { key: "totalAmount", label: "Total", width: 14, align: "right" },
       { key: "paymentMode", label: "Paid Via", width: 14 },
+      { key: "approvalStatus", label: "Approval", width: 18 },
       { key: "narration", label: "Narration", width: 28 },
       { key: "billCount", label: "Bills", width: 10, align: "right" },
     ],
@@ -147,6 +153,7 @@ async function buildExpensesDataset(filters: ModuleFilters): Promise<TabularData
       igst: numberValue(expense.igst),
       totalAmount: numberValue(expense.totalAmount),
       paymentMode: expense.paymentMode ?? "",
+      approvalStatus: expense.approvalStatus,
       narration: expense.narration ?? "",
       billCount: byExpenseId.get(expense.id) ?? 0,
     })),
@@ -160,6 +167,7 @@ async function buildWagesDataset(filters: ModuleFilters): Promise<TabularDataset
       tenantId: filters.tenantId,
       ...(filters.projectId ? { projectId: filters.projectId } : {}),
       ...(dateRange ? { date: dateRange } : {}),
+      ...(filters.approval ? { approvalStatus: filters.approval } : {}),
     },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     select: {
@@ -169,6 +177,7 @@ async function buildWagesDataset(filters: ModuleFilters): Promise<TabularDataset
       mode: true,
       reference: true,
       note: true,
+      approvalStatus: true,
       project: { select: { name: true } },
     },
   });
@@ -192,6 +201,7 @@ async function buildWagesDataset(filters: ModuleFilters): Promise<TabularDataset
       { key: "total", label: "Total", width: 14, align: "right" },
       { key: "mode", label: "Mode", width: 14 },
       { key: "reference", label: "Reference", width: 16 },
+      { key: "approvalStatus", label: "Approval", width: 18 },
       { key: "note", label: "Note", width: 28 },
       { key: "lines", label: "Lines", width: 10, align: "right" },
     ],
@@ -201,6 +211,7 @@ async function buildWagesDataset(filters: ModuleFilters): Promise<TabularDataset
       total: numberValue(sheet.total),
       mode: sheet.mode,
       reference: sheet.reference ?? "",
+      approvalStatus: sheet.approvalStatus,
       note: sheet.note ?? "",
       lines: lineCountBySheetId.get(sheet.id) ?? 0,
     })),
@@ -214,6 +225,7 @@ async function buildReceiptsDataset(filters: ModuleFilters): Promise<TabularData
       tenantId: filters.tenantId,
       ...(filters.projectId ? { clientInvoice: { projectId: filters.projectId } } : {}),
       ...(dateRange ? { date: dateRange } : {}),
+      ...(filters.approval ? { approvalStatus: filters.approval } : {}),
     },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     select: {
@@ -224,6 +236,7 @@ async function buildReceiptsDataset(filters: ModuleFilters): Promise<TabularData
       mode: true,
       reference: true,
       remarks: true,
+      approvalStatus: true,
       clientInvoice: {
         select: {
           invoiceNumber: true,
@@ -247,6 +260,7 @@ async function buildReceiptsDataset(filters: ModuleFilters): Promise<TabularData
       { key: "grossSettled", label: "Settled", width: 14, align: "right" },
       { key: "mode", label: "Mode", width: 14 },
       { key: "reference", label: "Reference", width: 18 },
+      { key: "approvalStatus", label: "Approval", width: 18 },
       { key: "remarks", label: "Remarks", width: 28 },
     ],
     rows: receipts.map((receipt) => {
@@ -262,6 +276,7 @@ async function buildReceiptsDataset(filters: ModuleFilters): Promise<TabularData
         grossSettled: cash + tds,
         mode: receipt.mode,
         reference: receipt.reference ?? "",
+        approvalStatus: receipt.approvalStatus,
         remarks: receipt.remarks ?? "",
       };
     }),
@@ -374,6 +389,7 @@ async function buildPaymentsMadeDataset(filters: ModuleFilters): Promise<Tabular
             ],
           }
         : {}),
+      ...(filters.approval ? { approvalStatus: filters.approval } : {}),
     },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     select: {
@@ -385,6 +401,7 @@ async function buildPaymentsMadeDataset(filters: ModuleFilters): Promise<Tabular
       reference: true,
       note: true,
       description: true,
+      approvalStatus: true,
       vendor: { select: { name: true } },
       project: { select: { name: true } },
     },
@@ -412,6 +429,7 @@ async function buildPaymentsMadeDataset(filters: ModuleFilters): Promise<Tabular
       { key: "grossAmount", label: "Gross", width: 14, align: "right" },
       { key: "mode", label: "Mode", width: 14 },
       { key: "reference", label: "Reference", width: 18 },
+      { key: "approvalStatus", label: "Approval", width: 18 },
       { key: "narration", label: "Narration", width: 28 },
       { key: "billCount", label: "Bills", width: 10, align: "right" },
     ],
@@ -427,6 +445,7 @@ async function buildPaymentsMadeDataset(filters: ModuleFilters): Promise<Tabular
         grossAmount: cash + tds,
         mode: txn.mode ?? "",
         reference: txn.reference ?? "",
+        approvalStatus: txn.approvalStatus,
         narration: combinedText(txn.note, txn.description),
         billCount: billCountByTxnId.get(txn.id) ?? 0,
       };
@@ -440,6 +459,7 @@ async function buildBillsDataset(filters: ModuleFilters): Promise<TabularDataset
     tenantId: filters.tenantId,
     ...(filters.projectId ? { projectId: filters.projectId } : {}),
     ...(dateRange ? { invoiceDate: dateRange } : {}),
+    ...(filters.approval ? { approvalStatus: filters.approval } : {}),
   };
 
   if (filters.q) {
@@ -467,6 +487,7 @@ async function buildBillsDataset(filters: ModuleFilters): Promise<TabularDataset
       tdsRate: true,
       tdsAmount: true,
       netPayable: true,
+      approvalStatus: true,
       vendor: { select: { name: true } },
       project: { select: { name: true } },
     },
@@ -502,6 +523,7 @@ async function buildBillsDataset(filters: ModuleFilters): Promise<TabularDataset
       { key: "tdsApplicable", label: "TDS?", width: 10 },
       { key: "tdsAmount", label: "Bill TDS", width: 12, align: "right" },
       { key: "netPayable", label: "Net Payable", width: 14, align: "right" },
+      { key: "approvalStatus", label: "Approval", width: 18 },
       { key: "paid", label: "Paid", width: 14, align: "right" },
       { key: "balance", label: "Balance", width: 14, align: "right" },
     ],
@@ -521,6 +543,7 @@ async function buildBillsDataset(filters: ModuleFilters): Promise<TabularDataset
         tdsApplicable: bill.tdsApplicable ? "YES" : "NO",
         tdsAmount: numberValue(bill.tdsAmount),
         netPayable: numberValue(bill.netPayable),
+        approvalStatus: bill.approvalStatus,
         paid,
         balance: Math.max(0, total - paid),
       };
@@ -645,6 +668,7 @@ export async function buildMonthlyOutflowDataset({
       createdAt: bill.createdAt,
       values: {
         entryType: "BILL_BOOKED",
+        approvalStatus: bill.approvalStatus,
         date: dateOnly(bill.invoiceDate),
         project: bill.project.name,
         party: bill.vendor.name,
@@ -669,6 +693,7 @@ export async function buildMonthlyOutflowDataset({
       createdAt: expense.createdAt,
       values: {
         entryType: "EXPENSE_ADDED",
+        approvalStatus: expense.approvalStatus,
         date: dateOnly(expense.date),
         project: expense.project.name,
         party: expense.vendor?.name ?? expense.labourer?.name ?? "",
@@ -693,6 +718,7 @@ export async function buildMonthlyOutflowDataset({
       createdAt: sheet.createdAt,
       values: {
         entryType: "WAGE_SHEET",
+        approvalStatus: sheet.approvalStatus,
         date: dateOnly(sheet.date),
         project: sheet.project.name,
         party: "",
@@ -720,6 +746,7 @@ export async function buildMonthlyOutflowDataset({
         createdAt: payment.createdAt,
         values: {
           entryType: "PAYMENT_MADE",
+          approvalStatus: payment.approvalStatus,
           date: dateOnly(payment.date),
           project: payment.project?.name ?? "",
           party: payment.vendor?.name ?? "",
@@ -751,6 +778,7 @@ export async function buildMonthlyOutflowDataset({
     filenameBase: `monthly-outflows-${month}`,
     columns: [
       { key: "entryType", label: "EntryType", width: 16 },
+      { key: "approvalStatus", label: "Approval", width: 18 },
       { key: "date", label: "Date", width: 12 },
       { key: "project", label: "Project", width: 24 },
       { key: "party", label: "Party", width: 22 },

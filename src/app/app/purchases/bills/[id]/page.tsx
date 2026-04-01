@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 
 import { deletePurchaseInvoice } from "@/app/actions/purchase-invoices";
+import { ApprovalStatusControl } from "@/components/app/approval-status-control";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -121,6 +122,15 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
           <CardContent className="text-lg font-semibold tabular-nums">{formatINR(balance)}</CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Review Status</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ApprovalStatusControl target="bill" id={bill.id} status={bill.approvalStatus} showHelp />
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
