@@ -24,11 +24,35 @@ export default function ReportsHomePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>More reports</CardTitle>
+            <CardTitle>Receivables Aging</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <div>Receivables aging, GST/TDS summaries, and profitability snapshots are being added next.</div>
-            <div className="rounded-md border bg-muted/20 p-2">Coming soon</div>
+            <div>Track outstanding client invoices by aging bucket and project scope.</div>
+            <Button asChild>
+              <Link href="/app/reports/receivables-aging">Open Receivables Aging</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Payables Aging</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <div>Track unpaid vendor bills by age so you can plan dues and cash needs.</div>
+            <Button asChild>
+              <Link href="/app/reports/payables-aging">Open Payables Aging</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Next in Phase 1</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <div>Vendor ledger, client ledger, GST registers, TDS dashboard, approvals, audit trail, and month lock.</div>
+            <div className="rounded-md border bg-muted/20 p-2">Backlog is documented in `docs/product-roadmap.md`.</div>
           </CardContent>
         </Card>
       </div>
