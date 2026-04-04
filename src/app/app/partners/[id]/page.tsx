@@ -4,6 +4,11 @@ import { getServerSession } from "next-auth/next";
 import { notFound } from "next/navigation";
 
 import { PartnerEntryForms } from "@/app/app/partners/[id]/partner-entry-forms";
+import {
+  PartnerDrawingRowActions,
+  PartnerRemunerationRowActions,
+  PartnerTdsPaymentRowActions,
+} from "@/app/app/partners/[id]/partner-entry-row-actions";
 import { EditPartnerDialog } from "@/app/app/partners/partner-dialog";
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +26,10 @@ function currentFy() {
 
 function asNumber(v: Prisma.Decimal | null | undefined) {
   return Number(v ?? 0);
+}
+
+function asDateOnly(value: Date | null | undefined) {
+  return value ? value.toISOString().slice(0, 10) : null;
 }
 
 export default async function PartnerDetailPage({
@@ -166,8 +175,11 @@ export default async function PartnerDetailPage({
       <PartnerEntryForms partnerId={partner.id} fy={fy} projects={projects} existingGrossFY={remGross} />
 
       <Card>
-        <CardHeader>
+        <CardHeader className="gap-2">
           <CardTitle>Remuneration entries ({fy})</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Use Edit to fix wrong dates, amounts, project tags, or payment details. Use Delete only for accidental or duplicate rows. TDS is recalculated automatically after each change.
+          </p>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <Table>
@@ -181,6 +193,7 @@ export default async function PartnerDetailPage({
                 <TableHead className="text-right">Net</TableHead>
                 <TableHead>Payment</TableHead>
                 <TableHead>TDS status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -189,7 +202,7 @@ export default async function PartnerDetailPage({
                 const normalizedStatus = tdsAmount <= 0 ? "NOT_APPLICABLE" : row.tdsStatus;
                 return (
                   <TableRow key={row.id}>
-                    <TableCell>{row.date.toISOString().slice(0, 10)}</TableCell>
+                    <TableCell>{asDateOnly(row.date)}</TableCell>
                     <TableCell>{row.type}</TableCell>
                     <TableCell>{row.project?.name ?? "-"}</TableCell>
                     <TableCell className="text-right">{formatINR(asNumber(row.grossAmount))}</TableCell>
@@ -197,15 +210,32 @@ export default async function PartnerDetailPage({
                     <TableCell className="text-right">{formatINR(asNumber(row.netPayable))}</TableCell>
                     <TableCell>
                       {row.paymentMode ? row.paymentMode : "UNPAID"}
-                      {row.paymentDate ? ` • ${row.paymentDate.toISOString().slice(0, 10)}` : ""}
+                      {row.paymentDate ? ` • ${asDateOnly(row.paymentDate)}` : ""}
                     </TableCell>
                     <TableCell>{normalizedStatus}</TableCell>
+                    <TableCell className="text-right">
+                      <PartnerRemunerationRowActions
+                        entry={{
+                          id: row.id,
+                          partnerId: row.partnerId,
+                          projectId: row.projectId,
+                          date: asDateOnly(row.date) ?? "",
+                          type: row.type,
+                          grossAmount: asNumber(row.grossAmount),
+                          tdsRate: asNumber(row.tdsRate),
+                          paymentMode: row.paymentMode,
+                          paymentDate: asDateOnly(row.paymentDate),
+                          note: row.note,
+                        }}
+                        projects={projects}
+                      />
+                    </TableCell>
                   </TableRow>
                 );
               })}
               {remunerations.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
                     No remuneration entries for this FY.
                   </TableCell>
                 </TableRow>
@@ -217,8 +247,11 @@ export default async function PartnerDetailPage({
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
-          <CardHeader>
+          <CardHeader className="gap-2">
             <CardTitle>Drawings</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Edit if the amount or project tag was entered wrongly. Delete only rows that were created by mistake or duplicated.
+            </p>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             <Table>
@@ -228,20 +261,35 @@ export default async function PartnerDetailPage({
                   <TableHead>Project</TableHead>
                   <TableHead>Mode</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {drawings.map((row) => (
                   <TableRow key={row.id}>
-                    <TableCell>{row.date.toISOString().slice(0, 10)}</TableCell>
+                    <TableCell>{asDateOnly(row.date)}</TableCell>
                     <TableCell>{row.project?.name ?? "-"}</TableCell>
                     <TableCell>{row.mode}</TableCell>
                     <TableCell className="text-right">{formatINR(asNumber(row.amount))}</TableCell>
+                    <TableCell className="text-right">
+                      <PartnerDrawingRowActions
+                        entry={{
+                          id: row.id,
+                          partnerId: row.partnerId,
+                          projectId: row.projectId,
+                          date: asDateOnly(row.date) ?? "",
+                          amount: asNumber(row.amount),
+                          mode: row.mode,
+                          note: row.note,
+                        }}
+                        projects={projects}
+                      />
+                    </TableCell>
                   </TableRow>
                 ))}
                 {drawings.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">
+                    <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
                       No drawings recorded.
                     </TableCell>
                   </TableRow>
@@ -252,8 +300,11 @@ export default async function PartnerDetailPage({
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="gap-2">
             <CardTitle>TDS payments ({fy})</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Edit challan details, dates, or amounts if they were typed wrongly. Delete only duplicate or accidental rows.
+            </p>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             <Table>
@@ -263,20 +314,37 @@ export default async function PartnerDetailPage({
                   <TableHead>Section</TableHead>
                   <TableHead>Challan</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {tdsPayments.map((row) => (
                   <TableRow key={row.id}>
-                    <TableCell>{row.paymentDate.toISOString().slice(0, 10)}</TableCell>
+                    <TableCell>{asDateOnly(row.paymentDate)}</TableCell>
                     <TableCell>{row.section}</TableCell>
                     <TableCell>{row.challanNo || "-"}</TableCell>
                     <TableCell className="text-right">{formatINR(asNumber(row.tdsPaidAmount))}</TableCell>
+                    <TableCell className="text-right">
+                      <PartnerTdsPaymentRowActions
+                        entry={{
+                          id: row.id,
+                          partnerId: row.partnerId,
+                          fy: row.fy,
+                          section: row.section,
+                          challanNo: row.challanNo,
+                          periodFrom: asDateOnly(row.periodFrom),
+                          periodTo: asDateOnly(row.periodTo),
+                          tdsPaidAmount: asNumber(row.tdsPaidAmount),
+                          paymentDate: asDateOnly(row.paymentDate) ?? "",
+                          note: row.note,
+                        }}
+                      />
+                    </TableCell>
                   </TableRow>
                 ))}
                 {tdsPayments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">
+                    <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
                       No TDS payments recorded for this FY.
                     </TableCell>
                   </TableRow>
