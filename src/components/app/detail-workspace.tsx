@@ -72,7 +72,7 @@ export function DetailWorkspaceStats({
   children: ReactNode;
   className?: string;
 }) {
-  return <div className={cn("grid gap-3 sm:grid-cols-2 xl:grid-cols-4", className)}>{children}</div>;
+  return <div className={cn("grid gap-3 sm:grid-cols-2 xl:grid-cols-5", className)}>{children}</div>;
 }
 
 export function DetailWorkspaceStat({

@@ -8,11 +8,11 @@ import {
   DetailWorkspaceStat,
   DetailWorkspaceStats,
 } from "@/components/app/detail-workspace";
-import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { MODULE_CHEAT_SHEETS } from "@/config/module-cheat-sheets";
 import { formatINR } from "@/lib/money";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
@@ -105,6 +105,9 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   const settledGross = Number(alloc._sum.grossAmount ?? 0);
   const outstanding = Math.max(0, totalValue - settledGross);
   const status = statusFromSettled(totalValue, settledGross);
+  const paidPct = totalValue > 0 ? Math.min(100, Math.round((settledGross / totalValue) * 100)) : 0;
+  const lastReceiptDate = receipts[0]?.date ? receipts[0].date.toISOString().slice(0, 10) : null;
+  const guide = MODULE_CHEAT_SHEETS.invoices;
 
   const projects = await prisma.project.findMany({
     where: { tenantId: session.user.tenantId },
@@ -176,43 +179,42 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           </>
         }
       >
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="space-y-3">
           <DetailWorkspaceStats>
             <DetailWorkspaceStat label="Basic value" value={formatINR(basicValue)} />
             <DetailWorkspaceStat label="GST" value={formatINR(gstValue)} hint={`${invoice.gstType} · ${invoice.gstRate}%`} />
-            <DetailWorkspaceStat label="Cash received" value={formatINR(cashReceived)} />
-            <DetailWorkspaceStat label="Outstanding" value={formatINR(outstanding)} hint={`Settled total ${formatINR(settledGross)}`} />
+            <DetailWorkspaceStat
+              label="Total invoice"
+              value={formatINR(totalValue)}
+              hint="Final amount billed"
+            />
+            <DetailWorkspaceStat
+              label="Paid to date"
+              value={formatINR(cashReceived)}
+              hint={`Settled ${formatINR(settledGross)}`}
+              className="border-emerald-200 bg-emerald-50/60"
+            />
+            <DetailWorkspaceStat
+              label="Remaining balance"
+              value={formatINR(outstanding)}
+              hint={
+                <span className="flex items-center gap-2">
+                  <Badge variant="outline" className={statusTone(status)}>
+                    {status}
+                  </Badge>
+                  <span>Due {invoice.dueDate ? invoice.dueDate.toISOString().slice(0, 10) : "Not set"}</span>
+                </span>
+              }
+              className="border-amber-200 bg-amber-50/70"
+            />
           </DetailWorkspaceStats>
 
-          <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Status</div>
-                <div className="mt-2 text-lg font-semibold tracking-tight">{status}</div>
-              </div>
-              <Badge variant="outline" className={statusTone(status)}>
-                {status}
-              </Badge>
-            </div>
-            <Separator className="my-4" />
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Invoice date</span>
-                <span className="font-medium">{invoice.invoiceDate.toISOString().slice(0, 10)}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Due date</span>
-                <span className="font-medium">{invoice.dueDate ? invoice.dueDate.toISOString().slice(0, 10) : "—"}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Receipt entries</span>
-                <span className="font-medium">{receipts.length}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">TDS settled</span>
-                <span className="font-medium">{formatINR(tdsSettled)}</span>
-              </div>
-            </div>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <span>{invoice.client.name}</span>
+            <span className="hidden sm:inline">/</span>
+            <span>{invoice.project.name}</span>
+            <span className="hidden sm:inline">/</span>
+            <span>Invoice date {invoice.invoiceDate.toISOString().slice(0, 10)}</span>
           </div>
         </div>
       </DetailWorkspaceHeader>
@@ -220,8 +222,8 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.85fr)] xl:items-start">
         <div className="space-y-6">
           <DetailWorkspacePanel
-            title="Invoice details"
-            description="Keep the billing party, timing, and tax values in one place. This panel is designed to scale to similar edit pages without nesting extra cards."
+            title="Edit invoice"
+            description="Update the invoice information and tax details. Changes stay pinned while you work through the form."
           >
             <InvoiceForm
               today={new Date().toISOString().slice(0, 10)}
@@ -234,27 +236,27 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           </DetailWorkspacePanel>
 
           <DetailWorkspacePanel
-            title="Receipts ledger"
-            description="Track every collection against the invoice, including client-side TDS deductions."
+            title="Payment history"
+            description="All receipts recorded against this invoice."
             actions={<Badge variant="secondary">{receipts.length} receipts</Badge>}
           >
             <Table className="min-w-[720px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead className="text-right">Received</TableHead>
-                  <TableHead className="text-right">TDS</TableHead>
-                  <TableHead>Mode</TableHead>
-                  <TableHead className="hidden md:table-cell">Reference</TableHead>
-                  <TableHead className="hidden lg:table-cell">Notes</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableHead className="sticky top-0 bg-background">Date</TableHead>
+                  <TableHead className="sticky top-0 bg-background text-right">Amount received</TableHead>
+                  <TableHead className="sticky top-0 bg-background text-right">TDS</TableHead>
+                  <TableHead className="sticky top-0 bg-background">Mode</TableHead>
+                  <TableHead className="sticky top-0 hidden bg-background md:table-cell">Reference</TableHead>
+                  <TableHead className="sticky top-0 hidden bg-background lg:table-cell">Notes</TableHead>
+                  <TableHead className="sticky top-0 bg-background text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {receipts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
-                      No receipts posted for this invoice yet.
+                      No payments have been recorded for this invoice yet.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -294,7 +296,8 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         <div className="space-y-6">
           <DetailWorkspacePanel
             title="Record receipt"
-            description="Add the next collection without leaving the invoice. Keep this on the side so the edit form has room to breathe."
+            description="Record a payment received against this invoice. This payment will be applied to the outstanding balance."
+            className="xl:sticky xl:top-6"
           >
             <ReceiptForm
               invoiceId={invoiceId}
@@ -309,13 +312,99 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           </DetailWorkspacePanel>
 
           <DetailWorkspacePanel
-            title="Posting guide"
-            description="Reference notes stay available, but they no longer compete visually with the working form."
+            title="Invoice snapshot"
+            description="Quick financial context while you record receipts."
           >
-            <ModuleCheatSheet moduleKey="invoices" variant="embedded" showRoutingTrigger />
+            <div className="space-y-5">
+              <div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-muted-foreground">Status</span>
+                  <Badge variant="outline" className={statusTone(status)}>
+                    {status}
+                  </Badge>
+                </div>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full rounded-full bg-primary" style={{ width: `${paidPct}%` }} />
+                </div>
+                <div className="mt-2 flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Payment progress</span>
+                  <span className="font-medium">{paidPct}%</span>
+                </div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {formatINR(settledGross)} of {formatINR(totalValue)} received
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Invoice date</span>
+                  <span className="font-medium">{invoice.invoiceDate.toISOString().slice(0, 10)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Due date</span>
+                  <span className="font-medium">{invoice.dueDate ? invoice.dueDate.toISOString().slice(0, 10) : "—"}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Client</span>
+                  <span className="font-medium">{invoice.client.name}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Project</span>
+                  <span className="font-medium">{invoice.project.name}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Last receipt</span>
+                  <span className="font-medium">{lastReceiptDate ?? "No receipts yet"}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">TDS settled</span>
+                  <span className="font-medium">{formatINR(tdsSettled)}</span>
+                </div>
+              </div>
+            </div>
           </DetailWorkspacePanel>
         </div>
       </div>
+
+      <DetailWorkspacePanel
+        title="Need help?"
+        description="Reference guidance stays available, but collapsed until you need it."
+      >
+        <div className="space-y-3">
+          <details className="rounded-2xl border border-border/70 bg-muted/20 px-4 py-3">
+            <summary className="cursor-pointer list-none text-sm font-medium">What belongs in invoices?</summary>
+            <ul className="mt-3 space-y-2 pl-4 text-sm text-muted-foreground">
+              {guide.useWhen.map((item) => (
+                <li key={item} className="list-disc">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </details>
+          <details className="rounded-2xl border border-border/70 bg-muted/20 px-4 py-3">
+            <summary className="cursor-pointer list-none text-sm font-medium">When should I use this?</summary>
+            <ul className="mt-3 space-y-2 pl-4 text-sm text-muted-foreground">
+              {guide.doNotUseWhen.map((item) => (
+                <li key={item} className="list-disc">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </details>
+          <details className="rounded-2xl border border-border/70 bg-muted/20 px-4 py-3">
+            <summary className="cursor-pointer list-none text-sm font-medium">Examples</summary>
+            <ul className="mt-3 space-y-2 pl-4 text-sm text-muted-foreground">
+              {guide.examples.map((item) => (
+                <li key={item} className="list-disc">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </details>
+        </div>
+      </DetailWorkspacePanel>
     </div>
   );
 }
