@@ -240,23 +240,33 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             description="All receipts recorded against this invoice."
             actions={<Badge variant="secondary">{receipts.length} receipts</Badge>}
           >
-            <Table className="min-w-[720px]">
+            <Table className="min-w-[760px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="sticky top-0 bg-background">Date</TableHead>
-                  <TableHead className="sticky top-0 bg-background text-right">Amount received</TableHead>
-                  <TableHead className="sticky top-0 bg-background text-right">TDS</TableHead>
-                  <TableHead className="sticky top-0 bg-background">Mode</TableHead>
-                  <TableHead className="sticky top-0 hidden bg-background md:table-cell">Reference</TableHead>
-                  <TableHead className="sticky top-0 hidden bg-background lg:table-cell">Notes</TableHead>
-                  <TableHead className="sticky top-0 bg-background text-right">Actions</TableHead>
+                  <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur">Date</TableHead>
+                  <TableHead className="sticky top-0 z-10 bg-background/95 text-right backdrop-blur">Amount received</TableHead>
+                  <TableHead className="sticky top-0 z-10 bg-background/95 text-right backdrop-blur">TDS</TableHead>
+                  <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur">Mode</TableHead>
+                  <TableHead className="sticky top-0 z-10 hidden bg-background/95 backdrop-blur md:table-cell">Reference</TableHead>
+                  <TableHead className="sticky top-0 z-10 hidden bg-background/95 backdrop-blur lg:table-cell">Notes</TableHead>
+                  <TableHead className="sticky top-0 z-10 bg-background/95 text-right backdrop-blur">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {receipts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
-                      No payments have been recorded for this invoice yet.
+                    <TableCell colSpan={7} className="py-14">
+                      <div className="flex flex-col items-center gap-3 text-center">
+                        <div className="space-y-1">
+                          <div className="text-base font-medium">No payments have been recorded for this invoice yet.</div>
+                          <div className="text-sm text-muted-foreground">
+                            Record the first payment to start tracking collection progress.
+                          </div>
+                        </div>
+                        <Button asChild size="sm">
+                          <Link href="#record-receipt">Add first receipt</Link>
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -269,17 +279,22 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                       <TableCell className="hidden max-w-[180px] truncate md:table-cell">{r.reference ?? "—"}</TableCell>
                       <TableCell className="hidden max-w-[220px] truncate lg:table-cell">{r.remarks ?? "—"}</TableCell>
                       <TableCell className="text-right">
-                        <form
-                          action={async () => {
-                            "use server";
-                            await deleteReceipt(r.id, invoiceId);
-                            redirect(`/app/sales/invoices/${invoiceId}`);
-                          }}
-                        >
-                          <Button type="submit" variant="outline" size="sm">
-                            Remove
+                        <div className="flex justify-end gap-2">
+                          <Button asChild type="button" variant="secondary" size="sm">
+                            <Link href={`/app/sales/receipts/${r.id}`}>View</Link>
                           </Button>
-                        </form>
+                          <form
+                            action={async () => {
+                              "use server";
+                              await deleteReceipt(r.id, invoiceId);
+                              redirect(`/app/sales/invoices/${invoiceId}`);
+                            }}
+                          >
+                            <Button type="submit" variant="outline" size="sm">
+                              Remove
+                            </Button>
+                          </form>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -299,16 +314,18 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             description="Record a payment received against this invoice. This payment will be applied to the outstanding balance."
             className="xl:sticky xl:top-6"
           >
-            <ReceiptForm
-              invoiceId={invoiceId}
-              invoiceTotal={totalValue}
-              invoiceSettled={settledGross}
-              onSubmit={async (fd) => {
-                "use server";
-                await createReceipt(fd);
-                redirect(`/app/sales/invoices/${invoiceId}`);
-              }}
-            />
+            <div id="record-receipt" className="scroll-mt-24">
+              <ReceiptForm
+                invoiceId={invoiceId}
+                invoiceTotal={totalValue}
+                invoiceSettled={settledGross}
+                onSubmit={async (fd) => {
+                  "use server";
+                  await createReceipt(fd);
+                  redirect(`/app/sales/invoices/${invoiceId}`);
+                }}
+              />
+            </div>
           </DetailWorkspacePanel>
 
           <DetailWorkspacePanel
