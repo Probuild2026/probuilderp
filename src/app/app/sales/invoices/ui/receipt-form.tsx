@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,15 +28,33 @@ export function ReceiptForm({
   const [tdsDeducted, setTdsDeducted] = useState(false);
   const [tdsAmount, setTdsAmount] = useState<number>(0);
   const [amount, setAmount] = useState<number>(0);
+  const [allowOverCollection, setAllowOverCollection] = useState(false);
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const remaining = useMemo(() => to2(Math.max(0, invoiceTotal - invoiceSettled)), [invoiceTotal, invoiceSettled]);
+  const effectiveReceipt = useMemo(
+    () => to2(Math.max(0, amount) + (tdsDeducted ? Math.max(0, tdsAmount) : 0)),
+    [amount, tdsAmount, tdsDeducted],
+  );
+  const overBy = useMemo(() => to2(Math.max(0, effectiveReceipt - remaining)), [effectiveReceipt, remaining]);
+  const validationMessage = useMemo(() => {
+    if (amount <= 0) return "Enter a receipt amount greater than zero.";
+    if (tdsDeducted && tdsAmount < 0) return "TDS amount cannot be negative.";
+    if (overBy > 0 && !allowOverCollection) {
+      return `This receipt exceeds the outstanding balance by ${overBy.toFixed(2)}. Enable override to continue.`;
+    }
+    return "";
+  }, [allowOverCollection, amount, overBy, tdsAmount, tdsDeducted]);
 
   return (
     <form
       action={async (fd) => {
         setErr("");
+        if (validationMessage) {
+          setErr(validationMessage);
+          return;
+        }
         startTransition(async () => {
           try {
             fd.set("clientInvoiceId", invoiceId);
@@ -85,8 +104,10 @@ export function ReceiptForm({
             step="0.01"
             value={amount}
             onChange={(e) => setAmount(Number(e.target.value))}
+            className="h-12 text-lg font-semibold tabular-nums"
             required
           />
+          <div className="text-xs text-muted-foreground">Actual cash or bank amount received from the client.</div>
         </div>
         <div className="space-y-2">
           <Label>Reference (optional)</Label>
@@ -117,6 +138,39 @@ export function ReceiptForm({
         </div>
       ) : null}
 
+      <div className="rounded-2xl border border-border/70 bg-background px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Effective receipt</div>
+            <div className="mt-2 text-xl font-semibold tabular-nums">{effectiveReceipt.toFixed(2)}</div>
+          </div>
+          <div className="text-right text-xs text-muted-foreground">
+            Counts cash plus client-deducted TDS toward settlement.
+          </div>
+        </div>
+        {overBy > 0 ? (
+          <div className="mt-3 rounded-xl border border-amber-300/70 bg-amber-50 px-3 py-3 text-sm text-amber-900">
+            Receipt exceeds the current outstanding balance by {overBy.toFixed(2)}.
+          </div>
+        ) : null}
+      </div>
+
+      {overBy > 0 ? (
+        <div className="flex items-start gap-3 rounded-xl border border-border/70 bg-muted/20 px-3 py-3">
+          <Checkbox
+            id="allowOverCollection"
+            checked={allowOverCollection}
+            onCheckedChange={(checked) => setAllowOverCollection(Boolean(checked))}
+          />
+          <div className="space-y-1">
+            <Label htmlFor="allowOverCollection">Allow amount above remaining balance</Label>
+            <div className="text-xs text-muted-foreground">
+              Use this only when you intentionally want to record an advance or settlement adjustment above the current balance.
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="space-y-2">
         <Label>Remarks (optional)</Label>
         <Textarea name="remarks" rows={2} placeholder="Any notes about this receipt" />
@@ -125,7 +179,7 @@ export function ReceiptForm({
       {err ? <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm">{err}</div> : null}
 
       <div className="flex items-center justify-end">
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending || Boolean(validationMessage)}>
           {pending ? "Saving…" : "Add receipt"}
         </Button>
       </div>
