@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { ApprovalStatusControl } from "@/components/app/approval-status-control";
 import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
@@ -37,13 +37,20 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
       },
     },
   });
-  if (!receipt) return null;
+  if (!receipt) return notFound();
 
-  const stages = await prisma.projectPaymentStage.findMany({
-    where: { tenantId: session.user.tenantId, projectId: receipt.clientInvoice.projectId },
-    orderBy: [{ sortOrder: "asc" }, { stageName: "asc" }],
-    select: { id: true, stageName: true },
-  });
+  const projectId = receipt.clientInvoice?.projectId ?? null;
+  const clientName = receipt.clientInvoice?.client?.name ?? "Unknown client";
+  const projectName = receipt.clientInvoice?.project?.name ?? "Unknown project";
+  const invoiceNumber = receipt.clientInvoice?.invoiceNumber ?? "Unknown invoice";
+
+  const stages = projectId
+    ? await prisma.projectPaymentStage.findMany({
+        where: { tenantId: session.user.tenantId, projectId },
+        orderBy: [{ sortOrder: "asc" }, { stageName: "asc" }],
+        select: { id: true, stageName: true },
+      })
+    : [];
 
   const cash = Number(receipt.amountReceived);
   const tds = Number(receipt.tdsAmount ?? 0);
@@ -55,7 +62,7 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
         <div>
           <h1 className="text-2xl font-semibold">Receipt</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {receipt.clientInvoice.client.name} • {receipt.clientInvoice.invoiceNumber} • {dateOnly(receipt.date)}
+            {clientName} • {invoiceNumber} • {dateOnly(receipt.date)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -63,7 +70,7 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
             <Link href="/app/sales/receipts">Back</Link>
           </Button>
           <Button asChild variant="secondary">
-            <Link href={`/app/sales/invoices/${receipt.clientInvoice.id}`}>Open invoice</Link>
+            <Link href={`/app/sales/invoices/${receipt.clientInvoiceId}`}>Open invoice</Link>
           </Button>
           <form
             action={async () => {
@@ -144,19 +151,19 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
               <CardContent className="space-y-2 text-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div className="text-muted-foreground">Project</div>
-                  <div className="text-right font-medium">{receipt.clientInvoice.project.name}</div>
+                  <div className="text-right font-medium">{projectName}</div>
                 </div>
                 <div className="flex items-start justify-between gap-3">
                   <div className="text-muted-foreground">Client</div>
-                  <div className="text-right font-medium">{receipt.clientInvoice.client.name}</div>
+                  <div className="text-right font-medium">{clientName}</div>
                 </div>
                 <div className="flex items-start justify-between gap-3">
                   <div className="text-muted-foreground">Invoice #</div>
-                  <div className="text-right font-medium">{receipt.clientInvoice.invoiceNumber}</div>
+                  <div className="text-right font-medium">{invoiceNumber}</div>
                 </div>
                 <div className="pt-2">
                   <Button asChild size="sm" variant="outline">
-                    <Link href={`/app/sales/invoices/${receipt.clientInvoice.id}`}>Open invoice</Link>
+                    <Link href={`/app/sales/invoices/${receipt.clientInvoiceId}`}>Open invoice</Link>
                   </Button>
                 </div>
               </CardContent>

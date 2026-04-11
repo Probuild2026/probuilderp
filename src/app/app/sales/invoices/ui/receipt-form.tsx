@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -63,6 +64,7 @@ export function ReceiptForm({
             fd.set("amountReceived", String(amount));
             await onSubmit(fd);
           } catch (e) {
+            if (isRedirectError(e)) throw e;
             setErr(e instanceof Error ? e.message : "Failed to save receipt.");
           }
         });

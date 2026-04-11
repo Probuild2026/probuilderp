@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
+import { Search } from "lucide-react";
 
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
@@ -16,7 +17,7 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 type SearchResultItem = {
   type: "project" | "client" | "vendor" | "bill" | "invoice" | "payment" | "receipt";
@@ -80,19 +81,21 @@ export function CommandPaletteSearch({
   const { openPalette } = useCommandPalette();
   return (
     <div className={className}>
-      <div className="relative">
-        <Input
-          readOnly
-          placeholder={placeholder}
-          onFocus={openPalette}
-          onClick={openPalette}
-          className="pr-16"
-        />
-        <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-md border bg-background px-2 py-1 text-[10px] text-muted-foreground">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={openPalette}
+        className="h-10 w-full justify-between rounded-xl border-border/80 bg-background/80 px-3 text-left font-normal text-muted-foreground shadow-sm"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <Search className="size-4 shrink-0" />
+          <span className="truncate">{placeholder}</span>
+        </span>
+        <span className="rounded-lg border border-border/70 bg-background px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
           <span className="hidden md:inline">Ctrl</span>
-          <span className="md:hidden">⌘</span> K
-        </div>
-      </div>
+          <span className="md:hidden">Cmd</span> K
+        </span>
+      </Button>
     </div>
   );
 }
@@ -160,7 +163,7 @@ export function CommandPalette() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-2xl gap-0 p-0">
+      <DialogContent className="max-w-2xl gap-0 overflow-hidden rounded-[28px] border border-border/70 bg-card p-0 shadow-[0_32px_100px_-56px_rgba(20,18,16,0.75)]">
         <Command>
           <CommandInput placeholder="Search…" value={query} onValueChange={setQuery} />
           <CommandList>
@@ -249,4 +252,3 @@ export function CommandPalette() {
     </Dialog>
   );
 }
-

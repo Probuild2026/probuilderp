@@ -110,47 +110,51 @@ export default async function AppLayout({
     >
       <Sidebar className="hidden md:block" />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="border-b">
-          <div className="flex items-center gap-3 p-3 md:p-4">
+        <header className="sticky top-0 z-40 border-b border-border/70 bg-background/88 backdrop-blur-xl">
+          <div className="flex items-center gap-3 px-4 py-3 md:px-6">
             <div className="md:hidden">
               <MobileNav />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-3">
               {profile?.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={profile.logoUrl}
                   alt={brandName}
-                  className="h-7 w-auto max-w-[180px] object-contain sm:h-8"
+                  className="h-9 w-auto max-w-[180px] rounded-lg object-contain"
                 />
               ) : (
-                <div className="size-7 rounded bg-sidebar-primary/20" />
+                <div className="flex size-10 items-center justify-center rounded-2xl border border-border/70 bg-primary/10 text-sm font-semibold text-primary">
+                  PB
+                </div>
               )}
-              <div className="hidden sm:block">
-                <div className="text-sm font-semibold leading-5">{brandName}</div>
-                <div className="text-xs text-muted-foreground">Construction ERP</div>
+              <div className="hidden min-w-0 sm:block">
+                <div className="truncate text-sm font-semibold leading-5">{brandName}</div>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Construction operating system</div>
               </div>
             </div>
 
-            <div className="mx-auto hidden w-full max-w-xl flex-1 items-center gap-3 md:flex">
+            <div className="mx-auto hidden w-full max-w-3xl flex-1 items-center gap-3 md:flex">
               <CommandPaletteSearch />
               <GlobalProjectFilter projects={projects} value={selectedProjectId} />
             </div>
 
             <div className="ml-auto flex items-center gap-3">
-              <div className="hidden text-sm text-muted-foreground lg:block">{session.user.email}</div>
+              <div className="hidden rounded-full border border-border/70 bg-background/75 px-3 py-1.5 text-sm text-muted-foreground lg:block">
+                {session.user.email}
+              </div>
               <SignOutButton />
             </div>
           </div>
-          <div className="px-3 pb-3 md:hidden">
+          <div className="space-y-3 px-4 pb-4 md:hidden">
+            <CommandPaletteSearch placeholder="Search across projects, clients, and ledgers" />
             <div className="flex items-center gap-3">
               <GlobalProjectFilter projects={projects} value={selectedProjectId} />
-              <CommandPaletteSearch placeholder="Search…" />
             </div>
           </div>
           {dbUnavailable ? (
-            <div className="border-t border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200 md:px-4">
+            <div className="border-t border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-800 dark:text-amber-200 md:px-6">
               Database temporarily unreachable. Some pages may load with limited data until connectivity is restored.
             </div>
           ) : null}

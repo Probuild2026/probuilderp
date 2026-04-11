@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -151,6 +152,7 @@ export function InvoiceForm({
 
             await onSubmit(fd);
           } catch (e) {
+            if (isRedirectError(e)) throw e;
             setErr(e instanceof Error ? e.message : "Failed to save invoice.");
           }
         });

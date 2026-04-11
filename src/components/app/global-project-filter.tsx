@@ -17,10 +17,12 @@ export function GlobalProjectFilter({
   const [pending, startTransition] = useTransition();
 
   return (
-    <label className="flex items-center gap-2 text-sm">
-      <span className="hidden text-muted-foreground sm:inline">Project</span>
+    <label className="flex min-w-0 items-center gap-2 text-sm">
+      <span className="hidden whitespace-nowrap text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground sm:inline">
+        Project
+      </span>
       <select
-        className="h-9 max-w-[220px] rounded-md border bg-background px-2 text-sm"
+        className="h-10 max-w-[240px] rounded-xl border border-border/80 bg-background/80 px-3 text-sm shadow-sm"
         value={value ?? ""}
         disabled={pending}
         onChange={(e) => {
@@ -50,4 +52,3 @@ export function GlobalProjectFilter({
     </label>
   );
 }
-

@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -29,7 +29,20 @@ import { clientCreateSchema, type ClientCreateInput } from "@/lib/validators/cli
 import { createClient } from "./actions";
 
 export function AddClientDialog() {
+  return <ClientDialog />;
+}
+
+export function ClientDialog({
+  defaultOpen = false,
+  hideTrigger = false,
+  onOpenChange,
+}: {
+  defaultOpen?: boolean;
+  hideTrigger?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
   const [pending, startTransition] = useTransition();
+  const [open, setOpen] = useState(defaultOpen);
 
   const form = useForm<ClientCreateInput>({
     resolver: zodResolver(clientCreateSchema),
@@ -50,6 +63,8 @@ export function AddClientDialog() {
         await createClient(values);
         toast.success("Client created.");
         form.reset();
+        setOpen(false);
+        onOpenChange?.(false);
       } catch (e) {
         toast.error("Failed to create client.");
         console.error(e);
@@ -58,10 +73,18 @@ export function AddClientDialog() {
   }
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button>Add Client</Button>
-      </DialogTrigger>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        onOpenChange?.(nextOpen);
+      }}
+    >
+      {hideTrigger ? null : (
+        <DialogTrigger asChild>
+          <Button>Add Client</Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Add Client</DialogTitle>
@@ -174,4 +197,3 @@ export function AddClientDialog() {
     </Dialog>
   );
 }
-

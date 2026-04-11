@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { Prisma } from "@prisma/client";
+import { BriefcaseBusiness, CircleDollarSign, FileSpreadsheet, ShieldCheck } from "lucide-react";
 
 import { ApprovalStatusBadge } from "@/components/app/approval-status-badge";
 import { ApprovalStatusGuide } from "@/components/app/approval-status-guide";
@@ -8,7 +9,7 @@ import { ExportLinks } from "@/components/app/export-links";
 import { PageHeader } from "@/components/app/page-header";
 import { EntryRoutingHelpModal } from "@/components/help/entry-routing-help-modal";
 import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { approvalStatusLabels, approvalStatusValues, parseApprovalStatus } from "@/lib/approval-status";
@@ -32,7 +33,6 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
   const approval = parseApprovalStatus(getSingleSearchParam(sp, "approval"));
   const { from, to } = parseDateRangeParams(sp);
   const dateRange = buildInclusiveDateRange(from, to);
-
   const projectId = await getSelectedProjectId();
 
   let txns:
@@ -65,9 +65,7 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
               ],
             }
           : {}),
-        ...(from || to
-          ? { date: dateRange }
-          : {}),
+        ...(from || to ? { date: dateRange } : {}),
         ...(approval ? { approvalStatus: approval } : {}),
         ...(projectId ? { projectId } : {}),
       },
@@ -86,7 +84,6 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
       },
     });
 
-    // Avoid Prisma relation `_count` (can generate database-specific aggregate queries).
     const txnIds = txns.map((t) => t.id);
     if (txnIds.length > 0) {
       const allocs = await prisma.transactionAllocation.findMany({
@@ -94,8 +91,8 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
         select: { transactionId: true },
       });
       allocationCountByTxnId = new Map();
-      for (const a of allocs) {
-        allocationCountByTxnId.set(a.transactionId, (allocationCountByTxnId.get(a.transactionId) ?? 0) + 1);
+      for (const allocation of allocs) {
+        allocationCountByTxnId.set(allocation.transactionId, (allocationCountByTxnId.get(allocation.transactionId) ?? 0) + 1);
       }
     }
   } catch (e) {
@@ -119,34 +116,68 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
       acc.cash += cash;
       acc.tds += tds;
       acc.gross += cash + tds;
+      if ((allocationCountByTxnId.get(row.id) ?? 0) > 0) acc.billLinked += 1;
+      if (row.approvalStatus === "PENDING_APPROVAL") acc.pendingApproval += 1;
       return acc;
     },
-    { cash: 0, tds: 0, gross: 0 },
+    { cash: 0, tds: 0, gross: 0, billLinked: 0, pendingApproval: 0 },
   );
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
+    <div className="mx-auto max-w-[1440px] space-y-6 p-4 md:p-6">
       <PageHeader
-        title="Payments Made"
-        description="Vendor/Subcontractor payments. TDS (194C) is auto-calculated for this flow."
-        action={{ label: "New Payment", href: "/app/purchases/payments-made/new" }}
+        eyebrow="Purchases / Payments Made"
+        title="Vendor payments"
+        description="Track net cash out, TDS withheld, and how much of the payout ledger is tied back to actual vendor bills."
+        action={{ label: "New payment", href: "/app/purchases/payments-made/new" }}
         actions={<ExportLinks hrefBase="/api/exports/payments-made" params={{ q, from, to, approval }} />}
         actionSecondary={<EntryRoutingHelpModal />}
       />
 
       <ModuleCheatSheet moduleKey="paymentsMade" variant="compact" />
 
-      <form className="grid gap-2 rounded-md border p-3 md:grid-cols-[1fr_auto_auto_auto_auto]" method="get">
-        <Input
-          name="q"
-          defaultValue={q}
-          placeholder="Search vendor/reference…"
-          className="md:max-w-xl"
-        />
+      {txns === null ? (
+        <div className="rounded-[24px] border border-border/70 bg-card px-4 py-4 text-sm">
+          <div className="font-medium">{dbUnavailable ? "Database temporarily unreachable" : "Database update required"}</div>
+          <div className="mt-1 text-muted-foreground">
+            {dbUnavailable
+              ? "The app could not connect to the database. Check DATABASE_URL or Prisma Postgres availability and refresh."
+              : "This deployment is missing required database objects for vendor payments. Apply Prisma migrations, then refresh."}
+          </div>
+        </div>
+      ) : null}
+
+      <section className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+        <Card>
+          <CardHeader className="border-b border-border/60">
+            <CardTitle className="text-base">Settlement summary</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 pt-6 md:grid-cols-2 xl:grid-cols-4">
+            <SummaryTile icon={CircleDollarSign} label="Cash paid" value={formatINR(totals.cash)} />
+            <SummaryTile icon={ShieldCheck} label="TDS withheld" value={formatINR(totals.tds)} />
+            <SummaryTile icon={BriefcaseBusiness} label="Gross settlements" value={formatINR(totals.gross)} emphasis />
+            <SummaryTile icon={FileSpreadsheet} label="Bill-linked payouts" value={String(totals.billLinked)} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="border-b border-border/60">
+            <CardTitle className="text-base">Control checks</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 pt-6">
+            <QueuePill label="Pending approval" value={String(totals.pendingApproval)} />
+            <QueuePill label="Payments in current view" value={String((txns ?? []).length)} />
+            <QueuePill label="Exports ready" value="CSV / Excel / PDF" />
+          </CardContent>
+        </Card>
+      </section>
+
+      <form className="grid gap-3 rounded-[24px] border border-border/70 bg-card px-4 py-4 md:grid-cols-[1fr_auto_auto_auto_auto]" method="get">
+        <Input name="q" defaultValue={q} placeholder="Search vendor or reference…" className="md:max-w-xl" />
         <select
           name="approval"
           defaultValue={approval ?? ""}
-          className="h-10 rounded-md border bg-background px-3 text-sm"
+          className="h-10 rounded-xl border border-border/80 bg-background/80 px-3 text-sm shadow-sm"
         >
           <option value="">All review statuses</option>
           {approvalStatusValues.map((status) => (
@@ -167,83 +198,67 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
 
       <ApprovalStatusGuide />
 
-      {txns === null ? (
-        <div className="rounded-md border bg-muted/20 p-4 text-sm">
-          <div className="font-medium">{dbUnavailable ? "Database temporarily unreachable" : "Database update required"}</div>
-          <div className="mt-1 text-muted-foreground">
-            {dbUnavailable
-              ? "The app could not connect to the database. Check DATABASE_URL / Prisma Postgres status in Vercel, then refresh."
-              : "Your app code is deployed, but your database is missing required tables/columns. Run Prisma migrations against the Vercel DB, then refresh."}
-          </div>
-          <pre className="mt-3 overflow-x-auto rounded-md bg-black/40 p-3 text-xs">
-{`cd "/Users/roshanvinayan/Documents/Probuild ERP/probuild-erp"
-
-# Use the EXACT DATABASE_URL from Vercel (Settings → Environment Variables)
-DATABASE_URL='postgres://...your-vercel-db-url...' npx prisma migrate deploy
-DATABASE_URL='postgres://...your-vercel-db-url...' npx prisma db seed`}
-          </pre>
-        </div>
-      ) : null}
-
-      <div className="rounded-md border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
-        Showing {(txns ?? []).length} payments • Cash {formatINR(totals.cash)} • TDS {formatINR(totals.tds)} • Gross {formatINR(totals.gross)}
-      </div>
-
       <Card>
+        <CardHeader className="border-b border-border/60">
+          <CardTitle className="text-base">Payment ledger</CardTitle>
+        </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[110px]">Date</TableHead>
+                <TableHead>Date</TableHead>
                 <TableHead>Vendor</TableHead>
                 <TableHead className="hidden lg:table-cell">Project</TableHead>
                 <TableHead className="text-right">Cash</TableHead>
-                <TableHead className="hidden sm:table-cell text-right">TDS</TableHead>
-                <TableHead className="hidden md:table-cell text-right">Gross</TableHead>
+                <TableHead className="text-right">TDS</TableHead>
+                <TableHead className="text-right">Gross</TableHead>
                 <TableHead className="hidden md:table-cell">Mode</TableHead>
                 <TableHead className="hidden xl:table-cell">Reference</TableHead>
                 <TableHead className="hidden md:table-cell">Review</TableHead>
-                <TableHead className="hidden md:table-cell text-right">Bills</TableHead>
-                <TableHead className="w-[1%] text-right">Open</TableHead>
+                <TableHead className="text-right">Bills</TableHead>
+                <TableHead className="text-right">Open</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {(txns ?? []).length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="py-10 text-center text-sm text-muted-foreground">
-                    No payments yet.
+                  <TableCell colSpan={11} className="py-12 text-center text-sm text-muted-foreground">
+                    No payments matched this view.
                   </TableCell>
                 </TableRow>
               ) : (
-                (txns ?? []).map((t) => {
-                  const cash = Number(t.amount);
-                  const tds = Number(t.tdsAmount ?? 0);
+                (txns ?? []).map((txn) => {
+                  const cash = Number(txn.amount);
+                  const tds = Number(txn.tdsAmount ?? 0);
                   const gross = cash + tds;
-                  const bills = allocationCountByTxnId.get(t.id) ?? 0;
+                  const bills = allocationCountByTxnId.get(txn.id) ?? 0;
+
                   return (
-                    <TableRow key={t.id}>
-                      <TableCell className="whitespace-nowrap">{t.date.toISOString().slice(0, 10)}</TableCell>
+                    <TableRow key={txn.id}>
+                      <TableCell>{txn.date.toISOString().slice(0, 10)}</TableCell>
                       <TableCell className="min-w-0">
                         <div className="min-w-0">
-                          <Link className="block truncate font-medium hover:underline" href={`/app/purchases/payments-made/${t.id}`}>
-                            {t.vendor?.name ?? "-"}
+                          <Link className="block truncate font-semibold hover:underline" href={`/app/purchases/payments-made/${txn.id}`}>
+                            {txn.vendor?.name ?? "-"}
                           </Link>
-                          <div className="mt-0.5 truncate text-xs text-muted-foreground lg:hidden">
-                            {t.project?.name ?? "—"} • {t.mode ?? "—"} • {approvalStatusLabels[t.approvalStatus]} • Bills {bills}
+                          <div className="mt-1 truncate text-xs text-muted-foreground lg:hidden">
+                            {txn.project?.name ?? "—"} • {txn.mode ?? "—"}
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell max-w-[260px] truncate">{t.project?.name ?? "-"}</TableCell>
-                      <TableCell className="whitespace-nowrap text-right tabular-nums">{formatINR(cash)}</TableCell>
-                      <TableCell className="hidden sm:table-cell whitespace-nowrap text-right tabular-nums">{formatINR(tds)}</TableCell>
-                      <TableCell className="hidden md:table-cell whitespace-nowrap text-right tabular-nums">{formatINR(gross)}</TableCell>
-                      <TableCell className="hidden md:table-cell whitespace-nowrap">{t.mode ?? "-"}</TableCell>
-                      <TableCell className="hidden xl:table-cell max-w-[260px] truncate">{t.reference ?? "-"}</TableCell>
-                      <TableCell className="hidden md:table-cell"><ApprovalStatusBadge status={t.approvalStatus} /></TableCell>
-                      <TableCell className="hidden md:table-cell whitespace-nowrap text-right tabular-nums">{bills}</TableCell>
+                      <TableCell className="hidden lg:table-cell max-w-[260px] truncate">{txn.project?.name ?? "-"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(cash)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(tds)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(gross)}</TableCell>
+                      <TableCell className="hidden md:table-cell">{txn.mode ?? "-"}</TableCell>
+                      <TableCell className="hidden xl:table-cell max-w-[240px] truncate">{txn.reference ?? "-"}</TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <ApprovalStatusBadge status={txn.approvalStatus} />
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{bills}</TableCell>
                       <TableCell className="text-right">
                         <Button asChild size="sm" variant="secondary">
-                          <Link href={`/app/purchases/payments-made/${t.id}`}>Open</Link>
+                          <Link href={`/app/purchases/payments-made/${txn.id}`}>Open</Link>
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -254,6 +269,37 @@ DATABASE_URL='postgres://...your-vercel-db-url...' npx prisma db seed`}
           </Table>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function SummaryTile({
+  icon: Icon,
+  label,
+  value,
+  emphasis = false,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  emphasis?: boolean;
+}) {
+  return (
+    <div className={`rounded-[22px] border border-border/60 px-4 py-4 ${emphasis ? "bg-accent/50" : "bg-background/70"}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
+        <Icon className="size-4 text-muted-foreground" />
+      </div>
+      <div className="mt-4 text-2xl font-semibold tracking-tight">{value}</div>
+    </div>
+  );
+}
+
+function QueuePill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-[18px] border border-border/60 bg-background/70 px-4 py-3">
+      <div className="text-sm text-muted-foreground">{label}</div>
+      <div className="font-semibold">{value}</div>
     </div>
   );
 }

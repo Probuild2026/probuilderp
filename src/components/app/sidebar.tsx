@@ -7,6 +7,7 @@ import { useState } from "react";
 import {
   ArrowLeftRight,
   BarChart3,
+  BellRing,
   Briefcase,
   Boxes,
   Building2,
@@ -31,39 +32,54 @@ import { cn } from "@/lib/utils";
 
 export const navGroups = [
   {
-    header: "Operations",
+    header: "Overview",
     items: [
       { href: "/app", label: "Dashboard", icon: LayoutDashboard },
+    ],
+  },
+  {
+    header: "Projects",
+    items: [
       { href: "/app/projects", label: "Projects", icon: Building2 },
-      { href: "/app/purchases/bills", label: "Bills", icon: FileText },
-      { href: "/app/purchases/payments-made", label: "Payments Made", icon: Wallet },
-      { href: "/app/sales/invoices", label: "Invoices", icon: FileSpreadsheet },
-      { href: "/app/sales/receipts", label: "Receipts", icon: HandCoins },
-      { href: "/app/wages", label: "Wages", icon: Briefcase },
-      { href: "/app/expenses", label: "Expenses", icon: ClipboardList },
-      { href: "/app/transactions", label: "Transactions", icon: ArrowLeftRight },
       { href: "/app/inventory", label: "Inventory", icon: Boxes },
     ],
   },
   {
-    header: "Parties",
+    header: "Purchases",
     items: [
-      { href: "/app/clients", label: "Clients", icon: Users },
+      { href: "/app/purchases/bills", label: "Bills", icon: FileText },
+      { href: "/app/purchases/payments-made", label: "Payments Made", icon: Wallet },
       { href: "/app/vendors", label: "Vendors", icon: Truck },
+    ],
+  },
+  {
+    header: "Sales",
+    items: [
+      { href: "/app/sales/invoices", label: "Invoices", icon: FileSpreadsheet },
+      { href: "/app/sales/receipts", label: "Receipts", icon: HandCoins },
+      { href: "/app/clients", label: "Clients", icon: Users },
+    ],
+  },
+  {
+    header: "Workforce",
+    items: [
+      { href: "/app/wages", label: "Wages", icon: Briefcase },
       { href: "/app/partners", label: "Partners", icon: UserRoundCog },
     ],
   },
   {
-    header: "Analysis",
+    header: "Finance",
     items: [
+      { href: "/app/expenses", label: "Expenses", icon: ClipboardList },
+      { href: "/app/transactions", label: "Transactions", icon: ArrowLeftRight },
       { href: "/app/reports", label: "Reports", icon: BarChart3 },
       { href: "/app/reports/monthly-expenses", label: "Monthly Outflows", icon: Receipt },
-      { href: "/app/imports", label: "Import CSV", icon: Upload },
     ],
   },
   {
-    header: "Setup",
+    header: "Admin",
     items: [
+      { href: "/app/imports", label: "Imports", icon: Upload },
       { href: "/app/items", label: "Items", icon: Package },
       { href: "/app/settings/business", label: "Business", icon: Settings2 },
       { href: "/app/settings/account", label: "Account", icon: UsersRound },
@@ -98,13 +114,16 @@ export function Sidebar({ className }: { className?: string }) {
   return (
     <aside
       className={cn(
-        "border-r bg-background p-2 transition-[width] duration-200",
-        collapsed ? "w-16" : "w-64",
+        "border-r border-sidebar-border bg-sidebar/95 p-3 transition-[width] duration-200",
+        collapsed ? "w-20" : "w-72",
         className,
       )}
     >
       <div className={cn("flex items-center gap-2 px-2", collapsed ? "justify-center" : "justify-between")}>
-        <div className={cn("text-lg font-semibold", collapsed && "sr-only")}>Probuild ERP</div>
+        <div className={cn("min-w-0", collapsed && "sr-only")}>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sidebar-foreground/55">Probuild</div>
+          <div className="truncate text-base font-semibold text-sidebar-foreground">Construction OS</div>
+        </div>
         <Button
           type="button"
           variant="outline"
@@ -117,10 +136,26 @@ export function Sidebar({ className }: { className?: string }) {
         </Button>
       </div>
 
-      <nav className={cn("mt-3 space-y-4", collapsed ? "px-1" : "px-2")}>
+      <div className={cn("mt-4 rounded-[20px] border border-sidebar-border bg-sidebar-accent/60 px-3 py-3", collapsed && "px-2")}>
+        {collapsed ? (
+          <BellRing className="mx-auto size-4 text-sidebar-foreground/70" />
+        ) : (
+          <>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/55">Today</div>
+            <div className="mt-2 text-sm text-sidebar-foreground">Review receivables, clear payables, and keep site cash visible.</div>
+          </>
+        )}
+      </div>
+
+      <nav className={cn("mt-4 space-y-4", collapsed ? "px-1" : "px-2")}>
         {navGroups.map((group) => (
           <div key={group.header}>
-            <div className={cn("px-3 pb-1 text-[11px] font-medium tracking-wide text-muted-foreground/80", collapsed && "sr-only")}>
+            <div
+              className={cn(
+                "px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-sidebar-foreground/50",
+                collapsed && "sr-only",
+              )}
+            >
               {group.header}
             </div>
             <div className="space-y-1">
@@ -133,10 +168,10 @@ export function Sidebar({ className }: { className?: string }) {
                     href={item.href}
                     title={collapsed ? item.label : undefined}
                     className={cn(
-                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm",
+                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm",
                       active
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-[0_14px_30px_-20px_color-mix(in_srgb,var(--sidebar-primary)_85%,transparent)]"
+                        : "text-sidebar-foreground/72 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                       collapsed && "justify-center px-2",
                     )}
                   >

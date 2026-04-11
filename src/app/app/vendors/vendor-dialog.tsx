@@ -45,9 +45,21 @@ function collectFormErrors(errors: Record<string, unknown>, path = ""): string[]
 }
 
 export function AddVendorDialog() {
+  return <VendorDialog />;
+}
+
+export function VendorDialog({
+  defaultOpen = false,
+  hideTrigger = false,
+  onOpenChange,
+}: {
+  defaultOpen?: boolean;
+  hideTrigger?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [submitErrors, setSubmitErrors] = useState<string[]>([]);
 
   const form = useForm<VendorCreateInput>({
@@ -87,6 +99,7 @@ export function AddVendorDialog() {
         toast.success("Vendor created.");
         form.reset();
         setOpen(false);
+        onOpenChange?.(false);
         router.refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to create vendor.");
@@ -107,11 +120,14 @@ export function AddVendorDialog() {
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen);
         if (!nextOpen) setSubmitErrors([]);
+        onOpenChange?.(nextOpen);
       }}
     >
-      <DialogTrigger asChild>
-        <Button>Add Vendor</Button>
-      </DialogTrigger>
+      {hideTrigger ? null : (
+        <DialogTrigger asChild>
+          <Button>Add Vendor</Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Add Vendor</DialogTitle>
