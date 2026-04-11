@@ -3,15 +3,35 @@
 import { useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 
 type Option = { id: string; name: string };
 
 function to2(n: number) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+function FormSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-5">
+      <div className="space-y-1">
+        <h3 className="text-sm font-semibold tracking-wide">{title}</h3>
+        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+      </div>
+      {children}
+    </section>
+  );
 }
 
 export function InvoiceForm({
@@ -32,9 +52,7 @@ export function InvoiceForm({
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState("");
 
-  const [gstType, setGstType] = useState<"INTRA" | "INTER">(
-    (defaultValues?.gstType as any) === "INTER" ? "INTER" : "INTRA",
-  );
+  const [gstType, setGstType] = useState<"INTRA" | "INTER">(defaultValues?.gstType === "INTER" ? "INTER" : "INTRA");
   const [gstRate, setGstRate] = useState<number>(Number(defaultValues?.gstRate ?? 18));
   const [basicValue, setBasicValue] = useState<number>(Number(defaultValues?.basicValue ?? 0));
 
@@ -71,11 +89,11 @@ export function InvoiceForm({
       }}
       className="space-y-6"
     >
-      <Card>
-        <CardHeader>
-          <CardTitle>Invoice</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <FormSection
+        title="Invoice identity"
+        description="Assign the billing parties, number, dates, and service scope for this invoice."
+      >
+        <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Project</Label>
@@ -145,14 +163,16 @@ export function InvoiceForm({
               <Input name="sacCode" defaultValue={defaultValues?.sacCode ?? ""} placeholder="e.g. 9954" />
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </FormSection>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>GST & Amounts</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <Separator />
+
+      <FormSection
+        title="Tax and amounts"
+        description="Set the GST treatment, review the computed totals, and capture any expected client TDS."
+      >
+        <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label>GST type</Label>
@@ -244,8 +264,8 @@ export function InvoiceForm({
               </select>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </FormSection>
 
       {err ? <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm">{err}</div> : null}
 

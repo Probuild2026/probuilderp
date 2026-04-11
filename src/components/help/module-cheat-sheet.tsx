@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 type ModuleCheatSheetProps = {
   moduleKey: ModuleKey;
-  variant?: "inline" | "sidebar" | "compact";
+  variant?: "inline" | "sidebar" | "compact" | "embedded";
   showDecisionHints?: boolean;
   showRoutingTrigger?: boolean;
   className?: string;
@@ -138,6 +138,19 @@ export function ModuleCheatSheet({
             showRoutingTrigger={showRoutingTrigger}
           />
         </Card>
+      </div>
+    );
+  }
+
+  if (variant === "embedded") {
+    return (
+      <div className={className}>
+        <CheatSheetBody
+          moduleKey={moduleKey}
+          variant="compact"
+          showDecisionHints={showDecisionHints}
+          showRoutingTrigger={showRoutingTrigger}
+        />
       </div>
     );
   }
