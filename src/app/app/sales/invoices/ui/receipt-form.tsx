@@ -48,9 +48,15 @@ export function ReceiptForm({
           }
         });
       }}
-      className="space-y-4"
+      className="space-y-5"
     >
-      <div className="text-xs text-muted-foreground">Remaining (approx): {remaining.toFixed(2)}</div>
+      <div className="rounded-2xl border border-dashed border-border/70 bg-muted/30 px-4 py-3">
+        <div className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Open balance</div>
+        <div className="mt-2 text-2xl font-semibold tracking-tight">{remaining.toFixed(2)}</div>
+        <div className="mt-1 text-xs text-muted-foreground">
+          Approximate amount still pending on this invoice, including unsettled TDS impact.
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="space-y-2">
@@ -88,7 +94,7 @@ export function ReceiptForm({
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-muted/20 px-3 py-3">
         <input
           id="tdsDeducted"
           type="checkbox"

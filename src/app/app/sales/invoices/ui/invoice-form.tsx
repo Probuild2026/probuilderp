@@ -1,17 +1,37 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 
 type Option = { id: string; name: string };
 
 function to2(n: number) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+function FormSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-5">
+      <div className="space-y-1">
+        <h3 className="text-sm font-semibold tracking-wide">{title}</h3>
+        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+      </div>
+      {children}
+    </section>
+  );
 }
 
 export function InvoiceForm({
@@ -29,14 +49,18 @@ export function InvoiceForm({
   submitLabel: string;
   onSubmit: (fd: FormData) => Promise<void>;
 }) {
+  const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState("");
+  const [dirty, setDirty] = useState(false);
 
-  const [gstType, setGstType] = useState<"INTRA" | "INTER">(
-    (defaultValues?.gstType as any) === "INTER" ? "INTER" : "INTRA",
-  );
-  const [gstRate, setGstRate] = useState<number>(Number(defaultValues?.gstRate ?? 18));
-  const [basicValue, setBasicValue] = useState<number>(Number(defaultValues?.basicValue ?? 0));
+  const initialGstType = defaultValues?.gstType === "INTER" ? "INTER" : "INTRA";
+  const initialGstRate = Number(defaultValues?.gstRate ?? 18);
+  const initialBasicValue = Number(defaultValues?.basicValue ?? 0);
+
+  const [gstType, setGstType] = useState<"INTRA" | "INTER">(initialGstType);
+  const [gstRate, setGstRate] = useState<number>(initialGstRate);
+  const [basicValue, setBasicValue] = useState<number>(initialBasicValue);
 
   const computed = useMemo(() => {
     const rate = Number.isFinite(gstRate) ? gstRate : 0;
@@ -49,8 +73,70 @@ export function InvoiceForm({
     return { cgst, sgst, igst, total };
   }, [basicValue, gstRate, gstType]);
 
+  const initialSnapshot = useMemo(
+    () =>
+      JSON.stringify({
+        projectId: defaultValues?.projectId ?? (projects[0]?.id ?? ""),
+        clientId: defaultValues?.clientId ?? (clients[0]?.id ?? ""),
+        invoiceNumber: defaultValues?.invoiceNumber ?? "",
+        invoiceDate: defaultValues?.invoiceDate ?? today,
+        dueDate: defaultValues?.dueDate ?? "",
+        serviceDescription: defaultValues?.serviceDescription ?? "",
+        sacCode: defaultValues?.sacCode ?? "",
+        gstType: initialGstType,
+        gstRate: String(initialGstRate),
+        basicValue: String(initialBasicValue),
+        tdsRate: defaultValues?.tdsRate ?? "",
+        tdsAmountExpected: defaultValues?.tdsAmountExpected ?? "",
+        status: defaultValues?.status ?? "DUE",
+      }),
+    [clients, defaultValues, initialBasicValue, initialGstRate, initialGstType, projects, today],
+  );
+
+  const getSnapshot = useCallback(
+    (form: HTMLFormElement) => {
+      const fd = new FormData(form);
+      return JSON.stringify({
+        projectId: String(fd.get("projectId") ?? ""),
+        clientId: String(fd.get("clientId") ?? ""),
+        invoiceNumber: String(fd.get("invoiceNumber") ?? ""),
+        invoiceDate: String(fd.get("invoiceDate") ?? ""),
+        dueDate: String(fd.get("dueDate") ?? ""),
+        serviceDescription: String(fd.get("serviceDescription") ?? ""),
+        sacCode: String(fd.get("sacCode") ?? ""),
+        gstType,
+        gstRate: String(gstRate),
+        basicValue: String(basicValue),
+        tdsRate: String(fd.get("tdsRate") ?? ""),
+        tdsAmountExpected: String(fd.get("tdsAmountExpected") ?? ""),
+        status: String(fd.get("status") ?? ""),
+      });
+    },
+    [basicValue, gstRate, gstType],
+  );
+
+  function recomputeDirty() {
+    if (!formRef.current) return;
+    setDirty(getSnapshot(formRef.current) !== initialSnapshot);
+  }
+
+  function handleReset() {
+    formRef.current?.reset();
+    setErr("");
+    setGstType(initialGstType);
+    setGstRate(initialGstRate);
+    setBasicValue(initialBasicValue);
+    setDirty(false);
+  }
+
+  useEffect(() => {
+    if (!formRef.current) return;
+    setDirty(getSnapshot(formRef.current) !== initialSnapshot);
+  }, [getSnapshot, initialSnapshot]);
+
   return (
     <form
+      ref={formRef}
       action={async (fd) => {
         setErr("");
         startTransition(async () => {
@@ -70,12 +156,13 @@ export function InvoiceForm({
         });
       }}
       className="space-y-6"
+      onChange={recomputeDirty}
     >
-      <Card>
-        <CardHeader>
-          <CardTitle>Invoice</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <FormSection
+        title="Invoice identity"
+        description="Assign the billing parties, number, dates, and service scope for this invoice."
+      >
+        <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Project</Label>
@@ -145,14 +232,16 @@ export function InvoiceForm({
               <Input name="sacCode" defaultValue={defaultValues?.sacCode ?? ""} placeholder="e.g. 9954" />
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </FormSection>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>GST & Amounts</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <Separator />
+
+      <FormSection
+        title="Tax and amounts"
+        description="Set the GST treatment, review the computed totals, and capture any expected client TDS."
+      >
+        <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label>GST type</Label>
@@ -244,16 +333,29 @@ export function InvoiceForm({
               </select>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </FormSection>
 
       {err ? <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm">{err}</div> : null}
 
-      <div className="flex items-center justify-end gap-3">
-        <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : submitLabel}
-        </Button>
-      </div>
+      {dirty || pending ? (
+        <div className="sticky bottom-4 z-20">
+          <div className="flex flex-col gap-3 rounded-2xl border border-border/80 bg-background/95 px-4 py-4 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm">
+              <div className="font-medium">{pending ? "Saving changes..." : "You have unsaved changes."}</div>
+              <div className="text-muted-foreground">Review the invoice details and save to update totals and status.</div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button type="button" variant="outline" onClick={handleReset} disabled={pending}>
+                Reset
+              </Button>
+              <Button type="submit" disabled={pending}>
+                {pending ? "Saving..." : submitLabel}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </form>
   );
 }

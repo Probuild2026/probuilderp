@@ -2,17 +2,23 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 
-import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
+import {
+  DetailWorkspaceHeader,
+  DetailWorkspacePanel,
+  DetailWorkspaceStat,
+  DetailWorkspaceStats,
+} from "@/components/app/detail-workspace";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { MODULE_CHEAT_SHEETS } from "@/config/module-cheat-sheets";
 import { formatINR } from "@/lib/money";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
-import { deleteClientInvoice, updateClientInvoice } from "../actions";
 import { createReceipt, deleteReceipt } from "../../receipts/actions";
+import { deleteClientInvoice, updateClientInvoice } from "../actions";
 import { InvoiceForm } from "../ui/invoice-form";
 import { ReceiptForm } from "../ui/receipt-form";
 
@@ -20,6 +26,17 @@ function statusFromSettled(total: number, settled: number) {
   if (settled >= total) return "PAID";
   if (settled > 0) return "PARTIAL";
   return "DUE";
+}
+
+function statusTone(status: string) {
+  switch (status) {
+    case "PAID":
+      return "bg-emerald-500/12 text-emerald-700 ring-1 ring-emerald-500/20";
+    case "PARTIAL":
+      return "bg-amber-500/12 text-amber-700 ring-1 ring-amber-500/20";
+    default:
+      return "bg-slate-500/10 text-slate-700 ring-1 ring-slate-500/20";
+  }
 }
 
 export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -80,8 +97,17 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   if (!invoice) return notFound();
 
   const invoiceId = invoice.id;
+  const basicValue = Number(invoice.basicValue);
+  const gstValue = Number(invoice.cgst) + Number(invoice.sgst) + Number(invoice.igst);
+  const totalValue = Number(invoice.total);
+  const cashReceived = Number(alloc._sum.cashAmount ?? 0);
+  const tdsSettled = Number(alloc._sum.tdsAmount ?? 0);
   const settledGross = Number(alloc._sum.grossAmount ?? 0);
-  const status = statusFromSettled(Number(invoice.total), settledGross);
+  const outstanding = Math.max(0, totalValue - settledGross);
+  const status = statusFromSettled(totalValue, settledGross);
+  const paidPct = totalValue > 0 ? Math.min(100, Math.round((settledGross / totalValue) * 100)) : 0;
+  const lastReceiptDate = receipts[0]?.date ? receipts[0].date.toISOString().slice(0, 10) : null;
+  const guide = MODULE_CHEAT_SHEETS.invoices;
 
   const projects = await prisma.project.findMany({
     where: { tenantId: session.user.tenantId },
@@ -125,183 +151,260 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Invoice {invoice.invoiceNumber}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {invoice.client.name} · {invoice.project.name}
+    <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
+      <DetailWorkspaceHeader
+        eyebrow="Sales / Invoices"
+        title={`Invoice ${invoice.invoiceNumber}`}
+        description={
+          <>
+            {invoice.client.name} for {invoice.project.name}
             {profile?.legalName ? ` · ${profile.legalName}` : ""}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button asChild variant="outline">
-            <Link href="/app/sales/invoices">Back</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href={`/app/sales/invoices/${invoiceId}/print`} target="_blank">
-              Print / PDF
-            </Link>
-          </Button>
-          <form action={onDelete}>
-            <Button type="submit" variant="destructive">
-              Delete
+          </>
+        }
+        actions={
+          <>
+            <Button asChild variant="outline">
+              <Link href="/app/sales/invoices">Back to invoices</Link>
             </Button>
-          </form>
-        </div>
-      </div>
+            <Button asChild variant="outline">
+              <Link href={`/app/sales/invoices/${invoiceId}/print`} target="_blank">
+                Print / PDF
+              </Link>
+            </Button>
+            <form action={onDelete}>
+              <Button type="submit" variant="destructive">
+                Delete
+              </Button>
+            </form>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <DetailWorkspaceStats>
+            <DetailWorkspaceStat label="Basic value" value={formatINR(basicValue)} />
+            <DetailWorkspaceStat label="GST" value={formatINR(gstValue)} hint={`${invoice.gstType} · ${invoice.gstRate}%`} />
+            <DetailWorkspaceStat
+              label="Total invoice"
+              value={formatINR(totalValue)}
+              hint="Final amount billed"
+            />
+            <DetailWorkspaceStat
+              label="Paid to date"
+              value={formatINR(cashReceived)}
+              hint={`Settled ${formatINR(settledGross)}`}
+              className="border-emerald-200 bg-emerald-50/60"
+            />
+            <DetailWorkspaceStat
+              label="Remaining balance"
+              value={formatINR(outstanding)}
+              hint={
+                <span className="flex items-center gap-2">
+                  <Badge variant="outline" className={statusTone(status)}>
+                    {status}
+                  </Badge>
+                  <span>Due {invoice.dueDate ? invoice.dueDate.toISOString().slice(0, 10) : "Not set"}</span>
+                </span>
+              }
+              className="border-amber-200 bg-amber-50/70"
+            />
+          </DetailWorkspaceStats>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Totals</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <div>
-              <div className="text-xs text-muted-foreground">Basic</div>
-              <div className="text-lg font-semibold">{formatINR(Number(invoice.basicValue))}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">GST</div>
-              <div className="text-lg font-semibold">
-                {formatINR(Number(invoice.cgst) + Number(invoice.sgst) + Number(invoice.igst))}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Total</div>
-              <div className="text-lg font-semibold">{formatINR(Number(invoice.total))}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Settled</div>
-              <div className="text-lg font-semibold">{formatINR(settledGross)}</div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Status</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Status</span>
-              <span className="font-medium">{status}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Invoice date</span>
-              <span className="font-medium">{invoice.invoiceDate.toISOString().slice(0, 10)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Due date</span>
-              <span className="font-medium">{invoice.dueDate ? invoice.dueDate.toISOString().slice(0, 10) : "—"}</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Edit invoice</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <InvoiceForm
-                    today={new Date().toISOString().slice(0, 10)}
-                    projects={projects}
-                    clients={clients}
-                    defaultValues={defaults}
-                    submitLabel="Save invoice"
-                    onSubmit={onUpdate}
-                  />
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Add receipt</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ReceiptForm
-                    invoiceId={invoiceId}
-                    invoiceTotal={Number(invoice.total)}
-                    invoiceSettled={settledGross}
-                    onSubmit={async (fd) => {
-                      "use server";
-                      await createReceipt(fd);
-                      redirect(`/app/sales/invoices/${invoiceId}`);
-                    }}
-                  />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Receipts</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead className="text-right">Received</TableHead>
-                          <TableHead className="text-right">TDS</TableHead>
-                          <TableHead>Mode</TableHead>
-                          <TableHead>Ref</TableHead>
-                          <TableHead className="text-right">Delete</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {receipts.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
-                              No receipts yet.
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          receipts.map((r) => (
-                            <TableRow key={r.id}>
-                              <TableCell>{r.date.toISOString().slice(0, 10)}</TableCell>
-                              <TableCell className="text-right">{formatINR(Number(r.amountReceived))}</TableCell>
-                              <TableCell className="text-right">{formatINR(Number(r.tdsAmount ?? 0))}</TableCell>
-                              <TableCell>{r.mode}</TableCell>
-                              <TableCell className="max-w-[160px] truncate">{r.reference ?? "—"}</TableCell>
-                              <TableCell className="text-right">
-                                <form
-                                  action={async () => {
-                                    "use server";
-                                    await deleteReceipt(r.id, invoiceId);
-                                    redirect(`/app/sales/invoices/${invoiceId}`);
-                                  }}
-                                >
-                                  <Button type="submit" variant="destructive" size="sm">
-                                    Delete
-                                  </Button>
-                                </form>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  <Separator />
-                  <div className="p-4 text-xs text-muted-foreground">
-                    Tip: Client TDS is added to “effective received” for status, but “Received” shows actual money you got.
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <span>{invoice.client.name}</span>
+            <span className="hidden sm:inline">/</span>
+            <span>{invoice.project.name}</span>
+            <span className="hidden sm:inline">/</span>
+            <span>Invoice date {invoice.invoiceDate.toISOString().slice(0, 10)}</span>
           </div>
         </div>
+      </DetailWorkspaceHeader>
 
-        <ModuleCheatSheet moduleKey="invoices" variant="sidebar" showRoutingTrigger className="order-first lg:order-none" />
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.85fr)] xl:items-start">
+        <div className="space-y-6">
+          <DetailWorkspacePanel
+            title="Edit invoice"
+            description="Update the invoice information and tax details. Changes stay pinned while you work through the form."
+          >
+            <InvoiceForm
+              today={new Date().toISOString().slice(0, 10)}
+              projects={projects}
+              clients={clients}
+              defaultValues={defaults}
+              submitLabel="Save invoice"
+              onSubmit={onUpdate}
+            />
+          </DetailWorkspacePanel>
+
+          <DetailWorkspacePanel
+            title="Payment history"
+            description="All receipts recorded against this invoice."
+            actions={<Badge variant="secondary">{receipts.length} receipts</Badge>}
+          >
+            <Table className="min-w-[720px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="sticky top-0 bg-background">Date</TableHead>
+                  <TableHead className="sticky top-0 bg-background text-right">Amount received</TableHead>
+                  <TableHead className="sticky top-0 bg-background text-right">TDS</TableHead>
+                  <TableHead className="sticky top-0 bg-background">Mode</TableHead>
+                  <TableHead className="sticky top-0 hidden bg-background md:table-cell">Reference</TableHead>
+                  <TableHead className="sticky top-0 hidden bg-background lg:table-cell">Notes</TableHead>
+                  <TableHead className="sticky top-0 bg-background text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {receipts.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
+                      No payments have been recorded for this invoice yet.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  receipts.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="whitespace-nowrap">{r.date.toISOString().slice(0, 10)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(Number(r.amountReceived))}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(Number(r.tdsAmount ?? 0))}</TableCell>
+                      <TableCell>{r.mode}</TableCell>
+                      <TableCell className="hidden max-w-[180px] truncate md:table-cell">{r.reference ?? "—"}</TableCell>
+                      <TableCell className="hidden max-w-[220px] truncate lg:table-cell">{r.remarks ?? "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <form
+                          action={async () => {
+                            "use server";
+                            await deleteReceipt(r.id, invoiceId);
+                            redirect(`/app/sales/invoices/${invoiceId}`);
+                          }}
+                        >
+                          <Button type="submit" variant="outline" size="sm">
+                            Remove
+                          </Button>
+                        </form>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+            <Separator className="my-4" />
+            <p className="text-xs text-muted-foreground">
+              Status uses gross settlement, so client TDS counts toward progress even when cash received is lower.
+            </p>
+          </DetailWorkspacePanel>
+        </div>
+
+        <div className="space-y-6">
+          <DetailWorkspacePanel
+            title="Record receipt"
+            description="Record a payment received against this invoice. This payment will be applied to the outstanding balance."
+            className="xl:sticky xl:top-6"
+          >
+            <ReceiptForm
+              invoiceId={invoiceId}
+              invoiceTotal={totalValue}
+              invoiceSettled={settledGross}
+              onSubmit={async (fd) => {
+                "use server";
+                await createReceipt(fd);
+                redirect(`/app/sales/invoices/${invoiceId}`);
+              }}
+            />
+          </DetailWorkspacePanel>
+
+          <DetailWorkspacePanel
+            title="Invoice snapshot"
+            description="Quick financial context while you record receipts."
+          >
+            <div className="space-y-5">
+              <div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-muted-foreground">Status</span>
+                  <Badge variant="outline" className={statusTone(status)}>
+                    {status}
+                  </Badge>
+                </div>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full rounded-full bg-primary" style={{ width: `${paidPct}%` }} />
+                </div>
+                <div className="mt-2 flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Payment progress</span>
+                  <span className="font-medium">{paidPct}%</span>
+                </div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {formatINR(settledGross)} of {formatINR(totalValue)} received
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Invoice date</span>
+                  <span className="font-medium">{invoice.invoiceDate.toISOString().slice(0, 10)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Due date</span>
+                  <span className="font-medium">{invoice.dueDate ? invoice.dueDate.toISOString().slice(0, 10) : "—"}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Client</span>
+                  <span className="font-medium">{invoice.client.name}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Project</span>
+                  <span className="font-medium">{invoice.project.name}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Last receipt</span>
+                  <span className="font-medium">{lastReceiptDate ?? "No receipts yet"}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">TDS settled</span>
+                  <span className="font-medium">{formatINR(tdsSettled)}</span>
+                </div>
+              </div>
+            </div>
+          </DetailWorkspacePanel>
+        </div>
       </div>
+
+      <DetailWorkspacePanel
+        title="Need help?"
+        description="Reference guidance stays available, but collapsed until you need it."
+      >
+        <div className="space-y-3">
+          <details className="rounded-2xl border border-border/70 bg-muted/20 px-4 py-3">
+            <summary className="cursor-pointer list-none text-sm font-medium">What belongs in invoices?</summary>
+            <ul className="mt-3 space-y-2 pl-4 text-sm text-muted-foreground">
+              {guide.useWhen.map((item) => (
+                <li key={item} className="list-disc">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </details>
+          <details className="rounded-2xl border border-border/70 bg-muted/20 px-4 py-3">
+            <summary className="cursor-pointer list-none text-sm font-medium">When should I use this?</summary>
+            <ul className="mt-3 space-y-2 pl-4 text-sm text-muted-foreground">
+              {guide.doNotUseWhen.map((item) => (
+                <li key={item} className="list-disc">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </details>
+          <details className="rounded-2xl border border-border/70 bg-muted/20 px-4 py-3">
+            <summary className="cursor-pointer list-none text-sm font-medium">Examples</summary>
+            <ul className="mt-3 space-y-2 pl-4 text-sm text-muted-foreground">
+              {guide.examples.map((item) => (
+                <li key={item} className="list-disc">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </details>
+        </div>
+      </DetailWorkspacePanel>
     </div>
   );
 }
