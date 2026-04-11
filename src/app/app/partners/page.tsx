@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
+import { BriefcaseBusiness, Landmark, ShieldCheck, UsersRound } from "lucide-react";
 
 import { AddPartnerDialog, EditPartnerDialog } from "@/app/app/partners/partner-dialog";
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PARTNER_TDS_THRESHOLD, getFinancialYear } from "@/lib/partner-finance";
 import { formatINR } from "@/lib/money";
@@ -69,8 +71,9 @@ export default async function PartnersPage({
     const tdsPaidMap = new Map(tdsAgg.map((r) => [r.partnerId, Number(r._sum.tdsPaidAmount ?? 0)]));
 
     return (
-      <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
+      <div className="mx-auto max-w-[1440px] space-y-6 p-4 md:p-6">
         <PageHeader
+          eyebrow="Workforce / Partners"
           title="Partners"
           description="Track partner remuneration, drawings, and 194T TDS lifecycle."
           actions={<AddPartnerDialog />}
@@ -81,7 +84,7 @@ export default async function PartnersPage({
                 <input
                   name="fy"
                   defaultValue={fy}
-                  className="h-10 w-32 rounded-md border bg-background px-3 text-sm"
+                  className="h-10 w-32 rounded-xl border border-border/80 bg-background/80 px-3 text-sm shadow-sm"
                   placeholder="2025-26"
                 />
               </div>
@@ -92,16 +95,24 @@ export default async function PartnersPage({
           }
         />
 
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <SummaryCard
+            icon={UsersRound}
+            label="Partners"
+            value={String(partners.length)}
+          />
+          <SummaryCard
+            icon={BriefcaseBusiness}
             label={`Total remuneration (${fy})`}
             value={formatINR(partners.reduce((acc, p) => acc + (remuMap.get(p.id)?.gross ?? 0), 0))}
           />
           <SummaryCard
+            icon={ShieldCheck}
             label={`TDS deducted (${fy})`}
             value={formatINR(partners.reduce((acc, p) => acc + (remuMap.get(p.id)?.tds ?? 0), 0))}
           />
           <SummaryCard
+            icon={Landmark}
             label={`TDS pending (${fy})`}
             value={formatINR(
               partners.reduce((acc, p) => {
@@ -113,8 +124,12 @@ export default async function PartnersPage({
           />
         </div>
 
-        <div className="overflow-x-auto rounded-md border">
-          <Table>
+        <Card>
+          <CardHeader className="border-b border-border/60">
+            <CardTitle className="text-base">Partner register</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Partner</TableHead>
@@ -182,18 +197,19 @@ export default async function PartnersPage({
                 </TableRow>
               ) : null}
             </TableBody>
-          </Table>
-        </div>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
     );
   } catch (error) {
     if (!isMissingTableError(error)) throw error;
     return (
       <div className="mx-auto max-w-4xl space-y-4 p-4 md:p-6">
-        <PageHeader title="Partners" description="Database update required for partner module." />
-        <div className="rounded-md border bg-muted/20 p-4 text-sm">
+        <PageHeader eyebrow="Workforce / Partners" title="Partners" description="Database update required for partner module." />
+        <div className="rounded-[24px] border border-border/70 bg-card p-4 text-sm">
           <div className="font-medium">Run Prisma migration</div>
-          <pre className="mt-3 overflow-x-auto rounded-md bg-black/40 p-3 text-xs">
+          <pre className="mt-3 overflow-x-auto rounded-xl bg-black/40 p-3 text-xs">
 {`cd "/Users/roshanvinayan/Documents/Probuild ERP/probuild-erp"
 npx prisma migrate deploy`}
           </pre>
@@ -203,11 +219,26 @@ npx prisma migrate deploy`}
   }
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
+function SummaryCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+}) {
   return (
-    <div className="rounded-md border bg-card p-4">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 text-xl font-semibold">{value}</div>
-    </div>
+    <Card>
+      <CardContent className="flex items-center justify-between gap-4 pt-6">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
+          <div className="mt-3 text-2xl font-semibold tracking-tight">{value}</div>
+        </div>
+        <div className="flex size-11 items-center justify-center rounded-2xl bg-accent/60 text-accent-foreground">
+          <Icon className="size-4" />
+        </div>
+      </CardContent>
+    </Card>
   );
 }

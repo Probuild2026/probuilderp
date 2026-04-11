@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -20,7 +20,6 @@ export const metadata: Metadata = {
   description: "Contractor ERP for purchases, sales, GST, TDS, and project costing.",
   manifest: "/manifest.webmanifest",
   applicationName: "Probuild ERP",
-  themeColor: "#0a0a0e",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -33,6 +32,10 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: "/icons/apple-touch-icon.png", type: "image/png", sizes: "180x180" }],
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0e6b66",
 };
 
 export default function RootLayout({
