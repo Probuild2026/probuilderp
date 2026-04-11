@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { deleteVendorPayment } from "@/app/actions/vendor-payments";
 import { ApprovalStatusControl } from "@/components/app/approval-status-control";
+import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatINR } from "@/lib/money";
@@ -112,67 +113,78 @@ export default async function VendorPaymentDetailPage({ params }: { params: Prom
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Edit</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PaymentEditForm
-              payment={{
-                id: payment.id,
-                date: dateOnly(payment.date),
-                mode: payment.mode ?? "BANK_TRANSFER",
-                projectId: payment.projectId ?? null,
-                reference: payment.reference ?? null,
-                note: payment.note ?? null,
-                description: payment.description ?? null,
-              }}
-              projects={projects}
-            />
-            <div className="mt-4 text-xs text-muted-foreground">
-              Amounts/TDS are computed by the Vendor Payments flow. To change vendor mapping, use Vendors → Merge vendors.
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Edit</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PaymentEditForm
+                  payment={{
+                    id: payment.id,
+                    date: dateOnly(payment.date),
+                    mode: payment.mode ?? "BANK_TRANSFER",
+                    projectId: payment.projectId ?? null,
+                    reference: payment.reference ?? null,
+                    note: payment.note ?? null,
+                    description: payment.description ?? null,
+                  }}
+                  projects={projects}
+                />
+                <div className="mt-4 text-xs text-muted-foreground">
+                  Amounts/TDS are computed by the Vendor Payments flow. To change vendor mapping, use Vendors → Merge vendors.
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Bills applied</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {allocations.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No bills linked (lump-sum subcontractor payment).</div>
-            ) : (
-              <div className="space-y-2">
-                {allocations.map((a) => {
-                  const inv = invoiceById.get(a.documentId);
-                  const rowCash = Number(a.cashAmount);
-                  const rowTds = Number(a.tdsAmount);
-                  const rowGross = Number(a.grossAmount);
-                  return (
-                    <div key={a.id} className="rounded-md border p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium">{inv?.invoiceNumber ?? "Bill"}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {inv?.invoiceDate ? dateOnly(inv.invoiceDate) : "—"}
+            <Card>
+              <CardHeader>
+                <CardTitle>Bills applied</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {allocations.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">No bills linked (lump-sum subcontractor payment).</div>
+                ) : (
+                  <div className="space-y-2">
+                    {allocations.map((a) => {
+                      const inv = invoiceById.get(a.documentId);
+                      const rowCash = Number(a.cashAmount);
+                      const rowTds = Number(a.tdsAmount);
+                      const rowGross = Number(a.grossAmount);
+                      return (
+                        <div key={a.id} className="rounded-md border p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-medium">{inv?.invoiceNumber ?? "Bill"}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {inv?.invoiceDate ? dateOnly(inv.invoiceDate) : "—"}
+                              </div>
+                            </div>
+                            <div className="text-right text-sm tabular-nums">
+                              <div>{formatINR(rowGross)}</div>
+                              <div className="text-xs text-muted-foreground">
+                                Cash {formatINR(rowCash)} • TDS {formatINR(rowTds)}
+                              </div>
+                            </div>
                           </div>
                         </div>
-                        <div className="text-right text-sm tabular-nums">
-                          <div>{formatINR(rowGross)}</div>
-                          <div className="text-xs text-muted-foreground">
-                            Cash {formatINR(rowCash)} • TDS {formatINR(rowTds)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        <ModuleCheatSheet
+          moduleKey="paymentsMade"
+          variant="sidebar"
+          showRoutingTrigger
+          className="order-first lg:order-none"
+        />
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 
+import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { Button } from "@/components/ui/button";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
@@ -58,25 +59,30 @@ export default async function NewReceiptPage() {
         </Button>
       </div>
 
-      <ReceiptCreateForm
-        today={today}
-        invoices={invoices.map((inv) => ({
-          id: inv.id,
-          invoiceNumber: inv.invoiceNumber,
-          projectId: inv.projectId,
-          projectName: inv.project.name,
-          clientName: inv.client.name,
-        }))}
-        stages={stages.map((s) => ({
-          id: s.id,
-          projectId: s.projectId,
-          stageName: s.stageName,
-          expectedBank: Number(s.expectedBank),
-          expectedCash: Number(s.expectedCash),
-          actualBank: Number(s.actualBank),
-          actualCash: Number(s.actualCash),
-        }))}
-      />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <div>
+          <ReceiptCreateForm
+            today={today}
+            invoices={invoices.map((inv) => ({
+              id: inv.id,
+              invoiceNumber: inv.invoiceNumber,
+              projectId: inv.projectId,
+              projectName: inv.project.name,
+              clientName: inv.client.name,
+            }))}
+            stages={stages.map((s) => ({
+              id: s.id,
+              projectId: s.projectId,
+              stageName: s.stageName,
+              expectedBank: Number(s.expectedBank),
+              expectedCash: Number(s.expectedCash),
+              actualBank: Number(s.actualBank),
+              actualCash: Number(s.actualCash),
+            }))}
+          />
+        </div>
+        <ModuleCheatSheet moduleKey="receipts" variant="sidebar" showRoutingTrigger className="order-first lg:order-none" />
+      </div>
     </div>
   );
 }

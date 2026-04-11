@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { deleteLabourSheet } from "@/app/actions/wages";
 import { ApprovalStatusControl } from "@/components/app/approval-status-control";
+import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatINR } from "@/lib/money";
@@ -105,54 +106,66 @@ export default async function WagesDetailPage({ params }: { params: Promise<{ id
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Edit</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <WagesEditForm
-              projects={projects}
-              sheet={{
-                id: sheet.id,
-                projectId: sheet.projectId,
-                date: dateOnly(sheet.date),
-                mode: sheet.mode,
-                reference: sheet.reference ?? null,
-                note: sheet.note ?? null,
-                lines: sheet.lines.map((l) => ({ role: l.role, headcount: l.headcount, rate: Number(l.rate) })),
-              }}
-            />
-          </CardContent>
-        </Card>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Edit</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <WagesEditForm
+                  projects={projects}
+                  sheet={{
+                    id: sheet.id,
+                    projectId: sheet.projectId,
+                    date: dateOnly(sheet.date),
+                    mode: sheet.mode,
+                    reference: sheet.reference ?? null,
+                    note: sheet.note ?? null,
+                    lines: sheet.lines.map((l) => ({ role: l.role, headcount: l.headcount, rate: Number(l.rate) })),
+                  }}
+                />
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Attachments</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {attachments.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No attachments yet.</div>
-            ) : (
-              <div className="space-y-2">
-                {attachments.map((a) => (
-                  <div key={a.id} className="flex items-center justify-between gap-3 rounded-md border p-3">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">{a.originalName}</div>
-                      <div className="text-xs text-muted-foreground">{a.mimeType}</div>
-                    </div>
-                    <Button asChild size="sm" variant="outline">
-                      <a href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer">
-                        Open
-                      </a>
-                    </Button>
+            <Card>
+              <CardHeader>
+                <CardTitle>Attachments</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {attachments.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">No attachments yet.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {attachments.map((a) => (
+                      <div key={a.id} className="flex items-center justify-between gap-3 rounded-md border p-3">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium">{a.originalName}</div>
+                          <div className="text-xs text-muted-foreground">{a.mimeType}</div>
+                        </div>
+                        <Button asChild size="sm" variant="outline">
+                          <a href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer">
+                            Open
+                          </a>
+                        </Button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-            <div className="text-xs text-muted-foreground">Uploaded bills are stored in Vercel Blob when configured.</div>
-          </CardContent>
-        </Card>
+                )}
+                <div className="text-xs text-muted-foreground">Uploaded bills are stored in Vercel Blob when configured.</div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        <ModuleCheatSheet
+          moduleKey="wages"
+          variant="sidebar"
+          showDecisionHints
+          showRoutingTrigger
+          className="order-first lg:order-none"
+        />
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 
+import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { Button } from "@/components/ui/button";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
@@ -43,13 +44,23 @@ export default async function NewTransactionPage() {
         </Button>
       </div>
 
-      <TransactionForm
-        tenantId={session.user.tenantId}
-        today={today}
-        projects={projects}
-        accounts={accounts}
-        categories={categories}
-      />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <div>
+          <TransactionForm
+            tenantId={session.user.tenantId}
+            today={today}
+            projects={projects}
+            accounts={accounts}
+            categories={categories}
+          />
+        </div>
+        <ModuleCheatSheet
+          moduleKey="transactions"
+          variant="sidebar"
+          showRoutingTrigger
+          className="order-first lg:order-none"
+        />
+      </div>
     </div>
   );
 }

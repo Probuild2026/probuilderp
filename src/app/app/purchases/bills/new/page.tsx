@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 
+import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { Button } from "@/components/ui/button";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
@@ -41,8 +42,11 @@ export default async function NewBillPage() {
         </Button>
       </div>
 
-      <div className="rounded-md border p-4 md:p-6">
-        <BillForm mode="create" vendors={vendors} projects={projects} initialValues={{ invoiceDate: today }} />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <div className="rounded-md border p-4 md:p-6">
+          <BillForm mode="create" vendors={vendors} projects={projects} initialValues={{ invoiceDate: today }} />
+        </div>
+        <ModuleCheatSheet moduleKey="bills" variant="sidebar" showRoutingTrigger className="order-first lg:order-none" />
       </div>
     </div>
   );

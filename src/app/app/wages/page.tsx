@@ -5,6 +5,8 @@ import { ApprovalStatusBadge } from "@/components/app/approval-status-badge";
 import { ApprovalStatusGuide } from "@/components/app/approval-status-guide";
 import { ExportLinks } from "@/components/app/export-links";
 import { PageHeader } from "@/components/app/page-header";
+import { EntryRoutingHelpModal } from "@/components/help/entry-routing-help-modal";
+import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,7 +71,10 @@ export default async function WagesPage({
         description="Direct labour wage sheets (no 194C TDS)."
         action={{ label: "New labour sheet", href: "/app/wages/new" }}
         actions={<ExportLinks hrefBase="/api/exports/wages" params={{ from, to, approval }} />}
+        actionSecondary={<EntryRoutingHelpModal />}
       />
+
+      <ModuleCheatSheet moduleKey="wages" variant="compact" showDecisionHints />
 
       <form className="grid gap-2 rounded-md border p-3 md:grid-cols-[auto_auto_auto_auto]" method="get">
         <select

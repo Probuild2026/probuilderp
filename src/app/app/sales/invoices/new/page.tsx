@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 
+import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { Button } from "@/components/ui/button";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
@@ -40,18 +41,22 @@ export default async function NewInvoicePage() {
         </Button>
       </div>
 
-      <InvoiceForm
-        today={today}
-        projects={projects}
-        clients={clients}
-        submitLabel="Create invoice"
-        onSubmit={async (fd) => {
-          "use server";
-          const id = await createClientInvoice(fd);
-          redirect(`/app/sales/invoices/${id}`);
-        }}
-      />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <div>
+          <InvoiceForm
+            today={today}
+            projects={projects}
+            clients={clients}
+            submitLabel="Create invoice"
+            onSubmit={async (fd) => {
+              "use server";
+              const id = await createClientInvoice(fd);
+              redirect(`/app/sales/invoices/${id}`);
+            }}
+          />
+        </div>
+        <ModuleCheatSheet moduleKey="invoices" variant="sidebar" showRoutingTrigger className="order-first lg:order-none" />
+      </div>
     </div>
   );
 }
-

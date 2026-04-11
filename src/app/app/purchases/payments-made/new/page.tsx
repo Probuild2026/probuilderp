@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 
+import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
@@ -45,17 +46,27 @@ export default async function NewPaymentMadePage({
           Pick a vendor/subcontractor, optionally settle bills, and the app will auto-calculate TDS (194C) and net cash paid.
         </p>
       </div>
-      <VendorPaymentCreateForm
-        today={today}
-        projects={projects}
-        vendors={vendors}
-        initial={{
-          vendorId: prefillVendorId,
-          projectId: prefillProjectId,
-          billId: prefillBillId,
-          amount: prefillAmount,
-        }}
-      />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <div>
+          <VendorPaymentCreateForm
+            today={today}
+            projects={projects}
+            vendors={vendors}
+            initial={{
+              vendorId: prefillVendorId,
+              projectId: prefillProjectId,
+              billId: prefillBillId,
+              amount: prefillAmount,
+            }}
+          />
+        </div>
+        <ModuleCheatSheet
+          moduleKey="paymentsMade"
+          variant="sidebar"
+          showRoutingTrigger
+          className="order-first lg:order-none"
+        />
+      </div>
     </div>
   );
 }

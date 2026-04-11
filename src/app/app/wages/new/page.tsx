@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 
+import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
@@ -27,8 +28,18 @@ export default async function NewWagesPage() {
           Daily wages for direct labour (no vendor, no 194C TDS). This creates a wage sheet + a cash/bank transaction.
         </p>
       </div>
-      <LabourSheetCreateForm today={today} projects={projects} />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <div>
+          <LabourSheetCreateForm today={today} projects={projects} />
+        </div>
+        <ModuleCheatSheet
+          moduleKey="wages"
+          variant="sidebar"
+          showDecisionHints
+          showRoutingTrigger
+          className="order-first lg:order-none"
+        />
+      </div>
     </div>
   );
 }
-

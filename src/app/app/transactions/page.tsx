@@ -4,6 +4,8 @@ import { Prisma } from "@prisma/client";
 
 import { ExportLinks } from "@/components/app/export-links";
 import { PageHeader } from "@/components/app/page-header";
+import { EntryRoutingHelpModal } from "@/components/help/entry-routing-help-modal";
+import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -79,7 +81,10 @@ export default async function TransactionsPage({
         description="Quick income/expense/transfer entries (mobile-first)."
         action={{ label: "New", href: "/app/transactions/new" }}
         actions={<ExportLinks hrefBase="/api/exports/transactions" params={{ from, to }} />}
+        actionSecondary={<EntryRoutingHelpModal />}
       />
+
+      <ModuleCheatSheet moduleKey="transactions" variant="compact" />
 
       <form className="grid gap-2 rounded-md border p-3 md:grid-cols-[auto_auto_auto]" method="get">
         <Input name="from" type="date" defaultValue={from} />

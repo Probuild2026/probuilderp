@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 
+import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -79,8 +80,6 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   if (!invoice) return notFound();
 
   const invoiceId = invoice.id;
-  const receivedCash = Number(alloc._sum.cashAmount ?? 0);
-  const receivedTds = Number(alloc._sum.tdsAmount ?? 0);
   const settledGross = Number(alloc._sum.grossAmount ?? 0);
   const status = statusFromSettled(Number(invoice.total), settledGross);
 
@@ -200,102 +199,108 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Edit invoice</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <InvoiceForm
-                today={new Date().toISOString().slice(0, 10)}
-                projects={projects}
-                clients={clients}
-                defaultValues={defaults}
-                submitLabel="Save invoice"
-                onSubmit={onUpdate}
-              />
-            </CardContent>
-          </Card>
-        </div>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Edit invoice</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <InvoiceForm
+                    today={new Date().toISOString().slice(0, 10)}
+                    projects={projects}
+                    clients={clients}
+                    defaultValues={defaults}
+                    submitLabel="Save invoice"
+                    onSubmit={onUpdate}
+                  />
+                </CardContent>
+              </Card>
+            </div>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Add receipt</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ReceiptForm
-                invoiceId={invoiceId}
-                invoiceTotal={Number(invoice.total)}
-                invoiceSettled={settledGross}
-                onSubmit={async (fd) => {
-                  "use server";
-                  await createReceipt(fd);
-                  redirect(`/app/sales/invoices/${invoiceId}`);
-                }}
-              />
-            </CardContent>
-          </Card>
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Add receipt</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ReceiptForm
+                    invoiceId={invoiceId}
+                    invoiceTotal={Number(invoice.total)}
+                    invoiceSettled={settledGross}
+                    onSubmit={async (fd) => {
+                      "use server";
+                      await createReceipt(fd);
+                      redirect(`/app/sales/invoices/${invoiceId}`);
+                    }}
+                  />
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Receipts</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Received</TableHead>
-                      <TableHead className="text-right">TDS</TableHead>
-                      <TableHead>Mode</TableHead>
-                      <TableHead>Ref</TableHead>
-                      <TableHead className="text-right">Delete</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {receipts.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
-                          No receipts yet.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      receipts.map((r) => (
-                        <TableRow key={r.id}>
-                          <TableCell>{r.date.toISOString().slice(0, 10)}</TableCell>
-                          <TableCell className="text-right">{formatINR(Number(r.amountReceived))}</TableCell>
-                          <TableCell className="text-right">{formatINR(Number(r.tdsAmount ?? 0))}</TableCell>
-                          <TableCell>{r.mode}</TableCell>
-                          <TableCell className="max-w-[160px] truncate">{r.reference ?? "—"}</TableCell>
-                          <TableCell className="text-right">
-                            <form
-                              action={async () => {
-                                "use server";
-                                await deleteReceipt(r.id, invoiceId);
-                                redirect(`/app/sales/invoices/${invoiceId}`);
-                              }}
-                            >
-                              <Button type="submit" variant="destructive" size="sm">
-                                Delete
-                              </Button>
-                            </form>
-                          </TableCell>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Receipts</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead className="text-right">Received</TableHead>
+                          <TableHead className="text-right">TDS</TableHead>
+                          <TableHead>Mode</TableHead>
+                          <TableHead>Ref</TableHead>
+                          <TableHead className="text-right">Delete</TableHead>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-              <Separator />
-              <div className="p-4 text-xs text-muted-foreground">
-                Tip: Client TDS is added to “effective received” for status, but “Received” shows actual money you got.
-              </div>
-            </CardContent>
-          </Card>
+                      </TableHeader>
+                      <TableBody>
+                        {receipts.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                              No receipts yet.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          receipts.map((r) => (
+                            <TableRow key={r.id}>
+                              <TableCell>{r.date.toISOString().slice(0, 10)}</TableCell>
+                              <TableCell className="text-right">{formatINR(Number(r.amountReceived))}</TableCell>
+                              <TableCell className="text-right">{formatINR(Number(r.tdsAmount ?? 0))}</TableCell>
+                              <TableCell>{r.mode}</TableCell>
+                              <TableCell className="max-w-[160px] truncate">{r.reference ?? "—"}</TableCell>
+                              <TableCell className="text-right">
+                                <form
+                                  action={async () => {
+                                    "use server";
+                                    await deleteReceipt(r.id, invoiceId);
+                                    redirect(`/app/sales/invoices/${invoiceId}`);
+                                  }}
+                                >
+                                  <Button type="submit" variant="destructive" size="sm">
+                                    Delete
+                                  </Button>
+                                </form>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <Separator />
+                  <div className="p-4 text-xs text-muted-foreground">
+                    Tip: Client TDS is added to “effective received” for status, but “Received” shows actual money you got.
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
+
+        <ModuleCheatSheet moduleKey="invoices" variant="sidebar" showRoutingTrigger className="order-first lg:order-none" />
       </div>
     </div>
   );

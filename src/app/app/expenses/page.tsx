@@ -5,6 +5,8 @@ import { ApprovalStatusBadge } from "@/components/app/approval-status-badge";
 import { ApprovalStatusGuide } from "@/components/app/approval-status-guide";
 import { ExportLinks } from "@/components/app/export-links";
 import { PageHeader } from "@/components/app/page-header";
+import { EntryRoutingHelpModal } from "@/components/help/entry-routing-help-modal";
+import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { approvalStatusLabels, approvalStatusValues, parseApprovalStatus } from "@/lib/approval-status";
@@ -69,32 +71,34 @@ export default async function ExpensesPage({
         description="Daily expenses, labour, overheads."
         action={{ label: "New Expense", href: "/app/expenses/new" }}
         actions={<ExportLinks hrefBase="/api/exports/expenses" params={{ q, from, to, approval }} />}
-        filters={
-          <form className="flex flex-wrap gap-3" action="/app/expenses" method="get">
-            <Input name="q" placeholder="Search narration/vendor/project..." defaultValue={q} className="max-w-sm" />
-            <select
-              name="approval"
-              defaultValue={approval ?? ""}
-              className="h-10 rounded-md border bg-background px-3 text-sm"
-            >
-              <option value="">All review statuses</option>
-              {approvalStatusValues.map((status) => (
-                <option key={status} value={status}>
-                  {approvalStatusLabels[status]}
-                </option>
-              ))}
-            </select>
-            <Input name="from" type="date" defaultValue={from} />
-            <Input name="to" type="date" defaultValue={to} />
-            <button className="h-10 rounded-md bg-primary px-4 text-sm text-primary-foreground" type="submit">
-              Apply
-            </button>
-            <Link className="h-10 rounded-md border px-4 text-sm leading-10" href="/app/expenses">
-              Reset
-            </Link>
-          </form>
-        }
+        actionSecondary={<EntryRoutingHelpModal />}
       />
+
+      <ModuleCheatSheet moduleKey="expenses" variant="compact" showDecisionHints />
+
+      <form className="flex flex-wrap gap-3" action="/app/expenses" method="get">
+        <Input name="q" placeholder="Search narration/vendor/project..." defaultValue={q} className="max-w-sm" />
+        <select
+          name="approval"
+          defaultValue={approval ?? ""}
+          className="h-10 rounded-md border bg-background px-3 text-sm"
+        >
+          <option value="">All review statuses</option>
+          {approvalStatusValues.map((status) => (
+            <option key={status} value={status}>
+              {approvalStatusLabels[status]}
+            </option>
+          ))}
+        </select>
+        <Input name="from" type="date" defaultValue={from} />
+        <Input name="to" type="date" defaultValue={to} />
+        <button className="h-10 rounded-md bg-primary px-4 text-sm text-primary-foreground" type="submit">
+          Apply
+        </button>
+        <Link className="h-10 rounded-md border px-4 text-sm leading-10" href="/app/expenses">
+          Reset
+        </Link>
+      </form>
 
       <ApprovalStatusGuide />
 

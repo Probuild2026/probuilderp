@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth/next";
 
 import { ExportLinks } from "@/components/app/export-links";
 import { PageHeader } from "@/components/app/page-header";
+import { EntryRoutingHelpModal } from "@/components/help/entry-routing-help-modal";
+import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -82,7 +84,10 @@ export default async function InvoicesPage({
         description="Create GST invoices and track receipts + TDS."
         action={{ label: "New invoice", href: "/app/sales/invoices/new" }}
         actions={<ExportLinks hrefBase="/api/exports/invoices" params={{ from, to }} />}
+        actionSecondary={<EntryRoutingHelpModal />}
       />
+
+      <ModuleCheatSheet moduleKey="invoices" variant="compact" />
 
       <form className="grid gap-2 rounded-md border p-3 md:grid-cols-[auto_auto_auto]" method="get">
         <Input name="from" type="date" defaultValue={from} />

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { deletePurchaseInvoice } from "@/app/actions/purchase-invoices";
 import { ApprovalStatusControl } from "@/components/app/approval-status-control";
+import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -132,91 +133,97 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Edit</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <BillEditForm
-              bill={{
-                id: bill.id,
-                vendorId: bill.vendorId,
-                projectId: bill.projectId,
-                invoiceNumber: bill.invoiceNumber,
-                invoiceDate: dateOnly(bill.invoiceDate),
-                gstType: bill.gstType,
-                taxableValue: Number(bill.taxableValue).toFixed(2),
-                cgst: Number(bill.cgst).toFixed(2),
-                sgst: Number(bill.sgst).toFixed(2),
-                igst: Number(bill.igst).toFixed(2),
-                total: Number(bill.total).toFixed(2),
-              }}
-              projects={projects}
-              vendors={vendors}
-            />
-          </CardContent>
-        </Card>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Edit</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BillEditForm
+                  bill={{
+                    id: bill.id,
+                    vendorId: bill.vendorId,
+                    projectId: bill.projectId,
+                    invoiceNumber: bill.invoiceNumber,
+                    invoiceDate: dateOnly(bill.invoiceDate),
+                    gstType: bill.gstType,
+                    taxableValue: Number(bill.taxableValue).toFixed(2),
+                    cgst: Number(bill.cgst).toFixed(2),
+                    sgst: Number(bill.sgst).toFixed(2),
+                    igst: Number(bill.igst).toFixed(2),
+                    total: Number(bill.total).toFixed(2),
+                  }}
+                  projects={projects}
+                  vendors={vendors}
+                />
+              </CardContent>
+            </Card>
 
-        <Card className="lg:sticky lg:top-6 lg:self-start">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between gap-3">
-              <span>Payments applied</span>
-              {balance > 0 ? (
-                <Button asChild size="sm" variant="outline">
-                  <Link
-                    href={`/app/purchases/payments-made/new?vendorId=${encodeURIComponent(
-                      bill.vendorId,
-                    )}&projectId=${encodeURIComponent(bill.projectId)}&billId=${encodeURIComponent(
-                      bill.id,
-                    )}&amount=${encodeURIComponent(balance.toFixed(2))}`}
-                  >
-                    + Add payment
-                  </Link>
-                </Button>
-              ) : null}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {allocations.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No payments applied yet.</div>
-            ) : (
-              <div className="space-y-2">
-                {allocations.map((a, idx) => {
-                  const t = txnById.get(a.transactionId);
-                  const rowCash = Number(a.cashAmount);
-                  const rowTds = Number(a.tdsAmount);
-                  const rowGross = Number(a.grossAmount);
-                  return (
-                    <div key={`${a.transactionId}-${idx}`} className="rounded-md border p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium">{t ? dateOnly(t.date) : "Payment"}</div>
-                          <div className="truncate text-xs text-muted-foreground">
-                            {t?.mode ?? "—"} • {t?.reference ?? "—"}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between gap-3">
+                  <span>Payments applied</span>
+                  {balance > 0 ? (
+                    <Button asChild size="sm" variant="outline">
+                      <Link
+                        href={`/app/purchases/payments-made/new?vendorId=${encodeURIComponent(
+                          bill.vendorId,
+                        )}&projectId=${encodeURIComponent(bill.projectId)}&billId=${encodeURIComponent(
+                          bill.id,
+                        )}&amount=${encodeURIComponent(balance.toFixed(2))}`}
+                      >
+                        + Add payment
+                      </Link>
+                    </Button>
+                  ) : null}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {allocations.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">No payments applied yet.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {allocations.map((a, idx) => {
+                      const t = txnById.get(a.transactionId);
+                      const rowCash = Number(a.cashAmount);
+                      const rowTds = Number(a.tdsAmount);
+                      const rowGross = Number(a.grossAmount);
+                      return (
+                        <div key={`${a.transactionId}-${idx}`} className="rounded-md border p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-medium">{t ? dateOnly(t.date) : "Payment"}</div>
+                              <div className="truncate text-xs text-muted-foreground">
+                                {t?.mode ?? "—"} • {t?.reference ?? "—"}
+                              </div>
+                            </div>
+                            <div className="text-right text-sm tabular-nums">
+                              <div>{formatINR(rowGross)}</div>
+                              <div className="text-xs text-muted-foreground">
+                                Cash {formatINR(rowCash)} • TDS {formatINR(rowTds)}
+                              </div>
+                            </div>
                           </div>
+                          {t ? (
+                            <div className="mt-2">
+                              <Button asChild size="sm" variant="secondary">
+                                <Link href={`/app/purchases/payments-made/${t.id}`}>Open payment</Link>
+                              </Button>
+                            </div>
+                          ) : null}
                         </div>
-                        <div className="text-right text-sm tabular-nums">
-                          <div>{formatINR(rowGross)}</div>
-                          <div className="text-xs text-muted-foreground">
-                            Cash {formatINR(rowCash)} • TDS {formatINR(rowTds)}
-                          </div>
-                        </div>
-                      </div>
-                      {t ? (
-                        <div className="mt-2">
-                          <Button asChild size="sm" variant="secondary">
-                            <Link href={`/app/purchases/payments-made/${t.id}`}>Open payment</Link>
-                          </Button>
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        <ModuleCheatSheet moduleKey="bills" variant="sidebar" showRoutingTrigger className="order-first lg:order-none" />
       </div>
     </div>
   );

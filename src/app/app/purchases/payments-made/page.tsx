@@ -6,6 +6,8 @@ import { ApprovalStatusBadge } from "@/components/app/approval-status-badge";
 import { ApprovalStatusGuide } from "@/components/app/approval-status-guide";
 import { ExportLinks } from "@/components/app/export-links";
 import { PageHeader } from "@/components/app/page-header";
+import { EntryRoutingHelpModal } from "@/components/help/entry-routing-help-modal";
+import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -129,7 +131,10 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
         description="Vendor/Subcontractor payments. TDS (194C) is auto-calculated for this flow."
         action={{ label: "New Payment", href: "/app/purchases/payments-made/new" }}
         actions={<ExportLinks hrefBase="/api/exports/payments-made" params={{ q, from, to, approval }} />}
+        actionSecondary={<EntryRoutingHelpModal />}
       />
+
+      <ModuleCheatSheet moduleKey="paymentsMade" variant="compact" />
 
       <form className="grid gap-2 rounded-md border p-3 md:grid-cols-[1fr_auto_auto_auto_auto]" method="get">
         <Input

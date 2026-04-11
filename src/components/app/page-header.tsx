@@ -6,12 +6,14 @@ export function PageHeader({
   title,
   description,
   action,
+  actionSecondary,
   actions,
   filters,
 }: {
   title: string;
   description?: string;
   action?: { label: string; href: string };
+  actionSecondary?: React.ReactNode;
   actions?: React.ReactNode;
   filters?: React.ReactNode;
 }) {
@@ -25,6 +27,7 @@ export function PageHeader({
 
       <div className="flex shrink-0 flex-wrap gap-2">
         {actions}
+        {actionSecondary}
         {action ? (
           <Button asChild>
             <Link href={action.href}>{action.label}</Link>
