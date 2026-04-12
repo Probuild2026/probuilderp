@@ -29,11 +29,7 @@ function CheatSheetBody({
 
   return (
     <>
-      <CardHeader className={cn(isCompact ? "gap-1 px-4 py-4" : "px-5 py-5")}>
-        <CardTitle className="text-base">{config.title}</CardTitle>
-        <p className="text-sm text-muted-foreground">{config.summary}</p>
-      </CardHeader>
-      <CardContent className={cn(isCompact ? "space-y-4 px-4 pb-4" : "space-y-5 px-5 pb-5")}>
+      <CardContent className={cn(isCompact ? "space-y-4 px-4 pb-4 pt-4" : "space-y-5 px-5 pb-5 pt-5")}>
         <section className={sectionClassName}>
           <div className="text-sm font-medium text-foreground">Use when</div>
           <ul className={listClassName}>
@@ -123,6 +119,10 @@ export function ModuleCheatSheet({
             <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
           </summary>
           <div className="border-t">
+            <CardHeader className="gap-1.5 px-5 py-5 pb-0">
+              <CardTitle className="text-base">{MODULE_CHEAT_SHEETS[moduleKey].title}</CardTitle>
+              <p className="text-sm text-muted-foreground">{MODULE_CHEAT_SHEETS[moduleKey].summary}</p>
+            </CardHeader>
             <CheatSheetBody
               moduleKey={moduleKey}
               variant="inline"
@@ -138,6 +138,10 @@ export function ModuleCheatSheet({
   if (variant === "embedded") {
     return (
       <div className={className}>
+        <div className="gap-1 px-4 py-4 pb-0">
+          <div className="text-base font-semibold leading-none tracking-tight">{MODULE_CHEAT_SHEETS[moduleKey].title}</div>
+          <p className="mt-1.5 text-sm text-muted-foreground">{MODULE_CHEAT_SHEETS[moduleKey].summary}</p>
+        </div>
         <CheatSheetBody
           moduleKey={moduleKey}
           variant="compact"
@@ -148,14 +152,28 @@ export function ModuleCheatSheet({
     );
   }
 
+  const isCompact = variant === "compact";
   return (
-    <Card className={className}>
-      <CheatSheetBody
-        moduleKey={moduleKey}
-        variant={variant}
-        showDecisionHints={showDecisionHints}
-        showRoutingTrigger={showRoutingTrigger}
-      />
+    <Card className={cn("group overflow-hidden", className)}>
+      <details className="[&_summary::-webkit-details-marker]:hidden">
+        <summary className="flex cursor-pointer list-none items-start justify-between transition-colors hover:bg-muted/50">
+          <CardHeader className={cn(isCompact ? "gap-1 px-4 py-4" : "gap-1.5 px-5 py-5")}>
+            <CardTitle className="text-base">{MODULE_CHEAT_SHEETS[moduleKey].title}</CardTitle>
+            <p className="text-sm text-muted-foreground text-left">{MODULE_CHEAT_SHEETS[moduleKey].summary}</p>
+          </CardHeader>
+          <div className={cn(isCompact ? "p-4" : "p-5")}>
+            <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
+          </div>
+        </summary>
+        <div className="border-t">
+          <CheatSheetBody
+            moduleKey={moduleKey}
+            variant={variant}
+            showDecisionHints={showDecisionHints}
+            showRoutingTrigger={showRoutingTrigger}
+          />
+        </div>
+      </details>
     </Card>
   );
 }
