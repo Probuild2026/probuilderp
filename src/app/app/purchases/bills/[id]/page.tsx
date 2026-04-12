@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { deletePurchaseInvoice } from "@/app/actions/purchase-invoices";
 import { ApprovalStatusControl } from "@/components/app/approval-status-control";
 import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
+import { InlineEmptyState, StatePanel } from "@/components/app/state-panels";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +33,7 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
       project: { select: { id: true, name: true } },
     },
   });
-  if (!bill) return null;
+  if (!bill) notFound();
 
   const allocations = await prisma.transactionAllocation.findMany({
     where: { tenantId: session.user.tenantId, documentType: "PURCHASE_INVOICE", documentId: bill.id },
@@ -72,10 +73,10 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
   const isSettled = balance === 0 && paid > 0;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6">
+    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Bill</h1>
+          <h1 className="text-2xl font-semibold">Bill workspace</h1>
           <p className="mt-1 text-base font-medium text-foreground/80">
             {bill.vendor.name} • {bill.invoiceNumber} • {dateOnly(bill.invoiceDate)}
           </p>
@@ -95,136 +96,136 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
         </div>
       </div>
       {deleteDisabled ? (
-        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-          Delete is disabled because this bill has payments applied. Remove payment allocations first.
-        </div>
+        <StatePanel
+          tone="warning"
+          title="Delete disabled"
+          description="This bill already has payments applied. Remove payment allocations first before deleting the bill."
+        />
       ) : null}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Bill total</CardTitle>
-          </CardHeader>
-          <CardContent className="text-lg font-semibold tabular-nums">{formatINR(total)}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Payments recorded</CardTitle>
-          </CardHeader>
-          <CardContent className="text-lg font-semibold tabular-nums">{formatINR(paid)}</CardContent>
-        </Card>
-        <Card className={isSettled ? "border-emerald-500/40 bg-emerald-500/5" : ""}>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
-              <span>Outstanding</span>
-              {isSettled ? <Badge variant="secondary">Settled</Badge> : null}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-lg font-semibold tabular-nums">{formatINR(balance)}</CardContent>
-        </Card>
-      </div>
+      <section className="grid gap-4 lg:grid-cols-4">
+        <MetricCard label="Bill total" value={formatINR(total)} />
+        <MetricCard label="Payments recorded" value={formatINR(paid)} />
+        <MetricCard label="Outstanding" value={formatINR(balance)} badge={isSettled ? "Settled" : undefined} />
+        <MetricCard label="Project" value={bill.project.name} />
+      </section>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Review Status</CardTitle>
+        <CardHeader className="border-b border-border/60">
+          <CardTitle className="text-base">Review status</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <ApprovalStatusControl target="bill" id={bill.id} status={bill.approvalStatus} showHelp />
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px] xl:items-start">
         <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Edit</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <BillEditForm
-                  bill={{
-                    id: bill.id,
-                    vendorId: bill.vendorId,
-                    projectId: bill.projectId,
-                    invoiceNumber: bill.invoiceNumber,
-                    invoiceDate: dateOnly(bill.invoiceDate),
-                    gstType: bill.gstType,
-                    taxableValue: Number(bill.taxableValue).toFixed(2),
-                    cgst: Number(bill.cgst).toFixed(2),
-                    sgst: Number(bill.sgst).toFixed(2),
-                    igst: Number(bill.igst).toFixed(2),
-                    total: Number(bill.total).toFixed(2),
-                  }}
-                  projects={projects}
-                  vendors={vendors}
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between gap-3">
-                  <span>Payments applied</span>
-                  {balance > 0 ? (
-                    <Button asChild size="sm" variant="outline">
-                      <Link
-                        href={`/app/purchases/payments-made/new?vendorId=${encodeURIComponent(
-                          bill.vendorId,
-                        )}&projectId=${encodeURIComponent(bill.projectId)}&billId=${encodeURIComponent(
-                          bill.id,
-                        )}&amount=${encodeURIComponent(balance.toFixed(2))}`}
-                      >
-                        + Add payment
-                      </Link>
-                    </Button>
-                  ) : null}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {allocations.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">No payments applied yet.</div>
-                ) : (
-                  <div className="space-y-2">
-                    {allocations.map((a, idx) => {
-                      const t = txnById.get(a.transactionId);
-                      const rowCash = Number(a.cashAmount);
-                      const rowTds = Number(a.tdsAmount);
-                      const rowGross = Number(a.grossAmount);
-                      return (
-                        <div key={`${a.transactionId}-${idx}`} className="rounded-md border p-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="truncate text-sm font-medium">{t ? dateOnly(t.date) : "Payment"}</div>
-                              <div className="truncate text-xs text-muted-foreground">
-                                {t?.mode ?? "—"} • {t?.reference ?? "—"}
-                              </div>
-                            </div>
-                            <div className="text-right text-sm tabular-nums">
-                              <div>{formatINR(rowGross)}</div>
-                              <div className="text-xs text-muted-foreground">
-                                Cash {formatINR(rowCash)} • TDS {formatINR(rowTds)}
-                              </div>
-                            </div>
-                          </div>
-                          {t ? (
-                            <div className="mt-2">
-                              <Button asChild size="sm" variant="secondary">
-                                <Link href={`/app/purchases/payments-made/${t.id}`}>Open payment</Link>
-                              </Button>
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          <Card>
+            <CardHeader className="border-b border-border/60">
+              <CardTitle className="text-base">Edit bill</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <BillEditForm
+                bill={{
+                  id: bill.id,
+                  vendorId: bill.vendorId,
+                  projectId: bill.projectId,
+                  invoiceNumber: bill.invoiceNumber,
+                  invoiceDate: dateOnly(bill.invoiceDate),
+                  gstType: bill.gstType,
+                  taxableValue: Number(bill.taxableValue).toFixed(2),
+                  cgst: Number(bill.cgst).toFixed(2),
+                  sgst: Number(bill.sgst).toFixed(2),
+                  igst: Number(bill.igst).toFixed(2),
+                  total: Number(bill.total).toFixed(2),
+                }}
+                projects={projects}
+                vendors={vendors}
+              />
+            </CardContent>
+          </Card>
         </div>
 
-        <ModuleCheatSheet moduleKey="bills" variant="sidebar" showRoutingTrigger className="order-first lg:order-none" />
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="border-b border-border/60">
+              <CardTitle className="flex items-center justify-between gap-3 text-base">
+                <span>Payments applied</span>
+                {balance > 0 ? (
+                  <Button asChild size="sm" variant="outline">
+                    <Link
+                      href={`/app/purchases/payments-made/new?vendorId=${encodeURIComponent(
+                        bill.vendorId,
+                      )}&projectId=${encodeURIComponent(bill.projectId)}&billId=${encodeURIComponent(
+                        bill.id,
+                      )}&amount=${encodeURIComponent(balance.toFixed(2))}`}
+                    >
+                      Add payment
+                    </Link>
+                  </Button>
+                ) : null}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-6">
+              {allocations.length === 0 ? (
+                <InlineEmptyState
+                  title="No payments applied yet"
+                  description="Use the vendor payment flow to settle this bill in full or in parts."
+                />
+              ) : (
+                allocations.map((a, idx) => {
+                  const t = txnById.get(a.transactionId);
+                  const rowCash = Number(a.cashAmount);
+                  const rowTds = Number(a.tdsAmount);
+                  const rowGross = Number(a.grossAmount);
+                  return (
+                    <div key={`${a.transactionId}-${idx}`} className="rounded-[18px] border border-border/60 bg-background/70 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium">{t ? dateOnly(t.date) : "Payment"}</div>
+                          <div className="truncate text-xs text-muted-foreground">
+                            {t?.mode ?? "—"} • {t?.reference ?? "—"}
+                          </div>
+                        </div>
+                        <div className="text-right text-sm tabular-nums">
+                          <div>{formatINR(rowGross)}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Cash {formatINR(rowCash)} • TDS {formatINR(rowTds)}
+                          </div>
+                        </div>
+                      </div>
+                      {t ? (
+                        <div className="mt-3">
+                          <Button asChild size="sm" variant="secondary">
+                            <Link href={`/app/purchases/payments-made/${t.id}`}>Open payment</Link>
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+
+          <ModuleCheatSheet moduleKey="bills" variant="sidebar" showRoutingTrigger />
+        </div>
       </div>
     </div>
+  );
+}
+
+function MetricCard({ label, value, badge }: { label: string; value: string; badge?: string }) {
+  return (
+    <Card className={badge ? "border-emerald-500/40 bg-emerald-500/5" : undefined}>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+          <span>{label}</span>
+          {badge ? <Badge variant="secondary">{badge}</Badge> : null}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="text-lg font-semibold tracking-tight [overflow-wrap:anywhere]">{value}</CardContent>
+    </Card>
   );
 }
