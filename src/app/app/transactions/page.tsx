@@ -31,6 +31,10 @@ export default async function TransactionsPage({
   const dateRange = buildInclusiveDateRange(from, to);
   const projectId = await getSelectedProjectId();
 
+  const categoryId = Array.isArray(sp.category) ? sp.category[0] : sp.category;
+  const sortParam = Array.isArray(sp.sort) ? sp.sort[0] : sp.sort;
+  const sort = sortParam || "date-desc";
+
   let txns:
     | Array<{
         id: string;
@@ -44,15 +48,28 @@ export default async function TransactionsPage({
       }>
     | null = null;
   let dbUnavailable = false;
+  let categories: Array<{ id: string; name: string }> = [];
 
   try {
+    categories = await prisma.txnCategory.findMany({
+      where: { tenantId: session.user.tenantId, active: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true }
+    });
+
+    let orderBy: Prisma.TransactionOrderByWithRelationInput[] = [{ date: "desc" }, { createdAt: "desc" }];
+    if (sort === "date-asc") orderBy = [{ date: "asc" }, { createdAt: "asc" }];
+    else if (sort === "amount-desc") orderBy = [{ amount: "desc" }];
+    else if (sort === "amount-asc") orderBy = [{ amount: "asc" }];
+
     txns = await prisma.transaction.findMany({
       where: {
         tenantId: session.user.tenantId,
         ...(projectId ? { projectId } : {}),
         ...(dateRange ? { date: dateRange } : {}),
+        ...(categoryId ? { categoryId } : {}),
       },
-      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      orderBy,
       take: 200,
       include: {
         project: { select: { name: true } },
@@ -100,9 +117,21 @@ export default async function TransactionsPage({
 
       <ModuleCheatSheet moduleKey="transactions" variant="compact" />
 
-      <form className="grid gap-3 rounded-[24px] border border-border/70 bg-card px-4 py-4 md:grid-cols-[auto_auto_auto]" method="get">
-        <Input name="from" type="date" defaultValue={from} />
-        <Input name="to" type="date" defaultValue={to} />
+      <form className="grid gap-3 rounded-[24px] border border-border/70 bg-card px-4 py-4 md:grid-cols-[auto_auto_1fr_1fr_auto]" method="get">
+        <Input name="from" type="date" defaultValue={from} className="md:w-[140px]" />
+        <Input name="to" type="date" defaultValue={to} className="md:w-[140px]" />
+        <select name="category" defaultValue={categoryId} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
+          <option value="">All categories</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+        <select name="sort" defaultValue={sort} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
+          <option value="date-desc">Newest first</option>
+          <option value="date-asc">Oldest first</option>
+          <option value="amount-desc">Amount (High to Low)</option>
+          <option value="amount-asc">Amount (Low to High)</option>
+        </select>
         <div className="flex gap-2">
           <Button type="submit">Apply</Button>
           <Button asChild variant="outline">
@@ -162,7 +191,6 @@ export default async function TransactionsPage({
                 <TableHead className="hidden lg:table-cell">Category</TableHead>
                 {hasTransferRows ? <TableHead className="hidden md:table-cell">From</TableHead> : null}
                 {hasTransferRows ? <TableHead className="hidden md:table-cell">To</TableHead> : null}
-                <TableHead className="hidden lg:table-cell">Project</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead className="text-right">Open</TableHead>
               </TableRow>
@@ -170,7 +198,7 @@ export default async function TransactionsPage({
             <TableBody>
               {(txns ?? []).length === 0 ? (
                 <TableEmptyState
-                  colSpan={hasTransferRows ? 8 : 6}
+                  colSpan={hasTransferRows ? 7 : 5}
                   title="No transactions matched this view"
                   description="Try widening the date range or switching the current project filter."
                 />
@@ -184,14 +212,13 @@ export default async function TransactionsPage({
                           {txn.type}
                         </Link>
                         <div className="mt-1 truncate text-xs text-muted-foreground md:hidden">
-                          {(txn.category?.name ?? "—") + " • " + (txn.project?.name ?? "—")}
+                          {txn.category?.name ?? "—"}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">{txn.category?.name ?? txn.type}</TableCell>
                     {hasTransferRows ? <TableCell className="hidden md:table-cell">{txn.type === "TRANSFER" ? txn.fromAccount?.name ?? "—" : "—"}</TableCell> : null}
                     {hasTransferRows ? <TableCell className="hidden md:table-cell">{txn.type === "TRANSFER" ? txn.toAccount?.name ?? "—" : "—"}</TableCell> : null}
-                    <TableCell className="hidden lg:table-cell">{txn.project?.name ?? "—"}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatINR(Number(txn.amount))}</TableCell>
                     <TableCell className="text-right">
                       <Button asChild size="sm" variant="outline">
