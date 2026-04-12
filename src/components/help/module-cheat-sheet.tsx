@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 
 import { EntryRoutingHelpModal } from "@/components/help/entry-routing-help-modal";
@@ -115,10 +116,11 @@ export function ModuleCheatSheet({
 }: ModuleCheatSheetProps) {
   if (variant === "sidebar") {
     return (
-      <div className={className}>
-        <details className="rounded-xl border bg-card shadow-sm lg:hidden" open>
-          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-foreground">
+      <div className={cn("lg:sticky lg:top-4", className)}>
+        <details className="group rounded-xl border bg-card shadow-sm">
+          <summary className="flex cursor-pointer list-none select-none items-center justify-between px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/50 [&::-webkit-details-marker]:hidden">
             How to use this page
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
           </summary>
           <div className="border-t">
             <CheatSheetBody
@@ -129,15 +131,6 @@ export function ModuleCheatSheet({
             />
           </div>
         </details>
-
-        <Card className="hidden lg:sticky lg:top-4 lg:flex">
-          <CheatSheetBody
-            moduleKey={moduleKey}
-            variant="inline"
-            showDecisionHints={showDecisionHints}
-            showRoutingTrigger={showRoutingTrigger}
-          />
-        </Card>
       </div>
     );
   }
