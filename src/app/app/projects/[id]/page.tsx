@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
+import { notFound } from "next/navigation";
+import { BarChart3, CircleDollarSign, Landmark, MapPin } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,10 +20,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     where: { id, tenantId: session.user.tenantId },
     include: {
       client: { select: { name: true } },
+      clientInvoices: { select: { total: true } },
+      purchaseInvoices: { select: { total: true } },
+      expenses: { select: { totalAmount: true } },
+      labourSheets: { select: { total: true } },
     },
   });
 
-  if (!project) return null;
+  if (!project) return notFound();
 
   const paymentStages = await prisma.projectPaymentStage.findMany({
     where: { tenantId: session.user.tenantId, projectId: project.id },
@@ -59,40 +65,123 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     sortOrder: s.sortOrder,
   }));
 
+  const expected = stages.reduce((sum, stage) => sum + stage.expectedAmount, 0);
+  const received = stages.reduce((sum, stage) => sum + stage.actualBank + stage.actualCash, 0);
+  const billed = project.clientInvoices.reduce((sum, row) => sum + Number(row.total), 0);
+  const spent =
+    project.purchaseInvoices.reduce((sum, row) => sum + Number(row.total), 0) +
+    project.expenses.reduce((sum, row) => sum + Number(row.totalAmount), 0) +
+    project.labourSheets.reduce((sum, row) => sum + Number(row.total), 0);
+  const collectionPct = expected > 0 ? Math.max(0, Math.min(100, Math.round((received / expected) * 100))) : 0;
+  const spendPct = expected > 0 ? Math.max(0, Math.min(100, Math.round((spent / expected) * 100))) : 0;
+
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">{project.name}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{project.client.name}</p>
-        </div>
-        <Button asChild variant="outline">
-          <Link href="/app/projects">Back</Link>
-        </Button>
+    <div className="mx-auto max-w-[1440px] space-y-6 p-4 md:p-6">
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Projects / Detail</div>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight">{project.name}</h1>
+              <div className="mt-2 text-sm text-muted-foreground">{project.client.name}</div>
+              <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                <MapPin className="size-4" />
+                {project.location ?? "No location set"}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline">
+                <Link href="/app/projects">Back</Link>
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+        <Card>
+          <CardHeader className="border-b border-border/60">
+            <CardTitle className="text-base">Project financial summary</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 pt-6 md:grid-cols-2 xl:grid-cols-4">
+            <MetricCard icon={Landmark} label="Expected collection" value={formatINR(expected)} />
+            <MetricCard icon={CircleDollarSign} label="Received to date" value={formatINR(received)} />
+            <MetricCard icon={BarChart3} label="Billed value" value={formatINR(billed)} />
+            <MetricCard icon={CircleDollarSign} label="Spent to date" value={formatINR(spent)} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="border-b border-border/60">
+            <CardTitle className="text-base">Project posture</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-6">
+            <StatRow label="Status" value={project.status} />
+            <StatRow label="Schedule rows" value={String(stages.length)} />
+            <StatRow label="Collection progress" value={`${collectionPct}%`} />
+            <StatRow label="Spend vs expected" value={`${spendPct}%`} />
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Status</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm font-medium">{project.status}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Location</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm font-medium">{project.location ?? "—"}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Schedule Rows</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm font-medium">{stages.length}</CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader className="border-b border-border/60">
+          <CardTitle className="text-base">Progress overview</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 pt-6 lg:grid-cols-2">
+          <ProgressRail label="Collection progress" value={collectionPct} tint="bg-[var(--success)]" />
+          <ProgressRail label="Spend vs expected" value={spendPct} tint="bg-[var(--warning)]" />
+        </CardContent>
+      </Card>
 
       <PaymentSchedule projectId={project.id} stages={stages} />
+    </div>
+  );
+}
+
+function formatINR(n: number) {
+  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
+}
+
+function MetricCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-[22px] border border-border/60 bg-background/70 px-4 py-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
+        <Icon className="size-4 text-muted-foreground" />
+      </div>
+      <div className="mt-4 text-2xl font-semibold tracking-tight">{value}</div>
+    </div>
+  );
+}
+
+function StatRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-[18px] border border-border/60 bg-background/70 px-4 py-3">
+      <div className="text-sm text-muted-foreground">{label}</div>
+      <div className="font-semibold">{value}</div>
+    </div>
+  );
+}
+
+function ProgressRail({ label, value, tint }: { label: string; value: number; tint: string }) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-3 text-xs">
+        <span className="font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
+        <span className="font-semibold">{value}%</span>
+      </div>
+      <div className="h-2.5 rounded-full bg-muted">
+        <div className={`h-full rounded-full ${tint}`} style={{ width: `${value}%` }} />
+      </div>
     </div>
   );
 }
