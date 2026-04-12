@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowRight, BriefcaseBusiness, CircleDollarSign, Clock3,
 import { Prisma } from "@prisma/client";
 import type { ComponentType } from "react";
 
+import { CashflowWidget } from "@/components/app/dashboard/cashflow-widget";
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -365,6 +366,10 @@ export default async function AppHomePage() {
             <PulseRow label="Monthly bill intake" value={formatCompactINR(metrics.billValueMonth)} />
           </CardContent>
         </Card>
+      </section>
+
+      <section>
+        <CashflowWidget />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
