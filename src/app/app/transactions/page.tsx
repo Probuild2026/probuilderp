@@ -126,7 +126,7 @@ export default async function TransactionsPage({
           <CardHeader className="border-b border-border/60">
             <CardTitle className="text-base">Cashbook summary</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 pt-6 md:grid-cols-2 xl:grid-cols-4">
+          <CardContent className="grid gap-4 pt-6 sm:grid-cols-2 2xl:grid-cols-4">
             <SummaryTile icon={TrendingUp} label="Income" value={formatINR(totals.income)} />
             <SummaryTile icon={TrendingDown} label="Expense" value={formatINR(totals.expense)} />
             <SummaryTile icon={ArrowLeftRight} label="Transfers" value={formatINR(totals.transfer)} />
@@ -208,12 +208,14 @@ function SummaryTile({
   value: string;
 }) {
   return (
-    <div className="rounded-[22px] border border-border/60 bg-background/70 px-4 py-4">
+    <div className="min-w-0 rounded-[22px] border border-border/60 bg-background/70 px-4 py-4">
       <div className="flex items-center justify-between gap-3">
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
         <Icon className="size-4 text-muted-foreground" />
       </div>
-      <div className="mt-4 text-2xl font-semibold tracking-tight">{value}</div>
+      <div className="mt-4 min-w-0 text-xl font-semibold leading-tight tracking-tight [overflow-wrap:anywhere] sm:text-2xl">
+        {value}
+      </div>
     </div>
   );
 }

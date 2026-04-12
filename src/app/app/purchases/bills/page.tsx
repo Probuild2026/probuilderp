@@ -116,7 +116,7 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
           <CardHeader className="border-b border-border/60">
             <CardTitle className="text-base">Payables summary</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 pt-6 md:grid-cols-2 xl:grid-cols-4">
+          <CardContent className="grid gap-4 pt-6 sm:grid-cols-2 2xl:grid-cols-4">
             <SummaryTile icon={Landmark} label="Bill value" value={formatINR(totals.total)} />
             <SummaryTile icon={CheckCircle2} label="Already settled" value={formatINR(totals.paid)} />
             <SummaryTile icon={AlertTriangle} label="Outstanding" value={formatINR(totals.balance)} emphasis />
@@ -246,12 +246,14 @@ function SummaryTile({
   emphasis?: boolean;
 }) {
   return (
-    <div className={`rounded-[22px] border border-border/60 px-4 py-4 ${emphasis ? "bg-accent/50" : "bg-background/70"}`}>
+    <div className={`min-w-0 rounded-[22px] border border-border/60 px-4 py-4 ${emphasis ? "bg-accent/50" : "bg-background/70"}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
         <Icon className="size-4 text-muted-foreground" />
       </div>
-      <div className="mt-4 text-2xl font-semibold tracking-tight">{value}</div>
+      <div className="mt-4 min-w-0 text-xl font-semibold leading-tight tracking-tight [overflow-wrap:anywhere] sm:text-2xl">
+        {value}
+      </div>
     </div>
   );
 }

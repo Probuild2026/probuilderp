@@ -95,7 +95,7 @@ export default async function ExpensesPage({
           <CardHeader className="border-b border-border/60">
             <CardTitle className="text-base">Expense summary</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 pt-6 md:grid-cols-2 xl:grid-cols-4">
+          <CardContent className="grid gap-4 pt-6 sm:grid-cols-2 2xl:grid-cols-4">
             <SummaryTile icon={ReceiptIndianRupee} label="Expense value" value={formatINR(totals.total)} />
             <SummaryTile icon={FileText} label="Attached documents" value={String(totals.attachments)} />
             <SummaryTile icon={CreditCard} label="Vendor-backed entries" value={String(totals.vendorBacked)} />
@@ -202,12 +202,14 @@ function SummaryTile({
   value: string;
 }) {
   return (
-    <div className="rounded-[22px] border border-border/60 bg-background/70 px-4 py-4">
+    <div className="min-w-0 rounded-[22px] border border-border/60 bg-background/70 px-4 py-4">
       <div className="flex items-center justify-between gap-3">
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
         <Icon className="size-4 text-muted-foreground" />
       </div>
-      <div className="mt-4 text-2xl font-semibold tracking-tight">{value}</div>
+      <div className="mt-4 min-w-0 text-xl font-semibold leading-tight tracking-tight [overflow-wrap:anywhere] sm:text-2xl">
+        {value}
+      </div>
     </div>
   );
 }
