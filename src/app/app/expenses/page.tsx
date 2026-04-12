@@ -6,6 +6,7 @@ import { ApprovalStatusBadge } from "@/components/app/approval-status-badge";
 import { ApprovalStatusGuide } from "@/components/app/approval-status-guide";
 import { ExportLinks } from "@/components/app/export-links";
 import { PageHeader } from "@/components/app/page-header";
+import { TableEmptyState } from "@/components/app/state-panels";
 import { EntryRoutingHelpModal } from "@/components/help/entry-routing-help-modal";
 import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { Button } from "@/components/ui/button";
@@ -159,11 +160,11 @@ export default async function ExpensesPage({
             </TableHeader>
             <TableBody>
               {expenses.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={10} className="py-12 text-center text-sm text-muted-foreground">
-                    No expenses matched this view.
-                  </TableCell>
-                </TableRow>
+                <TableEmptyState
+                  colSpan={10}
+                  title="No expenses matched this view"
+                  description="Try clearing the search or widening the date and approval filters."
+                />
               ) : (
                 expenses.map((expense) => (
                   <TableRow key={expense.id}>

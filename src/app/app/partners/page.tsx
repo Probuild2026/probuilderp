@@ -5,6 +5,7 @@ import { BriefcaseBusiness, Landmark, ShieldCheck, UsersRound } from "lucide-rea
 
 import { AddPartnerDialog, EditPartnerDialog } from "@/app/app/partners/partner-dialog";
 import { PageHeader } from "@/components/app/page-header";
+import { StatePanel, TableEmptyState } from "@/components/app/state-panels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +21,13 @@ function currentFy() {
 
 function isMissingTableError(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError && (error.code === "P2021" || error.code === "P2022");
+}
+
+function isDbUnavailableError(error: unknown) {
+  return (
+    (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P1001") ||
+    (error instanceof Error && error.message.includes("Can't reach database server"))
+  );
 }
 
 export default async function PartnersPage({
@@ -190,11 +198,11 @@ export default async function PartnersPage({
                 );
               })}
               {partners.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
-                    No partners yet.
-                  </TableCell>
-                </TableRow>
+                <TableEmptyState
+                  colSpan={8}
+                  title="No partners yet"
+                  description="Add partner master data to start tracking remuneration, drawings, and 194T obligations."
+                />
               ) : null}
             </TableBody>
             </Table>
@@ -203,17 +211,29 @@ export default async function PartnersPage({
       </div>
     );
   } catch (error) {
-    if (!isMissingTableError(error)) throw error;
+    if (!isMissingTableError(error) && !isDbUnavailableError(error)) throw error;
     return (
       <div className="mx-auto max-w-4xl space-y-4 p-4 md:p-6">
-        <PageHeader eyebrow="Workforce / Partners" title="Partners" description="Database update required for partner module." />
-        <div className="rounded-[24px] border border-border/70 bg-card p-4 text-sm">
-          <div className="font-medium">Run Prisma migration</div>
-          <pre className="mt-3 overflow-x-auto rounded-xl bg-black/40 p-3 text-xs">
+        <PageHeader
+          eyebrow="Workforce / Partners"
+          title="Partners"
+          description={isDbUnavailableError(error) ? "Database temporarily unreachable for the partner module." : "Database update required for partner module."}
+        />
+        {isDbUnavailableError(error) ? (
+          <StatePanel
+            tone="warning"
+            title="Database temporarily unreachable"
+            description="The app could not connect to the database. Check DATABASE_URL or Prisma Postgres availability and refresh."
+          />
+        ) : (
+          <div className="rounded-[24px] border border-border/70 bg-card p-4 text-sm">
+            <div className="font-medium">Run Prisma migration</div>
+            <pre className="mt-3 overflow-x-auto rounded-xl bg-black/40 p-3 text-xs">
 {`cd "/Users/roshanvinayan/Documents/Probuild ERP/probuild-erp"
 npx prisma migrate deploy`}
-          </pre>
-        </div>
+            </pre>
+          </div>
+        )}
       </div>
     );
   }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,10 +31,18 @@ export function ExpenseCreateForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [file, setFile] = useState<File | null>(null);
+  const [amountBeforeTax, setAmountBeforeTax] = useState("0");
+  const [cgst, setCgst] = useState("0");
+  const [sgst, setSgst] = useState("0");
+  const [igst, setIgst] = useState("0");
+
+  const total = useMemo(() => {
+    return [amountBeforeTax, cgst, sgst, igst].reduce((sum, value) => sum + (Number(value || 0) || 0), 0);
+  }, [amountBeforeTax, cgst, sgst, igst]);
 
   return (
     <form
-      className="space-y-5 rounded-md border p-4 md:p-6"
+      className="space-y-6 rounded-[24px] border border-border/70 bg-card p-5 md:p-6"
       onSubmit={(e) => {
         e.preventDefault();
         const form = e.currentTarget;
@@ -65,6 +74,30 @@ export function ExpenseCreateForm({
         });
       }}
     >
+      <Card className="border-border/60 bg-background/70">
+        <CardHeader className="border-b border-border/60 pb-4">
+          <CardTitle className="text-base">Expense snapshot</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 pt-5 sm:grid-cols-2">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Current total</div>
+            <div className="mt-2 text-2xl font-semibold tracking-tight">
+              {total.toLocaleString("en-IN", { style: "currency", currency: "INR" })}
+            </div>
+          </div>
+          <div className="grid gap-3 text-sm text-muted-foreground">
+            <div className="flex items-center justify-between gap-3">
+              <span>Base amount</span>
+              <span className="font-medium text-foreground">{amountBeforeTax}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span>Total tax</span>
+              <span className="font-medium text-foreground">{(Number(cgst) + Number(sgst) + Number(igst)).toFixed(2)}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="space-y-2 text-sm">
           <div className="text-muted-foreground">Project</div>
@@ -143,19 +176,27 @@ export function ExpenseCreateForm({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="space-y-2 text-sm">
           <div className="text-muted-foreground">Amount before tax</div>
-          <Input type="number" inputMode="decimal" step="0.01" name="amountBeforeTax" defaultValue="0" required />
+          <Input
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            name="amountBeforeTax"
+            value={amountBeforeTax}
+            onChange={(event) => setAmountBeforeTax(event.target.value)}
+            required
+          />
         </label>
         <label className="space-y-2 text-sm">
           <div className="text-muted-foreground">CGST</div>
-          <Input type="number" inputMode="decimal" step="0.01" name="cgst" defaultValue="0" />
+          <Input type="number" inputMode="decimal" step="0.01" name="cgst" value={cgst} onChange={(event) => setCgst(event.target.value)} />
         </label>
         <label className="space-y-2 text-sm">
           <div className="text-muted-foreground">SGST</div>
-          <Input type="number" inputMode="decimal" step="0.01" name="sgst" defaultValue="0" />
+          <Input type="number" inputMode="decimal" step="0.01" name="sgst" value={sgst} onChange={(event) => setSgst(event.target.value)} />
         </label>
         <label className="space-y-2 text-sm">
           <div className="text-muted-foreground">IGST</div>
-          <Input type="number" inputMode="decimal" step="0.01" name="igst" defaultValue="0" />
+          <Input type="number" inputMode="decimal" step="0.01" name="igst" value={igst} onChange={(event) => setIgst(event.target.value)} />
         </label>
       </div>
 
@@ -176,10 +217,9 @@ export function ExpenseCreateForm({
 
       <div className="flex items-center justify-end gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save"}
+          {pending ? "Saving…" : "Create expense"}
         </Button>
       </div>
     </form>
   );
 }
-

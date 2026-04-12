@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { Boxes, Package, Wrench } from "lucide-react";
 
 import { PageHeader } from "@/components/app/page-header";
+import { StatePanel, TableEmptyState } from "@/components/app/state-panels";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,13 @@ import { ItemDialog } from "./item-dialog";
 
 function isMissingTableError(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError && (error.code === "P2021" || error.code === "P2022");
+}
+
+function isDbUnavailableError(error: unknown) {
+  return (
+    (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P1001") ||
+    (error instanceof Error && error.message.includes("Can't reach database server"))
+  );
 }
 
 export default async function ItemsPage({
@@ -131,11 +139,11 @@ export default async function ItemsPage({
                   </TableRow>
                 ))}
                 {items.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
-                      No items yet.
-                    </TableCell>
-                  </TableRow>
+                  <TableEmptyState
+                    colSpan={6}
+                    title="No items yet"
+                    description="Add materials, labour codes, or services so purchasing and expense flows can reuse a clean catalog."
+                  />
                 ) : null}
               </TableBody>
             </Table>
@@ -144,17 +152,29 @@ export default async function ItemsPage({
       </div>
     );
   } catch (error) {
-    if (!isMissingTableError(error)) throw error;
+    if (!isMissingTableError(error) && !isDbUnavailableError(error)) throw error;
     return (
       <div className="mx-auto max-w-4xl space-y-4 p-4 md:p-6">
-        <PageHeader eyebrow="Admin / Items" title="Items and services" description="Database update required for the item catalog." />
-        <div className="rounded-[24px] border border-border/70 bg-card p-4 text-sm">
-          <div className="font-medium">Run Prisma migration</div>
-          <pre className="mt-3 overflow-x-auto rounded-xl bg-black/40 p-3 text-xs">
+        <PageHeader
+          eyebrow="Admin / Items"
+          title="Items and services"
+          description={isDbUnavailableError(error) ? "Database temporarily unreachable for the item catalog." : "Database update required for the item catalog."}
+        />
+        {isDbUnavailableError(error) ? (
+          <StatePanel
+            tone="warning"
+            title="Database temporarily unreachable"
+            description="The app could not connect to the database. Check DATABASE_URL or Prisma Postgres availability and refresh."
+          />
+        ) : (
+          <div className="rounded-[24px] border border-border/70 bg-card p-4 text-sm">
+            <div className="font-medium">Run Prisma migration</div>
+            <pre className="mt-3 overflow-x-auto rounded-xl bg-black/40 p-3 text-xs">
 {`cd "/Users/roshanvinayan/Documents/Probuild ERP/probuild-erp"
 npx prisma migrate deploy`}
-          </pre>
-        </div>
+            </pre>
+          </div>
+        )}
       </div>
     );
   }

@@ -6,7 +6,9 @@ import { toast } from "sonner";
 
 import { createLabourSheet } from "@/app/actions/wages";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { formatINR } from "@/lib/money";
 
 type Opt = { id: string; name: string };
@@ -39,7 +41,7 @@ export function LabourSheetCreateForm({ today, projects }: { today: string; proj
 
   return (
     <form
-      className="space-y-5 rounded-md border p-4 md:p-6"
+      className="space-y-6 rounded-[24px] border border-border/70 bg-card p-5 md:p-6"
       onSubmit={(e) => {
         e.preventDefault();
         startTransition(async () => {
@@ -70,6 +72,28 @@ export function LabourSheetCreateForm({ today, projects }: { today: string; proj
         });
       }}
     >
+      <Card className="border-border/60 bg-background/70">
+        <CardHeader className="border-b border-border/60 pb-4">
+          <CardTitle className="text-base">Payout snapshot</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 pt-5 sm:grid-cols-2">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Current total</div>
+            <div className="mt-2 text-2xl font-semibold tracking-tight">{formatINR(total)}</div>
+          </div>
+          <div className="grid gap-3 text-sm text-muted-foreground">
+            <div className="flex items-center justify-between gap-3">
+              <span>Line count</span>
+              <span className="font-medium text-foreground">{lines.length}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span>Mode</span>
+              <span className="font-medium text-foreground">{mode}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="space-y-2 text-sm">
           <div className="text-muted-foreground">Project</div>
@@ -115,7 +139,7 @@ export function LabourSheetCreateForm({ today, projects }: { today: string; proj
 
         <label className="space-y-2 text-sm sm:col-span-2">
           <div className="text-muted-foreground">Notes (optional)</div>
-          <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Site / supervisor / remarks" />
+          <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Site / supervisor / remarks" rows={3} />
         </label>
       </div>
 
@@ -129,6 +153,7 @@ export function LabourSheetCreateForm({ today, projects }: { today: string; proj
                 <th className="px-3 py-2 text-right">Count</th>
                 <th className="px-3 py-2 text-right">Rate</th>
                 <th className="px-3 py-2 text-right">Amount</th>
+                <th className="px-3 py-2 text-right">Remove</th>
               </tr>
             </thead>
             <tbody>
@@ -171,6 +196,16 @@ export function LabourSheetCreateForm({ today, projects }: { today: string; proj
                       />
                     </td>
                     <td className="px-3 py-2 text-right">{formatINR(Number.isFinite(amount) ? amount : 0)}</td>
+                    <td className="px-3 py-2 text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setLines((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== idx)))}
+                      >
+                        Remove
+                      </Button>
+                    </td>
                   </tr>
                 );
               })}
@@ -200,4 +235,3 @@ export function LabourSheetCreateForm({ today, projects }: { today: string; proj
     </form>
   );
 }
-

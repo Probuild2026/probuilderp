@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { ApprovalStatusControl } from "@/components/app/approval-status-control";
 import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
+import { InlineEmptyState } from "@/components/app/state-panels";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatINR } from "@/lib/money";
@@ -169,7 +170,10 @@ export default async function TransactionDetailPage({ params }: { params: Promis
             </CardHeader>
             <CardContent className="space-y-3 pt-6">
               {transaction.allocations.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No allocations linked to this entry.</div>
+                <InlineEmptyState
+                  title="No allocations linked to this entry"
+                  description="This transaction stands alone for now. Link allocations later if it needs invoice or expense settlement context."
+                />
               ) : (
                 transaction.allocations.map((allocation) => {
                   const invoice = invoiceById.get(allocation.documentId);
@@ -216,7 +220,10 @@ export default async function TransactionDetailPage({ params }: { params: Promis
             </CardHeader>
             <CardContent className="space-y-3 pt-6">
               {attachments.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No attachments uploaded for this transaction.</div>
+                <InlineEmptyState
+                  title="No attachments uploaded"
+                  description="Add a supporting file when this entry needs reconciliation or audit backup."
+                />
               ) : (
                 attachments.map((attachment) => (
                   <div key={attachment.id} className="flex items-center justify-between gap-3 rounded-[18px] border border-border/60 bg-background/70 px-4 py-3">

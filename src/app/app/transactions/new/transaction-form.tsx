@@ -45,6 +45,7 @@ export function TransactionForm({
   const [categoryId, setCategoryId] = useState<string>("");
   const [fromAccountId, setFromAccountId] = useState<string>("");
   const [toAccountId, setToAccountId] = useState<string>("");
+  const [amount, setAmount] = useState<string>("");
 
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState<string>("");
@@ -84,6 +85,8 @@ export function TransactionForm({
       setCategoryId("");
     }
   }
+
+  const amountNumber = Number(amount || 0) || 0;
 
   async function onCreateCategory(formData: FormData) {
     setErr("");
@@ -142,8 +145,23 @@ export function TransactionForm({
           }
         });
       }}
-      className="space-y-4 rounded-md border p-4 md:p-6"
+      className="space-y-6 rounded-[24px] border border-border/70 bg-card p-5 md:p-6"
     >
+      <div className="rounded-[18px] border border-border/60 bg-background/70 px-4 py-3 text-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Transaction preview</div>
+            <div className="mt-1 text-base font-semibold">{type}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-muted-foreground">Amount</div>
+            <div className="mt-1 text-lg font-semibold">
+              {amountNumber.toLocaleString("en-IN", { style: "currency", currency: "INR" })}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="space-y-2">
         <Tabs value={type} onValueChange={(v) => resetTypeDefaults(v as typeof type)}>
           <TabsList className="grid w-full grid-cols-3">
@@ -188,6 +206,8 @@ export function TransactionForm({
           name="amount"
           placeholder="0.00"
           className="h-12 text-lg"
+          value={amount}
+          onChange={(event) => setAmount(event.target.value)}
           required
         />
       </label>

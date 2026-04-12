@@ -4,6 +4,7 @@ import { CircleDollarSign, FileSpreadsheet, HandCoins, Landmark } from "lucide-r
 
 import { ExportLinks } from "@/components/app/export-links";
 import { PageHeader } from "@/components/app/page-header";
+import { TableEmptyState } from "@/components/app/state-panels";
 import { EntryRoutingHelpModal } from "@/components/help/entry-routing-help-modal";
 import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { Button } from "@/components/ui/button";
@@ -166,11 +167,11 @@ export default async function InvoicesPage({
             </TableHeader>
             <TableBody>
               {invoices.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={11} className="py-12 text-center text-sm text-muted-foreground">
-                    No invoices matched this view.
-                  </TableCell>
-                </TableRow>
+                <TableEmptyState
+                  colSpan={11}
+                  title="No invoices matched this view"
+                  description="Try widening the date range or switching to a broader project context."
+                />
               ) : (
                 invoices.map((invoice) => {
                   const allocation = byInvoiceId.get(invoice.id) ?? { cash: 0, tds: 0, gross: 0 };

@@ -7,6 +7,7 @@ import { ApprovalStatusBadge } from "@/components/app/approval-status-badge";
 import { ApprovalStatusGuide } from "@/components/app/approval-status-guide";
 import { ExportLinks } from "@/components/app/export-links";
 import { PageHeader } from "@/components/app/page-header";
+import { StatePanel, TableEmptyState } from "@/components/app/state-panels";
 import { EntryRoutingHelpModal } from "@/components/help/entry-routing-help-modal";
 import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -137,14 +138,15 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
       <ModuleCheatSheet moduleKey="paymentsMade" variant="compact" />
 
       {txns === null ? (
-        <div className="rounded-[24px] border border-border/70 bg-card px-4 py-4 text-sm">
-          <div className="font-medium">{dbUnavailable ? "Database temporarily unreachable" : "Database update required"}</div>
-          <div className="mt-1 text-muted-foreground">
-            {dbUnavailable
+        <StatePanel
+          tone="warning"
+          title={dbUnavailable ? "Database temporarily unreachable" : "Database update required"}
+          description={
+            dbUnavailable
               ? "The app could not connect to the database. Check DATABASE_URL or Prisma Postgres availability and refresh."
-              : "This deployment is missing required database objects for vendor payments. Apply Prisma migrations, then refresh."}
-          </div>
-        </div>
+              : "This deployment is missing required database objects for vendor payments. Apply Prisma migrations, then refresh."
+          }
+        />
       ) : null}
 
       <section className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
@@ -221,11 +223,11 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
             </TableHeader>
             <TableBody>
               {(txns ?? []).length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={11} className="py-12 text-center text-sm text-muted-foreground">
-                    No payments matched this view.
-                  </TableCell>
-                </TableRow>
+                <TableEmptyState
+                  colSpan={11}
+                  title="No payments matched this view"
+                  description="Try widening the date range, clearing filters, or switching the active project context."
+                />
               ) : (
                 (txns ?? []).map((txn) => {
                   const cash = Number(txn.amount);

@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { ApprovalStatusControl } from "@/components/app/approval-status-control";
 import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
+import { InlineEmptyState, StatePanel } from "@/components/app/state-panels";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatINR } from "@/lib/money";
@@ -40,6 +41,7 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
   if (!receipt) return notFound();
 
   const projectId = receipt.clientInvoice?.projectId ?? null;
+  const hasInvoiceLink = Boolean(receipt.clientInvoice);
   const clientName = receipt.clientInvoice?.client?.name ?? "Unknown client";
   const projectName = receipt.clientInvoice?.project?.name ?? "Unknown project";
   const invoiceNumber = receipt.clientInvoice?.invoiceNumber ?? "Unknown invoice";
@@ -69,20 +71,24 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
           <Button asChild variant="outline">
             <Link href="/app/sales/receipts">Back</Link>
           </Button>
-          <Button asChild variant="secondary">
-            <Link href={`/app/sales/invoices/${receipt.clientInvoiceId}`}>Open invoice</Link>
-          </Button>
-          <form
-            action={async () => {
-              "use server";
-              await deleteReceipt(receipt.id, receipt.clientInvoice.id);
-              redirect("/app/sales/receipts");
-            }}
-          >
-            <Button variant="destructive" type="submit">
-              Delete
+          {hasInvoiceLink ? (
+            <Button asChild variant="secondary">
+              <Link href={`/app/sales/invoices/${receipt.clientInvoiceId}`}>Open invoice</Link>
             </Button>
-          </form>
+          ) : null}
+          {hasInvoiceLink ? (
+            <form
+              action={async () => {
+                "use server";
+                await deleteReceipt(receipt.id, receipt.clientInvoice!.id);
+                redirect("/app/sales/receipts");
+              }}
+            >
+              <Button variant="destructive" type="submit">
+                Delete
+              </Button>
+            </form>
+          ) : null}
         </div>
       </div>
 
@@ -116,6 +122,14 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
         </CardContent>
       </Card>
 
+      {!hasInvoiceLink ? (
+        <StatePanel
+          tone="warning"
+          title="Linked invoice missing"
+          description="This receipt still exists, but its related invoice record is unavailable. Edit and delete actions are disabled until the invoice link is restored."
+        />
+      ) : null}
+
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -124,23 +138,30 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
                 <CardTitle>Edit</CardTitle>
               </CardHeader>
               <CardContent>
-                <ReceiptEditForm
-                  receipt={{
-                    id: receipt.id,
-                    clientInvoiceId: receipt.clientInvoiceId,
-                    projectId: receipt.clientInvoice.projectId,
-                    date: dateOnly(receipt.date),
-                    amountReceived: Number(receipt.amountReceived).toFixed(2),
-                    mode: receipt.mode,
-                    channel: receipt.channel === "CASH" ? "CASH" : "BANK",
-                    projectPaymentStageId: receipt.projectPaymentStageId ?? null,
-                    reference: receipt.reference ?? null,
-                    tdsDeducted: receipt.tdsDeducted,
-                    tdsAmount: Number(receipt.tdsAmount ?? 0).toFixed(2),
-                    remarks: receipt.remarks ?? null,
-                  }}
-                  stages={stages}
-                />
+                {hasInvoiceLink ? (
+                  <ReceiptEditForm
+                    receipt={{
+                      id: receipt.id,
+                      clientInvoiceId: receipt.clientInvoiceId,
+                      projectId: receipt.clientInvoice!.projectId,
+                      date: dateOnly(receipt.date),
+                      amountReceived: Number(receipt.amountReceived).toFixed(2),
+                      mode: receipt.mode,
+                      channel: receipt.channel === "CASH" ? "CASH" : "BANK",
+                      projectPaymentStageId: receipt.projectPaymentStageId ?? null,
+                      reference: receipt.reference ?? null,
+                      tdsDeducted: receipt.tdsDeducted,
+                      tdsAmount: Number(receipt.tdsAmount ?? 0).toFixed(2),
+                      remarks: receipt.remarks ?? null,
+                    }}
+                    stages={stages}
+                  />
+                ) : (
+                  <InlineEmptyState
+                    title="Receipt editing unavailable"
+                    description="The linked invoice is missing, so this receipt cannot be safely edited from this screen."
+                  />
+                )}
               </CardContent>
             </Card>
 
@@ -161,11 +182,13 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
                   <div className="text-muted-foreground">Invoice #</div>
                   <div className="text-right font-medium">{invoiceNumber}</div>
                 </div>
-                <div className="pt-2">
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={`/app/sales/invoices/${receipt.clientInvoiceId}`}>Open invoice</Link>
-                  </Button>
-                </div>
+                {hasInvoiceLink ? (
+                  <div className="pt-2">
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={`/app/sales/invoices/${receipt.clientInvoiceId}`}>Open invoice</Link>
+                    </Button>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           </div>

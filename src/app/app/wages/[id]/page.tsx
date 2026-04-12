@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { deleteLabourSheet } from "@/app/actions/wages";
 import { ApprovalStatusControl } from "@/components/app/approval-status-control";
 import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
+import { InlineEmptyState } from "@/components/app/state-panels";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatINR } from "@/lib/money";
@@ -136,7 +137,10 @@ export default async function WagesDetailPage({ params }: { params: Promise<{ id
             </CardHeader>
             <CardContent className="space-y-3 pt-6">
               {attachments.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No attachments yet.</div>
+                <InlineEmptyState
+                  title="No attachments yet"
+                  description="Upload supporting documents against the linked transaction when this payout needs backup."
+                />
               ) : (
                 attachments.map((a) => (
                   <div key={a.id} className="flex items-center justify-between gap-3 rounded-[18px] border border-border/60 bg-background/70 px-4 py-3">
