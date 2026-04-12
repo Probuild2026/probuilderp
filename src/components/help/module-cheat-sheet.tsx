@@ -156,8 +156,8 @@ export function ModuleCheatSheet({
   return (
     <Card className={cn("group overflow-hidden", className)}>
       <details className="[&_summary::-webkit-details-marker]:hidden">
-        <summary className="flex cursor-pointer list-none items-start justify-between transition-colors hover:bg-muted/50">
-          <CardHeader className={cn(isCompact ? "gap-1 px-4 py-4" : "gap-1.5 px-5 py-5")}>
+        <summary className="flex w-full cursor-pointer list-none items-start justify-between transition-colors hover:bg-muted/50">
+          <CardHeader className={cn("flex-1", isCompact ? "gap-1 px-4 py-4" : "gap-1.5 px-5 py-5")}>
             <CardTitle className="text-base">{MODULE_CHEAT_SHEETS[moduleKey].title}</CardTitle>
             <p className="text-sm text-muted-foreground text-left">{MODULE_CHEAT_SHEETS[moduleKey].summary}</p>
           </CardHeader>
