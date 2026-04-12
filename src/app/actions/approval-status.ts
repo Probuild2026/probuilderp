@@ -12,7 +12,7 @@ import { prisma } from "@/server/db";
 import { type ActionResult } from "./_result";
 
 const approvalStatusValues = ["DRAFT", "PENDING_APPROVAL", "APPROVED", "CANCELLED"] as const;
-const approvalTargetValues = ["bill", "expense", "wage", "payment", "receipt"] as const;
+const approvalTargetValues = ["bill", "expense", "wage", "payment", "receipt", "transaction"] as const;
 
 const updateApprovalStatusSchema = z.object({
   target: z.enum(approvalTargetValues),
@@ -41,6 +41,11 @@ function revalidateApprovalStatusPaths(target: z.infer<typeof updateApprovalStat
     revalidatePath("/app/purchases/payments-made");
     revalidatePath(`/app/purchases/payments-made/${id}`);
     revalidatePath("/app/transactions");
+    return;
+  }
+  if (target === "transaction") {
+    revalidatePath("/app/transactions");
+    revalidatePath(`/app/transactions/${id}`);
     return;
   }
   revalidatePath("/app/sales/receipts");
@@ -150,6 +155,26 @@ export async function updateApprovalStatus(input: unknown): Promise<ActionResult
         });
 
         return true;
+      }
+
+      if (parsed.data.target === "transaction") {
+        const result = await tx.transaction.updateMany({
+          where: { tenantId: session.user.tenantId, id: parsed.data.id },
+          data: { approvalStatus: parsed.data.status },
+        });
+        if (result.count > 0) {
+          await writeAuditLog(tx, {
+            tenantId: session.user.tenantId,
+            userId: session.user.id,
+            userEmail: session.user.email,
+            action: "STATUS_CHANGED",
+            entityType: "TRANSACTION",
+            entityId: parsed.data.id,
+            summary: `Transaction review status changed to ${parsed.data.status}.`,
+            metadata: { status: parsed.data.status },
+          });
+        }
+        return result.count > 0;
       }
 
       const receipt = await tx.receipt.findFirst({

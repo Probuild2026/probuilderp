@@ -161,12 +161,13 @@ export default async function TransactionsPage({
                 {hasTransferRows ? <TableHead className="hidden md:table-cell">To</TableHead> : null}
                 <TableHead className="hidden lg:table-cell">Project</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
+                <TableHead className="text-right">Open</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {(txns ?? []).length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={hasTransferRows ? 7 : 5} className="py-12 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={hasTransferRows ? 8 : 6} className="py-12 text-center text-sm text-muted-foreground">
                     No transactions matched this view.
                   </TableCell>
                 </TableRow>
@@ -176,7 +177,9 @@ export default async function TransactionsPage({
                     <TableCell>{txn.date.toISOString().slice(0, 10)}</TableCell>
                     <TableCell className="min-w-0">
                       <div className="min-w-0">
-                        <div className="truncate font-semibold">{txn.type}</div>
+                        <Link href={`/app/transactions/${txn.id}`} className="truncate font-semibold hover:underline">
+                          {txn.type}
+                        </Link>
                         <div className="mt-1 truncate text-xs text-muted-foreground md:hidden">
                           {(txn.category?.name ?? "—") + " • " + (txn.project?.name ?? "—")}
                         </div>
@@ -187,6 +190,11 @@ export default async function TransactionsPage({
                     {hasTransferRows ? <TableCell className="hidden md:table-cell">{txn.type === "TRANSFER" ? txn.toAccount?.name ?? "—" : "—"}</TableCell> : null}
                     <TableCell className="hidden lg:table-cell">{txn.project?.name ?? "—"}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatINR(Number(txn.amount))}</TableCell>
+                    <TableCell className="text-right">
+                      <Button asChild size="sm" variant="outline">
+                        <Link href={`/app/transactions/${txn.id}`}>Open</Link>
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))
               )}

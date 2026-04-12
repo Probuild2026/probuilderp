@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { updateLabourSheet } from "@/app/actions/wages";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { formatINR } from "@/lib/money";
 
 type Opt = { id: string; name: string };
@@ -82,6 +83,13 @@ export function WagesEditForm({
         });
       }}
     >
+      <div className="rounded-[18px] border border-border/60 bg-background/70 px-4 py-3 text-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-muted-foreground">Current total</div>
+          <div className="text-base font-semibold">{formatINR(total)}</div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="space-y-2 text-sm">
           <div className="text-muted-foreground">Project</div>
@@ -127,7 +135,7 @@ export function WagesEditForm({
 
         <label className="space-y-2 text-sm sm:col-span-2">
           <div className="text-muted-foreground">Notes (optional)</div>
-          <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Site / supervisor / remarks" />
+          <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Site / supervisor / remarks" rows={3} />
         </label>
       </div>
 
@@ -141,6 +149,7 @@ export function WagesEditForm({
                 <th className="px-3 py-2 text-right">Count</th>
                 <th className="px-3 py-2 text-right">Rate</th>
                 <th className="px-3 py-2 text-right">Amount</th>
+                <th className="px-3 py-2 text-right">Remove</th>
               </tr>
             </thead>
             <tbody>
@@ -185,6 +194,16 @@ export function WagesEditForm({
                       />
                     </td>
                     <td className="px-3 py-2 text-right">{formatINR(Number.isFinite(amount) ? amount : 0)}</td>
+                    <td className="px-3 py-2 text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setLines((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== idx)))}
+                      >
+                        Remove
+                      </Button>
+                    </td>
                   </tr>
                 );
               })}
@@ -214,4 +233,3 @@ export function WagesEditForm({
     </form>
   );
 }
-

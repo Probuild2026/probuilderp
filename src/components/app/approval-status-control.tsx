@@ -9,7 +9,7 @@ import { updateApprovalStatus } from "@/app/actions/approval-status";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { approvalStatusDescriptions, approvalStatusLabels, approvalStatusValues } from "@/lib/approval-status";
 
-type ApprovalTarget = "bill" | "expense" | "wage" | "payment" | "receipt";
+type ApprovalTarget = "bill" | "expense" | "wage" | "payment" | "receipt" | "transaction";
 
 export function ApprovalStatusControl({
   target,

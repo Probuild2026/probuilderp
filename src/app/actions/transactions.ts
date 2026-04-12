@@ -2,6 +2,7 @@
 
 import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { authOptions } from "@/server/auth";
@@ -218,6 +219,8 @@ export async function updateTransaction(input: unknown): Promise<ActionResult<{ 
       select: { id: true },
     });
 
+    revalidatePath("/app/transactions");
+    revalidatePath(`/app/transactions/${updated.id}`);
     return { ok: true, data: updated };
   } catch {
     return unknownError("Failed to update transaction.");
@@ -309,4 +312,3 @@ export async function listTransactions(input: unknown): Promise<
     return unknownError("Failed to load transactions.");
   }
 }
-

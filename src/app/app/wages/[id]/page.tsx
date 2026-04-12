@@ -48,12 +48,13 @@ export default async function WagesDetailPage({ params }: { params: Promise<{ id
 
   const total = Number(sheet.total);
   const lineCount = sheet.lines.length;
+  const averageRate = lineCount ? total / Math.max(sheet.lines.reduce((sum, line) => sum + line.headcount, 0), 1) : 0;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6">
+    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Labour sheet</h1>
+          <h1 className="text-2xl font-semibold">Wage sheet workspace</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {sheet.project.name} • {dateOnly(sheet.date)}
           </p>
@@ -76,97 +77,107 @@ export default async function WagesDetailPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Total</CardTitle>
-          </CardHeader>
-          <CardContent className="text-lg font-semibold tabular-nums">{formatINR(total)}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Paid via</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm font-medium">{sheet.mode}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Lines</CardTitle>
-          </CardHeader>
-          <CardContent className="text-lg font-semibold tabular-nums">{lineCount}</CardContent>
-        </Card>
-      </div>
+      <section className="grid gap-4 lg:grid-cols-4">
+        <MetricCard label="Total" value={formatINR(total)} />
+        <MetricCard label="Paid via" value={sheet.mode} />
+        <MetricCard label="Worker lines" value={String(lineCount)} />
+        <MetricCard label="Average rate" value={formatINR(averageRate)} />
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Review Status</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ApprovalStatusControl target="wage" id={sheet.id} status={sheet.approvalStatus} showHelp />
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px] xl:items-start">
         <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Edit</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <WagesEditForm
-                  projects={projects}
-                  sheet={{
-                    id: sheet.id,
-                    projectId: sheet.projectId,
-                    date: dateOnly(sheet.date),
-                    mode: sheet.mode,
-                    reference: sheet.reference ?? null,
-                    note: sheet.note ?? null,
-                    lines: sheet.lines.map((l) => ({ role: l.role, headcount: l.headcount, rate: Number(l.rate) })),
-                  }}
-                />
-              </CardContent>
-            </Card>
+          <Card>
+            <CardHeader className="border-b border-border/60">
+              <CardTitle className="text-base">Review status</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <ApprovalStatusControl target="wage" id={sheet.id} status={sheet.approvalStatus} showHelp />
+            </CardContent>
+          </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Attachments</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {attachments.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">No attachments yet.</div>
-                ) : (
-                  <div className="space-y-2">
-                    {attachments.map((a) => (
-                      <div key={a.id} className="flex items-center justify-between gap-3 rounded-md border p-3">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium">{a.originalName}</div>
-                          <div className="text-xs text-muted-foreground">{a.mimeType}</div>
-                        </div>
-                        <Button asChild size="sm" variant="outline">
-                          <a href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer">
-                            Open
-                          </a>
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="text-xs text-muted-foreground">Uploaded bills are stored in Vercel Blob when configured.</div>
-              </CardContent>
-            </Card>
-          </div>
+          <Card>
+            <CardHeader className="border-b border-border/60">
+              <CardTitle className="text-base">Edit wage sheet</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <WagesEditForm
+                projects={projects}
+                sheet={{
+                  id: sheet.id,
+                  projectId: sheet.projectId,
+                  date: dateOnly(sheet.date),
+                  mode: sheet.mode,
+                  reference: sheet.reference ?? null,
+                  note: sheet.note ?? null,
+                  lines: sheet.lines.map((l) => ({ role: l.role, headcount: l.headcount, rate: Number(l.rate) })),
+                }}
+              />
+            </CardContent>
+          </Card>
         </div>
 
-        <ModuleCheatSheet
-          moduleKey="wages"
-          variant="sidebar"
-          showDecisionHints
-          showRoutingTrigger
-          className="order-first lg:order-none"
-        />
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="border-b border-border/60">
+              <CardTitle className="text-base">Operational context</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6 text-sm">
+              <DetailRow label="Project" value={sheet.project.name} />
+              <DetailRow label="Reference" value={sheet.reference ?? "None"} />
+              <DetailRow label="Notes" value={sheet.note ?? "No notes"} />
+              <DetailRow label="Transaction link" value={sheet.transactionId ?? "Not linked"} />
+              <DetailRow label="Attachments" value={String(attachments.length)} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="border-b border-border/60">
+              <CardTitle className="text-base">Attachments</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-6">
+              {attachments.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No attachments yet.</div>
+              ) : (
+                attachments.map((a) => (
+                  <div key={a.id} className="flex items-center justify-between gap-3 rounded-[18px] border border-border/60 bg-background/70 px-4 py-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{a.originalName}</div>
+                      <div className="text-xs text-muted-foreground">{a.mimeType}</div>
+                    </div>
+                    <Button asChild size="sm" variant="outline">
+                      <a href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer">
+                        Open
+                      </a>
+                    </Button>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          <ModuleCheatSheet moduleKey="wages" variant="sidebar" showDecisionHints showRoutingTrigger />
+        </div>
       </div>
+    </div>
+  );
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm text-muted-foreground">{label}</CardTitle>
+      </CardHeader>
+      <CardContent className="text-lg font-semibold tracking-tight [overflow-wrap:anywhere]">{value}</CardContent>
+    </Card>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="text-muted-foreground">{label}</div>
+      <div className="text-right font-medium">{value}</div>
     </div>
   );
 }

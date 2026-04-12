@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,14 @@ export function ExpenseEditForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [file, setFile] = useState<File | null>(null);
+  const [amountBeforeTax, setAmountBeforeTax] = useState(expense.amountBeforeTax);
+  const [cgst, setCgst] = useState(expense.cgst);
+  const [sgst, setSgst] = useState(expense.sgst);
+  const [igst, setIgst] = useState(expense.igst);
+
+  const total = useMemo(() => {
+    return [amountBeforeTax, cgst, sgst, igst].reduce((sum, value) => sum + (Number(value || 0) || 0), 0);
+  }, [amountBeforeTax, cgst, sgst, igst]);
 
   return (
     <form
@@ -78,6 +86,13 @@ export function ExpenseEditForm({
       }}
     >
       <input type="hidden" name="id" defaultValue={expense.id} />
+
+      <div className="rounded-[18px] border border-border/60 bg-background/70 px-4 py-3 text-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-muted-foreground">Updated total</div>
+          <div className="font-semibold tabular-nums">{total.toLocaleString("en-IN", { style: "currency", currency: "INR" })}</div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="space-y-2 text-sm">
@@ -174,19 +189,27 @@ export function ExpenseEditForm({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="space-y-2 text-sm">
           <div className="text-muted-foreground">Amount before tax</div>
-          <Input type="number" inputMode="decimal" step="0.01" name="amountBeforeTax" defaultValue={expense.amountBeforeTax} required />
+          <Input
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            name="amountBeforeTax"
+            value={amountBeforeTax}
+            onChange={(event) => setAmountBeforeTax(event.target.value)}
+            required
+          />
         </label>
         <label className="space-y-2 text-sm">
           <div className="text-muted-foreground">CGST</div>
-          <Input type="number" inputMode="decimal" step="0.01" name="cgst" defaultValue={expense.cgst} />
+          <Input type="number" inputMode="decimal" step="0.01" name="cgst" value={cgst} onChange={(event) => setCgst(event.target.value)} />
         </label>
         <label className="space-y-2 text-sm">
           <div className="text-muted-foreground">SGST</div>
-          <Input type="number" inputMode="decimal" step="0.01" name="sgst" defaultValue={expense.sgst} />
+          <Input type="number" inputMode="decimal" step="0.01" name="sgst" value={sgst} onChange={(event) => setSgst(event.target.value)} />
         </label>
         <label className="space-y-2 text-sm">
           <div className="text-muted-foreground">IGST</div>
-          <Input type="number" inputMode="decimal" step="0.01" name="igst" defaultValue={expense.igst} />
+          <Input type="number" inputMode="decimal" step="0.01" name="igst" value={igst} onChange={(event) => setIgst(event.target.value)} />
         </label>
       </div>
 
@@ -216,4 +239,3 @@ export function ExpenseEditForm({
     </form>
   );
 }
-
