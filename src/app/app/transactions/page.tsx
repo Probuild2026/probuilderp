@@ -153,7 +153,8 @@ export default async function TransactionsPage({
           <CardTitle className="text-base">Transaction ledger</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <div className="overflow-x-auto">
+          <Table className="min-w-[920px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[110px]">Date</TableHead>
@@ -202,6 +203,7 @@ export default async function TransactionsPage({
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

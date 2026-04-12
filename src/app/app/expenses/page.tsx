@@ -143,7 +143,8 @@ export default async function ExpensesPage({
           <CardTitle className="text-base">Expense ledger</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table className="w-full table-fixed">
+          <div className="overflow-x-auto">
+          <Table className="min-w-[1120px] table-fixed">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[100px]">Date</TableHead>
@@ -187,6 +188,7 @@ export default async function ExpensesPage({
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -205,7 +205,8 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
           <CardTitle className="text-base">Payment ledger</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <div className="overflow-x-auto">
+          <Table className="min-w-[1180px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
@@ -269,6 +270,7 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

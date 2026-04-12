@@ -140,7 +140,8 @@ export default async function WagesPage({
           <CardTitle className="text-base">Wage ledger</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <div className="overflow-x-auto">
+          <Table className="min-w-[920px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
@@ -184,6 +185,7 @@ export default async function WagesPage({
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -149,7 +149,8 @@ export default async function ReceiptsPage({
           <CardTitle className="text-base">Receipt ledger</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <div className="overflow-x-auto">
+          <Table className="min-w-[980px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
@@ -212,6 +213,7 @@ export default async function ReceiptsPage({
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
     </div>
