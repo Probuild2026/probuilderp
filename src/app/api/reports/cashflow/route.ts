@@ -4,7 +4,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
-// Helper to get YYYY-MM
 function toMonthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
@@ -20,64 +19,28 @@ export async function GET(req: NextRequest) {
 
   const monthsBack = parseInt(searchParams.get("months") ?? "6", 10);
   const vendorId = searchParams.get("vendorId");
-  const filterType = searchParams.get("type"); // "IN", "OUT", or empty for all
+  const filterType = searchParams.get("type"); 
 
-  // Default to covering the last N months up to today
   const today = new Date();
   const startDate = new Date(today.getFullYear(), today.getMonth() - (monthsBack - 1), 1);
 
   try {
-    // 1. Fetch Receipts (Money IN)
-    let receipts: any[] = [];
-    if (!vendorId && (!filterType || filterType === "IN")) {
-      receipts = await prisma.receipt.findMany({
-        where: {
-          tenantId,
-          date: { gte: startDate, lte: today },
-        },
-        select: { date: true, amountReceived: true },
-      });
-    }
+    const txns = await prisma.transaction.findMany({
+      where: {
+        tenantId,
+        date: { gte: startDate, lte: today },
+        ...(vendorId ? { vendorId } : {}),
+        approvalStatus: { not: "CANCELLED" },
+        ...(filterType === "IN" ? { type: "INCOME" } : filterType === "OUT" ? { type: "EXPENSE" } : { type: { in: ["INCOME", "EXPENSE"] } }),
+      },
+      select: {
+        date: true,
+        type: true,
+        amount: true,
+        tdsAmount: true,
+      },
+    });
 
-    // 2. Fetch Expenses (Money OUT)
-    let expenses: any[] = [];
-    if (!filterType || filterType === "OUT") {
-      expenses = await prisma.expense.findMany({
-        where: {
-          tenantId,
-          date: { gte: startDate, lte: today },
-          ...(vendorId ? { vendorId } : {}),
-        },
-        select: { date: true, totalAmount: true, expenseType: true },
-      });
-    }
-
-    // 3. Fetch Vendor Payments (Money OUT)
-    let vendorPayments: any[] = [];
-    if (!filterType || filterType === "OUT") {
-      vendorPayments = await prisma.vendorPayment.findMany({
-        where: {
-          tenantId,
-          date: { gte: startDate, lte: today },
-          ...(vendorId ? { vendorId } : {}),
-        },
-        select: { date: true, amountPaid: true, tdsAmount: true },
-      });
-    }
-
-    // 4. Fetch Wages/Labour (Money OUT)
-    let wages: any[] = [];
-    if (!vendorId && (!filterType || filterType === "OUT")) {
-      wages = await prisma.labourSheet.findMany({
-        where: {
-          tenantId,
-          date: { gte: startDate, lte: today },
-        },
-        select: { date: true, total: true },
-      });
-    }
-
-    // Initialize month buckets
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const chartDataMap = new Map<string, { label: string; dateSort: Date; in: number; out: number }>();
 
@@ -92,35 +55,15 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Aggregate Receipts
-    for (const row of receipts) {
+    for (const row of txns) {
       const key = toMonthKey(row.date);
       if (chartDataMap.has(key)) {
-        chartDataMap.get(key)!.in += Number(row.amountReceived);
-      }
-    }
-
-    // Aggregate Expenses
-    for (const row of expenses) {
-      const key = toMonthKey(row.date);
-      if (chartDataMap.has(key)) {
-        chartDataMap.get(key)!.out += Number(row.totalAmount);
-      }
-    }
-
-    // Aggregate Vendor Payments
-    for (const row of vendorPayments) {
-      const key = toMonthKey(row.date);
-      if (chartDataMap.has(key)) {
-        chartDataMap.get(key)!.out += Number(row.amountPaid) + Number(row.tdsAmount ?? 0);
-      }
-    }
-
-    // Aggregate Wages
-    for (const row of wages) {
-      const key = toMonthKey(row.date);
-      if (chartDataMap.has(key)) {
-        chartDataMap.get(key)!.out += Number(row.total);
+        const flow = Number(row.amount) + Number(row.tdsAmount ?? 0);
+        if (row.type === "INCOME") {
+          chartDataMap.get(key)!.in += flow;
+        } else if (row.type === "EXPENSE") {
+          chartDataMap.get(key)!.out += flow;
+        }
       }
     }
 
