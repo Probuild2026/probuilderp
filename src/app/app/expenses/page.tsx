@@ -144,49 +144,45 @@ export default async function ExpensesPage({
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-          <Table className="min-w-[1580px] table-fixed">
+          <Table className="min-w-[1160px] table-fixed">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[120px]">Date</TableHead>
-                <TableHead className="w-[240px]">Project</TableHead>
-                <TableHead className="w-[240px]">Vendor / Labour</TableHead>
-                <TableHead className="w-[140px]">Type</TableHead>
+                <TableHead className="w-[220px]">Vendor / Labour</TableHead>
+                <TableHead className="w-[130px]">Type</TableHead>
                 <TableHead className="w-[360px]">Narration</TableHead>
-                <TableHead className="w-[140px] text-right">Total</TableHead>
-                <TableHead className="w-[180px]">Paid via</TableHead>
-                <TableHead className="w-[160px]">Review</TableHead>
-                <TableHead className="w-[72px] text-right">Docs</TableHead>
+                <TableHead className="w-[130px] text-right">Total</TableHead>
+                <TableHead className="w-[150px]">Paid via</TableHead>
+                <TableHead className="w-[150px]">Review</TableHead>
                 <TableHead className="w-[92px] text-right">Open</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {expenses.length === 0 ? (
                 <TableEmptyState
-                  colSpan={10}
+                  colSpan={8}
                   title="No expenses matched this view"
                   description="Try clearing the search or widening the date and approval filters."
                 />
               ) : (
                 expenses.map((expense) => (
-                  <TableRow key={expense.id}>
-                    <TableCell>{expense.date.toISOString().slice(0, 10)}</TableCell>
-                    <TableCell className="max-w-[240px] truncate" title={expense.project.name}>{expense.project.name}</TableCell>
-                    <TableCell className="max-w-[240px] truncate" title={expense.vendor?.name ?? expense.labourer?.name ?? "-"}>
+                  <TableRow key={expense.id} className="align-top">
+                    <TableCell className="py-5 align-top">{expense.date.toISOString().slice(0, 10)}</TableCell>
+                    <TableCell className="max-w-[220px] truncate py-5 align-top" title={expense.vendor?.name ?? expense.labourer?.name ?? "-"}>
                       {expense.vendor?.name ?? expense.labourer?.name ?? "-"}
                     </TableCell>
-                    <TableCell>{expense.expenseType}</TableCell>
-                    <TableCell className="w-[360px] min-w-[360px] whitespace-normal break-words">
-                      <div className="max-w-[360px] whitespace-normal break-words leading-6">
+                    <TableCell className="py-5 align-top">{expense.expenseType}</TableCell>
+                    <TableCell className="w-[360px] min-w-[360px] whitespace-normal break-words py-5 align-top">
+                      <div className="max-w-[360px] whitespace-normal break-words leading-7">
                         {expense.narration ?? "—"}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{formatINR(Number(expense.totalAmount))}</TableCell>
-                    <TableCell className="max-w-[180px] truncate" title={expense.paymentMode ?? "-"}>
+                    <TableCell className="py-5 text-right tabular-nums align-top">{formatINR(Number(expense.totalAmount))}</TableCell>
+                    <TableCell className="max-w-[150px] truncate py-5 align-top" title={expense.paymentMode ?? "-"}>
                       {expense.paymentMode ?? "-"}
                     </TableCell>
-                    <TableCell><ApprovalStatusBadge status={expense.approvalStatus} /></TableCell>
-                    <TableCell className="text-right">{attachmentCountByExpense.get(expense.id) ?? 0}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="py-5 align-top"><ApprovalStatusBadge status={expense.approvalStatus} /></TableCell>
+                    <TableCell className="py-5 text-right align-top">
                       <Button asChild size="sm" variant="outline">
                         <Link href={`/app/expenses/${expense.id}`}>View</Link>
                       </Button>
