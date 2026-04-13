@@ -20,8 +20,21 @@ import { formatINR } from "@/lib/money";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
+const ALL_FY_VALUE = "all";
+const ALL_FY_LABEL = "Till date";
+
 function currentFy() {
   return getFinancialYear(new Date());
+}
+
+function normalizeFyParam(value: string | string[] | undefined) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function sortFinancialYearsDesc(financialYears: string[]) {
+  return [...financialYears].sort((left, right) => right.localeCompare(left));
 }
 
 function asNumber(v: Prisma.Decimal | null | undefined) {
@@ -44,14 +57,55 @@ export default async function PartnerDetailPage({
 
   const { id } = await params;
   const sp = (await searchParams) ?? {};
-  const fy = typeof sp.fy === "string" && sp.fy.trim() ? sp.fy.trim() : currentFy();
+  const requestedFy = normalizeFyParam(sp.fy);
+  const currentFinancialYear = currentFy();
+
+  const [remunerationYears, tdsPaymentYears, allocationYears] = await Promise.all([
+    prisma.partnerRemuneration.findMany({
+      where: { tenantId: session.user.tenantId, partnerId: id },
+      distinct: ["fy"],
+      select: { fy: true },
+    }),
+    prisma.partnerTdsPayment.findMany({
+      where: { tenantId: session.user.tenantId, partnerId: id },
+      distinct: ["fy"],
+      select: { fy: true },
+    }),
+    prisma.projectProfitAllocation.findMany({
+      where: { tenantId: session.user.tenantId },
+      distinct: ["fy"],
+      select: { fy: true },
+    }),
+  ]);
+
+  const availableFinancialYears = sortFinancialYearsDesc(
+    Array.from(
+      new Set([
+        currentFinancialYear,
+        ...remunerationYears.map((row) => row.fy),
+        ...tdsPaymentYears.map((row) => row.fy),
+        ...allocationYears.map((row) => row.fy),
+      ]),
+    ),
+  );
+  const selectedFy =
+    requestedFy === ALL_FY_VALUE || (requestedFy && availableFinancialYears.includes(requestedFy))
+      ? requestedFy
+      : currentFinancialYear;
+  const fyLabel = selectedFy === ALL_FY_VALUE ? ALL_FY_LABEL : selectedFy;
+  const pageDescription = selectedFy === ALL_FY_VALUE ? `Partner statement • ${ALL_FY_LABEL}` : `Partner statement • FY ${selectedFy}`;
+  const entryFormFy = selectedFy === ALL_FY_VALUE ? currentFinancialYear : selectedFy;
 
   const [partner, remunerations, drawings, tdsPayments, allocations, projects] = await Promise.all([
     prisma.partner.findFirst({
       where: { id, tenantId: session.user.tenantId },
     }),
     prisma.partnerRemuneration.findMany({
-      where: { tenantId: session.user.tenantId, partnerId: id, fy },
+      where: {
+        tenantId: session.user.tenantId,
+        partnerId: id,
+        ...(selectedFy && selectedFy !== ALL_FY_VALUE ? { fy: selectedFy } : {}),
+      },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       take: 200,
       include: { project: { select: { name: true } } },
@@ -63,12 +117,19 @@ export default async function PartnerDetailPage({
       include: { project: { select: { name: true } } },
     }),
     prisma.partnerTdsPayment.findMany({
-      where: { tenantId: session.user.tenantId, partnerId: id, fy },
+      where: {
+        tenantId: session.user.tenantId,
+        partnerId: id,
+        ...(selectedFy && selectedFy !== ALL_FY_VALUE ? { fy: selectedFy } : {}),
+      },
       orderBy: [{ paymentDate: "desc" }, { createdAt: "desc" }],
       take: 200,
     }),
     prisma.projectProfitAllocation.findMany({
-      where: { tenantId: session.user.tenantId, fy },
+      where: {
+        tenantId: session.user.tenantId,
+        ...(selectedFy && selectedFy !== ALL_FY_VALUE ? { fy: selectedFy } : {}),
+      },
       include: { project: { select: { name: true } } },
     }),
     prisma.project.findMany({
@@ -80,6 +141,9 @@ export default async function PartnerDetailPage({
 
   if (!partner) notFound();
 
+  const entryFormGrossFY = remunerations
+    .filter((row) => row.fy === entryFormFy)
+    .reduce((acc, row) => acc + asNumber(row.grossAmount), 0);
   const remGross = remunerations.reduce((acc, row) => acc + asNumber(row.grossAmount), 0);
   const remTds = remunerations.reduce((acc, row) => acc + asNumber(row.tdsAmount), 0);
   const remNet = remunerations.reduce((acc, row) => acc + asNumber(row.netPayable), 0);
@@ -96,7 +160,7 @@ export default async function PartnerDetailPage({
     <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
       <PageHeader
         title={partner.name}
-        description={`Partner statement • FY ${fy}`}
+        description={pageDescription}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" asChild>
@@ -119,12 +183,18 @@ export default async function PartnerDetailPage({
           <form className="flex items-end gap-2" method="get">
             <div>
               <label className="text-xs text-muted-foreground">Financial year</label>
-              <input
+              <select
                 name="fy"
-                defaultValue={fy}
-                className="h-10 w-32 rounded-md border bg-background px-3 text-sm"
-                placeholder="2025-26"
-              />
+                defaultValue={selectedFy ?? currentFinancialYear}
+                className="h-10 min-w-40 rounded-md border bg-background px-3 text-sm"
+              >
+                <option value={ALL_FY_VALUE}>{ALL_FY_LABEL}</option>
+                {availableFinancialYears.map((financialYear) => (
+                  <option key={financialYear} value={financialYear}>
+                    {financialYear}
+                  </option>
+                ))}
+              </select>
             </div>
             <Button type="submit" variant="outline">
               Apply
@@ -162,7 +232,7 @@ export default async function PartnerDetailPage({
 
         <Card>
           <CardHeader>
-            <CardTitle>TDS status ({fy})</CardTitle>
+            <CardTitle>TDS status ({fyLabel})</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <Line label="Deducted from remuneration" value={formatINR(remTds)} />
@@ -172,11 +242,17 @@ export default async function PartnerDetailPage({
         </Card>
       </div>
 
-      <PartnerEntryForms partnerId={partner.id} fy={fy} projects={projects} existingGrossFY={remGross} />
+      {selectedFy === ALL_FY_VALUE ? (
+        <div className="rounded-md border border-border/70 bg-card px-4 py-3 text-sm text-muted-foreground">
+          Viewing {ALL_FY_LABEL.toLowerCase()} totals. New remuneration, TDS payment, and project allocation entries default to FY {entryFormFy}.
+        </div>
+      ) : null}
+
+      <PartnerEntryForms partnerId={partner.id} fy={entryFormFy} projects={projects} existingGrossFY={entryFormGrossFY} />
 
       <Card>
         <CardHeader className="gap-2">
-          <CardTitle>Remuneration entries ({fy})</CardTitle>
+          <CardTitle>Remuneration entries ({fyLabel})</CardTitle>
           <p className="text-sm text-muted-foreground">
             Use Edit to fix wrong dates, amounts, project tags, or payment details. Use Delete only for accidental or duplicate rows. TDS is recalculated automatically after each change.
           </p>
@@ -186,6 +262,7 @@ export default async function PartnerDetailPage({
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
+                <TableHead>FY</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Project</TableHead>
                 <TableHead className="text-right">Gross</TableHead>
@@ -203,6 +280,7 @@ export default async function PartnerDetailPage({
                 return (
                   <TableRow key={row.id}>
                     <TableCell>{asDateOnly(row.date)}</TableCell>
+                    <TableCell>{row.fy}</TableCell>
                     <TableCell>{row.type}</TableCell>
                     <TableCell>{row.project?.name ?? "-"}</TableCell>
                     <TableCell className="text-right">{formatINR(asNumber(row.grossAmount))}</TableCell>
@@ -235,8 +313,8 @@ export default async function PartnerDetailPage({
               })}
               {remunerations.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
-                    No remuneration entries for this FY.
+                  <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
+                    {selectedFy === ALL_FY_VALUE ? "No remuneration entries recorded." : "No remuneration entries for this FY."}
                   </TableCell>
                 </TableRow>
               ) : null}
@@ -301,7 +379,7 @@ export default async function PartnerDetailPage({
 
         <Card>
           <CardHeader className="gap-2">
-            <CardTitle>TDS payments ({fy})</CardTitle>
+            <CardTitle>TDS payments ({fyLabel})</CardTitle>
             <p className="text-sm text-muted-foreground">
               Edit challan details, dates, or amounts if they were typed wrongly. Delete only duplicate or accidental rows.
             </p>
@@ -311,6 +389,7 @@ export default async function PartnerDetailPage({
               <TableHeader>
                 <TableRow>
                   <TableHead>Payment date</TableHead>
+                  <TableHead>FY</TableHead>
                   <TableHead>Section</TableHead>
                   <TableHead>Challan</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
@@ -321,6 +400,7 @@ export default async function PartnerDetailPage({
                 {tdsPayments.map((row) => (
                   <TableRow key={row.id}>
                     <TableCell>{asDateOnly(row.paymentDate)}</TableCell>
+                    <TableCell>{row.fy}</TableCell>
                     <TableCell>{row.section}</TableCell>
                     <TableCell>{row.challanNo || "-"}</TableCell>
                     <TableCell className="text-right">{formatINR(asNumber(row.tdsPaidAmount))}</TableCell>
@@ -344,8 +424,8 @@ export default async function PartnerDetailPage({
                 ))}
                 {tdsPayments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
-                      No TDS payments recorded for this FY.
+                    <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                      {selectedFy === ALL_FY_VALUE ? "No TDS payments recorded." : "No TDS payments recorded for this FY."}
                     </TableCell>
                   </TableRow>
                 ) : null}
