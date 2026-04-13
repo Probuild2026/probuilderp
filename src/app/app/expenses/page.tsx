@@ -144,13 +144,13 @@ export default async function ExpensesPage({
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-          <Table className="min-w-[1060px] table-fixed">
+          <Table className="min-w-[1000px] table-fixed">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[120px]">Date</TableHead>
                 <TableHead className="w-[180px]">Vendor / Labour</TableHead>
                 <TableHead className="w-[120px]">Type</TableHead>
-                <TableHead className="w-[300px]">Narration</TableHead>
+                <TableHead className="w-[250px]">Narration</TableHead>
                 <TableHead className="w-[130px] text-right">Total</TableHead>
                 <TableHead className="w-[120px]">Paid via</TableHead>
                 <TableHead className="w-[150px]">Review</TableHead>
@@ -178,8 +178,8 @@ export default async function ExpensesPage({
                         {expense.expenseType}
                       </div>
                     </TableCell>
-                    <TableCell className="w-[300px] min-w-[300px] whitespace-normal break-words py-6 align-top">
-                      <div className="max-w-[300px] whitespace-normal break-words leading-7">
+                    <TableCell className="w-[250px] min-w-[250px] whitespace-normal break-words py-6 align-top">
+                      <div className="max-w-[250px] whitespace-normal break-words leading-7">
                         {expense.narration ?? "—"}
                       </div>
                     </TableCell>
