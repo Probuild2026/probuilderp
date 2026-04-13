@@ -117,23 +117,20 @@ export default async function AppLayout({
               <MobileNav />
             </div>
 
-            <div className="flex min-w-0 items-center gap-3">
+            <div className="flex min-w-0 shrink-0 items-center gap-3">
               {profile?.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={profile.logoUrl}
                   alt={brandName}
-                  className="h-9 w-auto max-w-[180px] rounded-lg object-contain"
+                  className="h-10 w-auto max-w-[184px] object-contain"
                 />
               ) : (
                 <div className="flex size-10 items-center justify-center rounded-2xl border border-border/70 bg-white/90 text-sm font-semibold text-primary shadow-[0_14px_24px_-24px_rgba(91,124,191,0.25)]">
                   PB
                 </div>
               )}
-              <div className="hidden min-w-0 sm:block">
-                <div className="truncate text-sm font-semibold leading-5">{brandName}</div>
-                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Construction operating system</div>
-              </div>
+              {!profile?.logoUrl ? <div className="hidden truncate text-sm font-semibold leading-5 sm:block">{brandName}</div> : null}
             </div>
 
             <div className="mx-auto hidden w-full max-w-3xl flex-1 items-center gap-3 md:flex">
@@ -141,10 +138,7 @@ export default async function AppLayout({
               <GlobalProjectFilter projects={projects} value={selectedProjectId} />
             </div>
 
-            <div className="ml-auto flex items-center gap-3">
-              <div className="hidden rounded-full border border-border/70 bg-white/90 px-3 py-1.5 text-sm text-muted-foreground shadow-[0_12px_24px_-24px_rgba(91,124,191,0.18)] lg:block">
-                {session.user.email}
-              </div>
+            <div className="ml-auto flex shrink-0 items-center gap-2">
               <SignOutButton />
             </div>
           </div>
