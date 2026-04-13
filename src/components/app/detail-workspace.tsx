@@ -2,6 +2,25 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
+function resolveWorkspaceTone(title: string, eyebrow?: string) {
+  const key = `${eyebrow ?? ""} ${title}`.toLowerCase();
+
+  if (key.includes("sales") || key.includes("invoice") || key.includes("receipt") || key.includes("client")) {
+    return "from-[rgba(255,190,157,0.34)] via-background to-[rgba(190,214,255,0.24)]";
+  }
+  if (key.includes("purchase") || key.includes("vendor") || key.includes("inventory")) {
+    return "from-[rgba(189,223,255,0.28)] via-background to-[rgba(255,236,196,0.22)]";
+  }
+  if (key.includes("workforce") || key.includes("wage") || key.includes("partner")) {
+    return "from-[rgba(199,241,222,0.3)] via-background to-[rgba(201,228,255,0.2)]";
+  }
+  if (key.includes("report") || key.includes("finance") || key.includes("transaction") || key.includes("expense")) {
+    return "from-[rgba(210,226,255,0.32)] via-background to-[rgba(255,241,210,0.18)]";
+  }
+
+  return "from-[rgba(223,234,255,0.28)] via-background to-[rgba(238,245,255,0.18)]";
+}
+
 export function DetailWorkspaceHeader({
   eyebrow,
   title,
@@ -15,8 +34,10 @@ export function DetailWorkspaceHeader({
   actions?: ReactNode;
   children?: ReactNode;
 }) {
+  const tone = resolveWorkspaceTone(title, eyebrow);
+
   return (
-    <section className="overflow-hidden rounded-[28px] border border-border/70 bg-gradient-to-br from-background via-background to-muted/35">
+    <section className={cn("overflow-hidden rounded-[28px] border border-border/70 bg-gradient-to-br", tone)}>
       <div className="flex flex-col gap-5 border-b border-border/60 px-5 py-5 md:px-7 md:py-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0 space-y-2">

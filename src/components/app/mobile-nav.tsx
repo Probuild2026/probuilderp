@@ -18,7 +18,7 @@ export function MobileNav() {
           Menu
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-80 border-white/60 bg-sidebar/92 p-0 backdrop-blur-2xl">
+      <SheetContent side="left" className="w-80 border-border/70 bg-sidebar p-0 backdrop-blur-xl">
         <SheetHeader className="border-b border-sidebar-border p-4">
           <SheetTitle>Probuild ERP</SheetTitle>
         </SheetHeader>
@@ -37,8 +37,8 @@ export function MobileNav() {
                       className={cn(
                         "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-all duration-200",
                         active
-                          ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-[0_18px_30px_-24px_color-mix(in_srgb,var(--sidebar-primary)_80%,transparent)]"
-                          : "text-muted-foreground hover:bg-white/72 hover:text-accent-foreground",
+                          ? "bg-accent text-accent-foreground shadow-[inset_0_0_0_1px_rgba(88,126,201,0.1)]"
+                          : "text-muted-foreground hover:bg-accent/70 hover:text-accent-foreground",
                       )}
                     >
                       <Icon className="size-4" />

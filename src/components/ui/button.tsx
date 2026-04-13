@@ -14,8 +14,8 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive text-white shadow-[0_8px_24px_-16px_color-mix(in_srgb,var(--destructive)_75%,transparent)] hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
         outline:
-          "border-white/70 bg-white/80 text-foreground shadow-[0_12px_30px_-24px_rgba(91,124,191,0.35)] backdrop-blur-xl hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary/92 text-secondary-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] hover:bg-secondary",
+          "border-border/70 bg-white/92 text-foreground shadow-[0_12px_24px_-24px_rgba(91,124,191,0.14)] backdrop-blur-xl hover:bg-accent hover:text-accent-foreground",
+        secondary: "bg-secondary/96 text-secondary-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] hover:bg-secondary",
         ghost: "hover:bg-accent/70 hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },

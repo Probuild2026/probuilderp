@@ -108,6 +108,16 @@ export default async function InvoicesPage({
 
       <ModuleCheatSheet moduleKey="invoices" variant="compact" />
 
+      <section className="rounded-[26px] border border-border/70 bg-card px-5 py-4 shadow-[0_18px_40px_-34px_rgba(91,124,191,0.16)]">
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+          <MetricInline label="Billed" value={formatINR(totals.billed)} accent="text-foreground" />
+          <MetricInline label="Cash" value={formatINR(totals.cash)} accent="text-[var(--color-info)]" />
+          <MetricInline label="TDS" value={formatINR(totals.tds)} accent="text-[var(--color-success)]" />
+          <MetricInline label="Outstanding" value={formatINR(totals.outstanding)} accent="text-[var(--color-warning)]" />
+          <MetricInline label="Open invoices" value={String(totals.openCount)} accent="text-primary" />
+        </div>
+      </section>
+
       <section className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
         <Card>
           <CardHeader className="border-b border-border/60">
@@ -133,7 +143,7 @@ export default async function InvoicesPage({
         </Card>
       </section>
 
-      <form className="grid gap-3 rounded-[24px] border border-border/70 bg-card px-4 py-4 md:grid-cols-[auto_auto_auto]" method="get">
+      <form className="grid gap-3 rounded-[28px] border border-border/70 bg-gradient-to-br from-[rgba(225,236,255,0.32)] via-white to-[rgba(255,244,219,0.18)] px-4 py-4 shadow-[0_18px_40px_-34px_rgba(91,124,191,0.14)] md:grid-cols-[auto_auto_auto]" method="get">
         <Input name="from" type="date" defaultValue={from} />
         <Input name="to" type="date" defaultValue={to} />
         <div className="flex gap-2">
@@ -222,7 +232,7 @@ function SummaryTile({
   emphasis?: boolean;
 }) {
   return (
-    <div className={`min-w-0 rounded-[22px] border border-border/60 px-4 py-4 ${emphasis ? "bg-accent/50" : "bg-background/70"}`}>
+    <div className={`min-w-0 rounded-[22px] border border-border/60 px-4 py-4 shadow-[0_12px_28px_-28px_rgba(91,124,191,0.2)] ${emphasis ? "bg-accent/55" : "bg-white/82"}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
         <Icon className="size-4 text-muted-foreground" />
@@ -236,9 +246,18 @@ function SummaryTile({
 
 function QueuePill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-[18px] border border-border/60 bg-background/70 px-4 py-3">
+    <div className="flex items-center justify-between gap-3 rounded-[18px] border border-border/60 bg-white/84 px-4 py-3 shadow-[0_12px_24px_-28px_rgba(91,124,191,0.2)]">
       <div className="text-sm text-muted-foreground">{label}</div>
       <div className="font-semibold">{value}</div>
+    </div>
+  );
+}
+
+function MetricInline({ label, value, accent }: { label: string; value: string; accent?: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
+      <div className={`text-2xl font-semibold tracking-tight ${accent ?? "text-foreground"}`}>{value}</div>
     </div>
   );
 }

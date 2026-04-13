@@ -114,7 +114,7 @@ export function Sidebar({ className }: { className?: string }) {
   return (
     <aside
       className={cn(
-        "sticky top-0 h-screen overflow-y-auto border-r border-sidebar-border bg-sidebar/88 p-3 shadow-[18px_0_48px_-42px_rgba(91,124,191,0.35)] backdrop-blur-2xl transition-[width] duration-200",
+        "sticky top-0 h-screen overflow-y-auto border-r border-sidebar-border bg-sidebar p-3 shadow-[18px_0_48px_-42px_rgba(91,124,191,0.12)] backdrop-blur-xl transition-[width] duration-200",
         collapsed ? "w-20" : "w-72",
         className,
       )}
@@ -138,7 +138,7 @@ export function Sidebar({ className }: { className?: string }) {
 
       <div
         className={cn(
-          "mt-4 rounded-[24px] border border-white/70 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--sidebar-accent)_92%,white),color-mix(in_srgb,var(--sidebar)_88%,transparent))] px-3 py-3 shadow-[0_18px_40px_-34px_rgba(91,124,191,0.35)]",
+          "mt-4 rounded-[24px] border border-border/70 bg-[linear-gradient(180deg,#ffffff,#f5f8fd)] px-3 py-3 shadow-[0_16px_32px_-30px_rgba(91,124,191,0.16)]",
           collapsed && "px-2",
         )}
       >
@@ -175,8 +175,8 @@ export function Sidebar({ className }: { className?: string }) {
                     className={cn(
                       "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-all duration-200",
                       active
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-[0_20px_34px_-24px_color-mix(in_srgb,var(--sidebar-primary)_82%,transparent)]"
-                        : "text-sidebar-foreground/72 hover:bg-white/70 hover:text-sidebar-accent-foreground",
+                        ? "bg-accent text-accent-foreground shadow-[inset_0_0_0_1px_rgba(88,126,201,0.1)]"
+                        : "text-sidebar-foreground/72 hover:bg-accent/70 hover:text-sidebar-accent-foreground",
                       collapsed && "justify-center px-2",
                     )}
                   >
