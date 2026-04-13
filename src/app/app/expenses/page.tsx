@@ -144,19 +144,19 @@ export default async function ExpensesPage({
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-          <Table className="min-w-[1120px] table-fixed">
+          <Table className="min-w-[1580px] table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[100px]">Date</TableHead>
-                <TableHead className="w-[150px]">Project</TableHead>
-                <TableHead className="w-[170px]">Vendor / Labour</TableHead>
-                <TableHead className="w-[120px]">Type</TableHead>
-                <TableHead>Narration</TableHead>
-                <TableHead className="w-[110px] text-right">Total</TableHead>
-                <TableHead className="w-[110px]">Paid via</TableHead>
-                <TableHead className="w-[140px]">Review</TableHead>
+                <TableHead className="w-[120px]">Date</TableHead>
+                <TableHead className="w-[240px]">Project</TableHead>
+                <TableHead className="w-[240px]">Vendor / Labour</TableHead>
+                <TableHead className="w-[140px]">Type</TableHead>
+                <TableHead className="w-[360px]">Narration</TableHead>
+                <TableHead className="w-[140px] text-right">Total</TableHead>
+                <TableHead className="w-[180px]">Paid via</TableHead>
+                <TableHead className="w-[160px]">Review</TableHead>
                 <TableHead className="w-[72px] text-right">Docs</TableHead>
-                <TableHead className="w-[84px] text-right">Open</TableHead>
+                <TableHead className="w-[92px] text-right">Open</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -170,12 +170,20 @@ export default async function ExpensesPage({
                 expenses.map((expense) => (
                   <TableRow key={expense.id}>
                     <TableCell>{expense.date.toISOString().slice(0, 10)}</TableCell>
-                    <TableCell className="truncate">{expense.project.name}</TableCell>
-                    <TableCell className="truncate">{expense.vendor?.name ?? expense.labourer?.name ?? "-"}</TableCell>
+                    <TableCell className="max-w-[240px] truncate" title={expense.project.name}>{expense.project.name}</TableCell>
+                    <TableCell className="max-w-[240px] truncate" title={expense.vendor?.name ?? expense.labourer?.name ?? "-"}>
+                      {expense.vendor?.name ?? expense.labourer?.name ?? "-"}
+                    </TableCell>
                     <TableCell>{expense.expenseType}</TableCell>
-                    <TableCell className="whitespace-normal break-words">{expense.narration ?? "—"}</TableCell>
+                    <TableCell className="w-[360px] min-w-[360px] whitespace-normal break-words">
+                      <div className="max-w-[360px] whitespace-normal break-words leading-6">
+                        {expense.narration ?? "—"}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-right tabular-nums">{formatINR(Number(expense.totalAmount))}</TableCell>
-                    <TableCell>{expense.paymentMode ?? "-"}</TableCell>
+                    <TableCell className="max-w-[180px] truncate" title={expense.paymentMode ?? "-"}>
+                      {expense.paymentMode ?? "-"}
+                    </TableCell>
                     <TableCell><ApprovalStatusBadge status={expense.approvalStatus} /></TableCell>
                     <TableCell className="text-right">{attachmentCountByExpense.get(expense.id) ?? 0}</TableCell>
                     <TableCell className="text-right">
