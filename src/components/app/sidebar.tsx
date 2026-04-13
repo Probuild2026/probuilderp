@@ -114,7 +114,7 @@ export function Sidebar({ className }: { className?: string }) {
   return (
     <aside
       className={cn(
-        "border-r border-sidebar-border bg-sidebar/95 p-3 transition-[width] duration-200",
+        "sticky top-0 h-screen overflow-y-auto border-r border-sidebar-border bg-sidebar/88 p-3 shadow-[18px_0_48px_-42px_rgba(91,124,191,0.35)] backdrop-blur-2xl transition-[width] duration-200",
         collapsed ? "w-20" : "w-72",
         className,
       )}
@@ -136,7 +136,12 @@ export function Sidebar({ className }: { className?: string }) {
         </Button>
       </div>
 
-      <div className={cn("mt-4 rounded-[20px] border border-sidebar-border bg-sidebar-accent/60 px-3 py-3", collapsed && "px-2")}>
+      <div
+        className={cn(
+          "mt-4 rounded-[24px] border border-white/70 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--sidebar-accent)_92%,white),color-mix(in_srgb,var(--sidebar)_88%,transparent))] px-3 py-3 shadow-[0_18px_40px_-34px_rgba(91,124,191,0.35)]",
+          collapsed && "px-2",
+        )}
+      >
         {collapsed ? (
           <BellRing className="mx-auto size-4 text-sidebar-foreground/70" />
         ) : (
@@ -168,10 +173,10 @@ export function Sidebar({ className }: { className?: string }) {
                     href={item.href}
                     title={collapsed ? item.label : undefined}
                     className={cn(
-                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm",
+                      "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-all duration-200",
                       active
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-[0_14px_30px_-20px_color-mix(in_srgb,var(--sidebar-primary)_85%,transparent)]"
-                        : "text-sidebar-foreground/72 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-[0_20px_34px_-24px_color-mix(in_srgb,var(--sidebar-primary)_82%,transparent)]"
+                        : "text-sidebar-foreground/72 hover:bg-white/70 hover:text-sidebar-accent-foreground",
                       collapsed && "justify-center px-2",
                     )}
                   >

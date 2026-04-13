@@ -109,8 +109,9 @@ export default async function AppLayout({
       }
     >
       <Sidebar className="hidden md:block" />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 border-b border-border/70 bg-background/88 backdrop-blur-xl">
+      <div className="relative flex min-w-0 flex-1 flex-col">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_50%_0%,rgba(140,188,255,0.28),transparent_62%)]" />
+        <header className="sticky top-0 z-40 border-b border-white/60 bg-[color-mix(in_srgb,var(--surface)_76%,transparent)] backdrop-blur-2xl">
           <div className="flex items-center gap-3 px-4 py-3 md:px-6">
             <div className="md:hidden">
               <MobileNav />
@@ -125,7 +126,7 @@ export default async function AppLayout({
                   className="h-9 w-auto max-w-[180px] rounded-lg object-contain"
                 />
               ) : (
-                <div className="flex size-10 items-center justify-center rounded-2xl border border-border/70 bg-primary/10 text-sm font-semibold text-primary">
+                <div className="flex size-10 items-center justify-center rounded-2xl border border-white/70 bg-white/80 text-sm font-semibold text-primary shadow-[0_16px_28px_-24px_rgba(91,124,191,0.55)]">
                   PB
                 </div>
               )}
@@ -141,7 +142,7 @@ export default async function AppLayout({
             </div>
 
             <div className="ml-auto flex items-center gap-3">
-              <div className="hidden rounded-full border border-border/70 bg-background/75 px-3 py-1.5 text-sm text-muted-foreground lg:block">
+              <div className="hidden rounded-full border border-white/70 bg-white/72 px-3 py-1.5 text-sm text-muted-foreground shadow-[0_12px_30px_-26px_rgba(91,124,191,0.5)] lg:block">
                 {session.user.email}
               </div>
               <SignOutButton />
@@ -160,7 +161,7 @@ export default async function AppLayout({
           ) : null}
         </header>
         <CommandPalette />
-        <main className="min-w-0 flex-1">{children}</main>
+        <main className="relative min-w-0 flex-1">{children}</main>
       </div>
     </div>
   );
