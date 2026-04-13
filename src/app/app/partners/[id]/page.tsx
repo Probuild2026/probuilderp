@@ -50,6 +50,34 @@ function financialYearDateRange(financialYear: string) {
   };
 }
 
+function aggregatePendingTdsByFy({
+  remunerations,
+  tdsPayments,
+}: {
+  remunerations: Array<{ fy: string; tdsAmount: Prisma.Decimal | null }>;
+  tdsPayments: Array<{ fy: string; tdsPaidAmount: Prisma.Decimal }>;
+}) {
+  const deductedByFy = new Map<string, number>();
+  const paidByFy = new Map<string, number>();
+
+  for (const row of remunerations) {
+    deductedByFy.set(row.fy, (deductedByFy.get(row.fy) ?? 0) + Number(row.tdsAmount ?? 0));
+  }
+
+  for (const row of tdsPayments) {
+    paidByFy.set(row.fy, (paidByFy.get(row.fy) ?? 0) + Number(row.tdsPaidAmount ?? 0));
+  }
+
+  const keys = new Set([...deductedByFy.keys(), ...paidByFy.keys()]);
+  let totalPending = 0;
+
+  for (const fy of keys) {
+    totalPending += Math.max(0, (deductedByFy.get(fy) ?? 0) - (paidByFy.get(fy) ?? 0));
+  }
+
+  return totalPending;
+}
+
 function asNumber(v: Prisma.Decimal | null | undefined) {
   return Number(v ?? 0);
 }
@@ -170,7 +198,10 @@ export default async function PartnerDetailPage({
   const remNet = remunerations.reduce((acc, row) => acc + asNumber(row.netPayable), 0);
   const drawingsTotal = drawings.reduce((acc, row) => acc + asNumber(row.amount), 0);
   const tdsPaid = tdsPayments.reduce((acc, row) => acc + asNumber(row.tdsPaidAmount), 0);
-  const tdsPending = Math.max(0, remTds - tdsPaid);
+  const tdsPending = aggregatePendingTdsByFy({
+    remunerations: remunerations.map((row) => ({ fy: row.fy, tdsAmount: row.tdsAmount })),
+    tdsPayments: tdsPayments.map((row) => ({ fy: row.fy, tdsPaidAmount: row.tdsPaidAmount })),
+  });
   const profitShare = allocations.reduce(
     (acc, row) => acc + (asNumber(row.profitAfterRemu) * asNumber(partner.profitRatio)) / 100,
     0,

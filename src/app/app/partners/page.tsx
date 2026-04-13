@@ -45,6 +45,45 @@ function financialYearDateRange(financialYear: string) {
   };
 }
 
+function aggregatePartnerFyPending({
+  remunerationRows,
+  tdsPaymentRows,
+}: {
+  remunerationRows: Array<{
+    partnerId: string;
+    fy: string;
+    _sum: { grossAmount: Prisma.Decimal | null; tdsAmount: Prisma.Decimal | null };
+  }>;
+  tdsPaymentRows: Array<{
+    partnerId: string;
+    fy: string;
+    _sum: { tdsPaidAmount: Prisma.Decimal | null };
+  }>;
+}) {
+  const deductedByPartnerFy = new Map<string, number>();
+  const paidByPartnerFy = new Map<string, number>();
+
+  for (const row of remunerationRows) {
+    deductedByPartnerFy.set(`${row.partnerId}:${row.fy}`, Number(row._sum.tdsAmount ?? 0));
+  }
+
+  for (const row of tdsPaymentRows) {
+    paidByPartnerFy.set(`${row.partnerId}:${row.fy}`, Number(row._sum.tdsPaidAmount ?? 0));
+  }
+
+  const pendingByPartner = new Map<string, number>();
+  const keys = new Set([...deductedByPartnerFy.keys(), ...paidByPartnerFy.keys()]);
+
+  for (const key of keys) {
+    const [partnerId] = key.split(":");
+    const deducted = deductedByPartnerFy.get(key) ?? 0;
+    const paid = paidByPartnerFy.get(key) ?? 0;
+    pendingByPartner.set(partnerId, (pendingByPartner.get(partnerId) ?? 0) + Math.max(0, deducted - paid));
+  }
+
+  return pendingByPartner;
+}
+
 function isMissingTableError(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError && (error.code === "P2021" || error.code === "P2022");
 }
@@ -110,7 +149,7 @@ export default async function PartnersPage({
         ? financialYearDateRange(selectedFy)
         : null;
 
-    const [remuAgg, drawingsAgg, tdsAgg] = await Promise.all([
+    const [remuAgg, drawingsAgg, remuByFyAgg, tdsByFyAgg] = await Promise.all([
       prisma.partnerRemuneration.groupBy({
         by: ["partnerId"],
         where: {
@@ -127,8 +166,16 @@ export default async function PartnersPage({
         },
         _sum: { amount: true },
       }),
+      prisma.partnerRemuneration.groupBy({
+        by: ["partnerId", "fy"],
+        where: {
+          tenantId: session.user.tenantId,
+          ...(selectedFy && selectedFy !== ALL_FY_VALUE ? { fy: selectedFy } : {}),
+        },
+        _sum: { grossAmount: true, tdsAmount: true },
+      }),
       prisma.partnerTdsPayment.groupBy({
-        by: ["partnerId"],
+        by: ["partnerId", "fy"],
         where: {
           tenantId: session.user.tenantId,
           ...(selectedFy && selectedFy !== ALL_FY_VALUE ? { fy: selectedFy } : {}),
@@ -139,7 +186,10 @@ export default async function PartnersPage({
 
     const remuMap = new Map(remuAgg.map((r) => [r.partnerId, { gross: Number(r._sum.grossAmount ?? 0), tds: Number(r._sum.tdsAmount ?? 0) }]));
     const drawingsMap = new Map(drawingsAgg.map((r) => [r.partnerId, Number(r._sum.amount ?? 0)]));
-    const tdsPaidMap = new Map(tdsAgg.map((r) => [r.partnerId, Number(r._sum.tdsPaidAmount ?? 0)]));
+    const tdsPendingMap = aggregatePartnerFyPending({
+      remunerationRows: remuByFyAgg,
+      tdsPaymentRows: tdsByFyAgg,
+    });
 
     return (
       <div className="mx-auto max-w-[1440px] space-y-6 p-4 md:p-6">
@@ -191,13 +241,7 @@ export default async function PartnersPage({
           <SummaryCard
             icon={Landmark}
             label={`TDS pending (${fyLabel})`}
-            value={formatINR(
-              partners.reduce((acc, p) => {
-                const deducted = remuMap.get(p.id)?.tds ?? 0;
-                const paid = tdsPaidMap.get(p.id) ?? 0;
-                return acc + Math.max(0, deducted - paid);
-              }, 0),
-            )}
+            value={formatINR(partners.reduce((acc, p) => acc + (tdsPendingMap.get(p.id) ?? 0), 0))}
           />
         </div>
 
@@ -222,9 +266,7 @@ export default async function PartnersPage({
             <TableBody>
               {partners.map((partner) => {
                 const gross = remuMap.get(partner.id)?.gross ?? 0;
-                const tdsDeducted = remuMap.get(partner.id)?.tds ?? 0;
-                const tdsPaid = tdsPaidMap.get(partner.id) ?? 0;
-                const tdsPending = Math.max(0, tdsDeducted - tdsPaid);
+                const tdsPending = tdsPendingMap.get(partner.id) ?? 0;
                 const isThresholdHit = gross > PARTNER_TDS_THRESHOLD;
 
                 return (
