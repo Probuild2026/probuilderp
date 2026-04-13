@@ -15,8 +15,21 @@ import { formatINR } from "@/lib/money";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
+const ALL_FY_VALUE = "all";
+const ALL_FY_LABEL = "Till date";
+
 function currentFy() {
   return getFinancialYear(new Date());
+}
+
+function normalizeFyParam(value: string | string[] | undefined) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function sortFinancialYearsDesc(financialYears: string[]) {
+  return [...financialYears].sort((left, right) => right.localeCompare(left));
 }
 
 function isMissingTableError(error: unknown) {
@@ -39,7 +52,8 @@ export default async function PartnersPage({
   if (!session?.user) return null;
 
   const sp = (await searchParams) ?? {};
-  const fy = typeof sp.fy === "string" && sp.fy.trim() ? sp.fy.trim() : currentFy();
+  const requestedFy = normalizeFyParam(sp.fy);
+  const currentFinancialYear = currentFy();
 
   try {
     const partners = await prisma.partner.findMany({
@@ -56,10 +70,36 @@ export default async function PartnersPage({
       },
     });
 
+    const [remunerationYears, tdsPaymentYears] = await Promise.all([
+      prisma.partnerRemuneration.findMany({
+        where: { tenantId: session.user.tenantId },
+        distinct: ["fy"],
+        select: { fy: true },
+      }),
+      prisma.partnerTdsPayment.findMany({
+        where: { tenantId: session.user.tenantId },
+        distinct: ["fy"],
+        select: { fy: true },
+      }),
+    ]);
+
+    const availableFinancialYears = sortFinancialYearsDesc(
+      Array.from(new Set([currentFinancialYear, ...remunerationYears.map((row) => row.fy), ...tdsPaymentYears.map((row) => row.fy)])),
+    );
+    const selectedFy =
+      requestedFy === ALL_FY_VALUE || (requestedFy && availableFinancialYears.includes(requestedFy))
+        ? requestedFy
+        : currentFinancialYear;
+    const fyLabel = selectedFy === ALL_FY_VALUE ? ALL_FY_LABEL : selectedFy;
+    const detailFy = selectedFy === ALL_FY_VALUE ? currentFinancialYear : selectedFy;
+
     const [remuAgg, drawingsAgg, tdsAgg] = await Promise.all([
       prisma.partnerRemuneration.groupBy({
         by: ["partnerId"],
-        where: { tenantId: session.user.tenantId, fy },
+        where: {
+          tenantId: session.user.tenantId,
+          ...(selectedFy && selectedFy !== ALL_FY_VALUE ? { fy: selectedFy } : {}),
+        },
         _sum: { grossAmount: true, tdsAmount: true },
       }),
       prisma.partnerDrawing.groupBy({
@@ -69,7 +109,10 @@ export default async function PartnersPage({
       }),
       prisma.partnerTdsPayment.groupBy({
         by: ["partnerId"],
-        where: { tenantId: session.user.tenantId, fy },
+        where: {
+          tenantId: session.user.tenantId,
+          ...(selectedFy && selectedFy !== ALL_FY_VALUE ? { fy: selectedFy } : {}),
+        },
         _sum: { tdsPaidAmount: true },
       }),
     ]);
@@ -89,12 +132,18 @@ export default async function PartnersPage({
             <form method="get" className="flex items-end gap-2">
               <div>
                 <label className="text-xs text-muted-foreground">Financial year</label>
-                <input
+                <select
                   name="fy"
-                  defaultValue={fy}
-                  className="h-10 w-32 rounded-xl border border-border/80 bg-background/80 px-3 text-sm shadow-sm"
-                  placeholder="2025-26"
-                />
+                  defaultValue={selectedFy ?? currentFinancialYear}
+                  className="h-10 min-w-40 rounded-xl border border-border/80 bg-background/80 px-3 text-sm shadow-sm"
+                >
+                  <option value={ALL_FY_VALUE}>{ALL_FY_LABEL}</option>
+                  {availableFinancialYears.map((financialYear) => (
+                    <option key={financialYear} value={financialYear}>
+                      {financialYear}
+                    </option>
+                  ))}
+                </select>
               </div>
               <Button type="submit" variant="outline">
                 Apply
@@ -111,17 +160,17 @@ export default async function PartnersPage({
           />
           <SummaryCard
             icon={BriefcaseBusiness}
-            label={`Total remuneration (${fy})`}
+            label={`Total remuneration (${fyLabel})`}
             value={formatINR(partners.reduce((acc, p) => acc + (remuMap.get(p.id)?.gross ?? 0), 0))}
           />
           <SummaryCard
             icon={ShieldCheck}
-            label={`TDS deducted (${fy})`}
+            label={`TDS deducted (${fyLabel})`}
             value={formatINR(partners.reduce((acc, p) => acc + (remuMap.get(p.id)?.tds ?? 0), 0))}
           />
           <SummaryCard
             icon={Landmark}
-            label={`TDS pending (${fy})`}
+            label={`TDS pending (${fyLabel})`}
             value={formatINR(
               partners.reduce((acc, p) => {
                 const deducted = remuMap.get(p.id)?.tds ?? 0;
@@ -143,7 +192,7 @@ export default async function PartnersPage({
                 <TableHead>Partner</TableHead>
                 <TableHead>PAN</TableHead>
                 <TableHead className="text-right">Ratio %</TableHead>
-                <TableHead className="text-right">Remuneration ({fy})</TableHead>
+                <TableHead className="text-right">Remuneration ({fyLabel})</TableHead>
                 <TableHead className="text-right">Drawings</TableHead>
                 <TableHead className="text-right">TDS pending</TableHead>
                 <TableHead>Status</TableHead>
@@ -161,7 +210,7 @@ export default async function PartnersPage({
                 return (
                   <TableRow key={partner.id}>
                     <TableCell className="font-medium">
-                      <Link className="hover:underline" href={`/app/partners/${partner.id}?fy=${encodeURIComponent(fy)}`}>
+                      <Link className="hover:underline" href={`/app/partners/${partner.id}?fy=${encodeURIComponent(detailFy)}`}>
                         {partner.name}
                       </Link>
                     </TableCell>
@@ -190,7 +239,7 @@ export default async function PartnersPage({
                           }}
                         />
                         <Button size="sm" asChild>
-                          <Link href={`/app/partners/${partner.id}?fy=${encodeURIComponent(fy)}`}>View</Link>
+                          <Link href={`/app/partners/${partner.id}?fy=${encodeURIComponent(detailFy)}`}>View</Link>
                         </Button>
                       </div>
                     </TableCell>
