@@ -32,6 +32,19 @@ function sortFinancialYearsDesc(financialYears: string[]) {
   return [...financialYears].sort((left, right) => right.localeCompare(left));
 }
 
+function financialYearDateRange(financialYear: string) {
+  const match = financialYear.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return null;
+
+  const startYear = Number(match[1]);
+  if (!Number.isInteger(startYear)) return null;
+
+  return {
+    gte: new Date(startYear, 3, 1),
+    lt: new Date(startYear + 1, 3, 1),
+  };
+}
+
 function isMissingTableError(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError && (error.code === "P2021" || error.code === "P2022");
 }
@@ -92,6 +105,10 @@ export default async function PartnersPage({
         : currentFinancialYear;
     const fyLabel = selectedFy === ALL_FY_VALUE ? ALL_FY_LABEL : selectedFy;
     const detailFy = selectedFy === ALL_FY_VALUE ? currentFinancialYear : selectedFy;
+    const drawingDateFilter =
+      selectedFy && selectedFy !== ALL_FY_VALUE
+        ? financialYearDateRange(selectedFy)
+        : null;
 
     const [remuAgg, drawingsAgg, tdsAgg] = await Promise.all([
       prisma.partnerRemuneration.groupBy({
@@ -104,7 +121,10 @@ export default async function PartnersPage({
       }),
       prisma.partnerDrawing.groupBy({
         by: ["partnerId"],
-        where: { tenantId: session.user.tenantId },
+        where: {
+          tenantId: session.user.tenantId,
+          ...(drawingDateFilter ? { date: drawingDateFilter } : {}),
+        },
         _sum: { amount: true },
       }),
       prisma.partnerTdsPayment.groupBy({

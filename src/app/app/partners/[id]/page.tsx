@@ -37,6 +37,19 @@ function sortFinancialYearsDesc(financialYears: string[]) {
   return [...financialYears].sort((left, right) => right.localeCompare(left));
 }
 
+function financialYearDateRange(financialYear: string) {
+  const match = financialYear.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return null;
+
+  const startYear = Number(match[1]);
+  if (!Number.isInteger(startYear)) return null;
+
+  return {
+    gte: new Date(startYear, 3, 1),
+    lt: new Date(startYear + 1, 3, 1),
+  };
+}
+
 function asNumber(v: Prisma.Decimal | null | undefined) {
   return Number(v ?? 0);
 }
@@ -95,6 +108,10 @@ export default async function PartnerDetailPage({
   const fyLabel = selectedFy === ALL_FY_VALUE ? ALL_FY_LABEL : selectedFy;
   const pageDescription = selectedFy === ALL_FY_VALUE ? `Partner statement • ${ALL_FY_LABEL}` : `Partner statement • FY ${selectedFy}`;
   const entryFormFy = selectedFy === ALL_FY_VALUE ? currentFinancialYear : selectedFy;
+  const drawingDateFilter =
+    selectedFy && selectedFy !== ALL_FY_VALUE
+      ? financialYearDateRange(selectedFy)
+      : null;
 
   const [partner, remunerations, drawings, tdsPayments, allocations, projects] = await Promise.all([
     prisma.partner.findFirst({
@@ -111,7 +128,11 @@ export default async function PartnerDetailPage({
       include: { project: { select: { name: true } } },
     }),
     prisma.partnerDrawing.findMany({
-      where: { tenantId: session.user.tenantId, partnerId: id },
+      where: {
+        tenantId: session.user.tenantId,
+        partnerId: id,
+        ...(drawingDateFilter ? { date: drawingDateFilter } : {}),
+      },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       take: 200,
       include: { project: { select: { name: true } } },
@@ -326,7 +347,7 @@ export default async function PartnerDetailPage({
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader className="gap-2">
-            <CardTitle>Drawings</CardTitle>
+            <CardTitle>Drawings ({fyLabel})</CardTitle>
             <p className="text-sm text-muted-foreground">
               Edit if the amount or project tag was entered wrongly. Delete only rows that were created by mistake or duplicated.
             </p>
@@ -368,7 +389,7 @@ export default async function PartnerDetailPage({
                 {drawings.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
-                      No drawings recorded.
+                      {selectedFy === ALL_FY_VALUE ? "No drawings recorded." : "No drawings recorded for this FY."}
                     </TableCell>
                   </TableRow>
                 ) : null}
