@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { updatePurchaseInvoice } from "@/app/actions/purchase-invoices";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { uploadBillToBlob } from "@/lib/blob-upload";
 
 type Opt = { id: string; name: string };
 
@@ -17,10 +18,12 @@ function n(val: string) {
 }
 
 export function BillEditForm({
+  tenantId,
   bill,
   projects,
   vendors,
 }: {
+  tenantId: number;
   bill: {
     id: string;
     vendorId: string;
@@ -39,6 +42,7 @@ export function BillEditForm({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [files, setFiles] = useState<File[]>([]);
 
   const invoiceNumberRef = useRef<HTMLInputElement>(null);
 
@@ -125,7 +129,24 @@ export function BillEditForm({
       onSubmit={(e) => {
         e.preventDefault();
         startTransition(async () => {
-          const payload: Record<string, any> = {
+          const attachments = files.length
+            ? await Promise.all(
+                files.map(async (file) => {
+                  const blob = await uploadBillToBlob({
+                    tenantId,
+                    entityPath: "purchase-invoices/tmp",
+                    file,
+                  });
+                  return {
+                    url: blob.url,
+                    name: file.name,
+                    type: file.type || "application/octet-stream",
+                    size: file.size,
+                  };
+                }),
+              )
+            : undefined;
+          const payload: Record<string, unknown> = {
             id: bill.id,
             vendorId,
             projectId,
@@ -137,6 +158,7 @@ export function BillEditForm({
             sgst: gstType === "INTRA" ? n(sgst) : 0,
             igst: gstType === "INTER" ? n(igst) : 0,
             total: Number(total.toFixed(2)),
+            attachments,
           };
           const res = await updatePurchaseInvoice(payload);
           if (!res.ok) {
@@ -144,6 +166,7 @@ export function BillEditForm({
             return;
           }
           toast.success("Bill updated.");
+          setFiles([]);
           router.refresh();
         });
       }}
@@ -199,7 +222,7 @@ export function BillEditForm({
             <select
               className="h-10 w-full rounded-md border bg-background px-3"
               value={gstType}
-              onChange={(e) => handleGstTypeChange(e.target.value as any)}
+              onChange={(e) => handleGstTypeChange(e.target.value as "INTRA" | "INTER" | "NOGST")}
             >
               <option value="INTRA">Intra (CGST+SGST)</option>
               <option value="INTER">Inter (IGST)</option>
@@ -275,6 +298,29 @@ export function BillEditForm({
               Tip: Change Taxable value or GST type and totals auto-update. You can still override CGST/SGST/IGST manually.
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-[20px] border border-border/60 bg-background/70 p-4">
+        <div className="text-sm font-medium">Attach more files</div>
+        <div className="mt-1 text-sm text-muted-foreground">Upload invoice PDFs or photos to keep the bill record complete.</div>
+        <div className="mt-3 space-y-3">
+          <Input
+            type="file"
+            multiple
+            accept="image/*,application/pdf"
+            onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
+          />
+          {files.length > 0 ? (
+            <div className="space-y-2">
+              {files.map((file) => (
+                <div key={`${file.name}-${file.size}`} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="min-w-0 truncate font-medium">{file.name}</span>
+                  <span className="shrink-0 text-muted-foreground">{Math.max(1, Math.round(file.size / 1024))} KB</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
 

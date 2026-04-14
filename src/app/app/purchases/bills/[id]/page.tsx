@@ -42,6 +42,11 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
   });
 
   const txnIds = [...new Set(allocations.map((a) => a.transactionId))];
+  const attachments = await prisma.attachment.findMany({
+    where: { tenantId: session.user.tenantId, entityType: "PURCHASE_INVOICE", entityId: bill.id },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, originalName: true, mimeType: true },
+  });
   const txns = txnIds.length
     ? await prisma.transaction.findMany({
         where: { tenantId: session.user.tenantId, id: { in: txnIds } },
@@ -127,6 +132,7 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
             </CardHeader>
             <CardContent className="pt-6">
               <BillEditForm
+                tenantId={session.user.tenantId}
                 bill={{
                   id: bill.id,
                   vendorId: bill.vendorId,
@@ -148,6 +154,34 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
         </div>
 
         <div className="space-y-6">
+          <Card>
+            <CardHeader className="border-b border-border/60">
+              <CardTitle className="text-base">Attachments</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-6">
+              {attachments.length === 0 ? (
+                <InlineEmptyState
+                  title="No bill files uploaded"
+                  description="Attach PDFs or invoice photos when you need source backup for audit and payment verification."
+                />
+              ) : (
+                attachments.map((attachment) => (
+                  <div key={attachment.id} className="flex items-center justify-between gap-3 rounded-[18px] border border-border/60 bg-background/70 px-4 py-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{attachment.originalName}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{attachment.mimeType}</div>
+                    </div>
+                    <Button asChild size="sm" variant="outline">
+                      <a href={`/api/attachments/${attachment.id}`} target="_blank" rel="noreferrer">
+                        Open
+                      </a>
+                    </Button>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="border-b border-border/60">
               <CardTitle className="flex items-center justify-between gap-3 text-base">

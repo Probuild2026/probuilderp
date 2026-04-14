@@ -1,6 +1,7 @@
 "use server";
 
 import { Prisma } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 
@@ -8,6 +9,7 @@ import { computeGstComponents } from "@/server/domain/gst";
 import { authOptions } from "@/server/auth";
 import { safeWriteAuditLog } from "@/server/audit";
 import { prisma } from "@/server/db";
+import { tryDeleteStoredFile } from "@/server/storage";
 
 import { type ActionResult, unknownError, zodToFieldErrors } from "./_result";
 
@@ -25,6 +27,16 @@ const createPurchaseInvoiceSchema = z
     igst: z.coerce.number().min(0).optional(),
     total: z.coerce.number().min(0),
     note: z.string().max(2000).optional(),
+    attachments: z
+      .array(
+        z.object({
+          url: z.string().url(),
+          name: z.string().min(1),
+          type: z.string().min(1),
+          size: z.number().int().nonnegative(),
+        }),
+      )
+      .optional(),
   })
   .strict();
 
@@ -107,6 +119,21 @@ export async function createPurchaseInvoice(input: unknown): Promise<ActionResul
       },
       select: { id: true },
     });
+    if (parsed.data.attachments?.length) {
+      await prisma.attachment.createMany({
+        data: parsed.data.attachments.map((attachment) => ({
+          tenantId: session.user.tenantId,
+          entityType: "PURCHASE_INVOICE",
+          entityId: created.id,
+          projectId: parsed.data.projectId,
+          originalName: attachment.name,
+          mimeType: attachment.type,
+          size: attachment.size,
+          storagePath: attachment.url,
+          uploadedById: session.user.id,
+        })),
+      });
+    }
     await safeWriteAuditLog({
       tenantId: session.user.tenantId,
       userId: session.user.id,
@@ -120,8 +147,10 @@ export async function createPurchaseInvoice(input: unknown): Promise<ActionResul
         vendorId: parsed.data.vendorId,
         projectId: parsed.data.projectId,
         total: parsed.data.total,
+        attachments: parsed.data.attachments?.length ?? 0,
       },
     });
+    revalidatePath("/app/purchases/bills");
     return { ok: true, data: created };
   } catch {
     return unknownError("Failed to create bill.");
@@ -166,6 +195,21 @@ export async function updatePurchaseInvoice(input: unknown): Promise<ActionResul
       },
     });
     if (res.count === 0) return { ok: false, error: { code: "NOT_FOUND", message: "Bill not found." } };
+    if (parsed.data.attachments?.length) {
+      await prisma.attachment.createMany({
+        data: parsed.data.attachments.map((attachment) => ({
+          tenantId: session.user.tenantId,
+          entityType: "PURCHASE_INVOICE",
+          entityId: parsed.data.id,
+          projectId: parsed.data.projectId,
+          originalName: attachment.name,
+          mimeType: attachment.type,
+          size: attachment.size,
+          storagePath: attachment.url,
+          uploadedById: session.user.id,
+        })),
+      });
+    }
     await safeWriteAuditLog({
       tenantId: session.user.tenantId,
       userId: session.user.id,
@@ -179,8 +223,11 @@ export async function updatePurchaseInvoice(input: unknown): Promise<ActionResul
         vendorId: parsed.data.vendorId,
         projectId: parsed.data.projectId,
         total: parsed.data.total,
+        attachments: parsed.data.attachments?.length ?? 0,
       },
     });
+    revalidatePath("/app/purchases/bills");
+    revalidatePath(`/app/purchases/bills/${parsed.data.id}`);
     return { ok: true, data: { id: parsed.data.id } };
   } catch {
     return unknownError("Failed to update bill.");
@@ -192,6 +239,11 @@ export async function deletePurchaseInvoice(id: string): Promise<ActionResult<{ 
   if (!session?.user) return { ok: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } };
 
   try {
+    const attachments = await prisma.attachment.findMany({
+      where: { tenantId: session.user.tenantId, entityType: "PURCHASE_INVOICE", entityId: id },
+      select: { storagePath: true },
+    });
+
     const res = await prisma.$transaction(async (tx) => {
       const invoice = await tx.purchaseInvoice.findFirst({
         where: { tenantId: session.user.tenantId, id },
@@ -221,6 +273,7 @@ export async function deletePurchaseInvoice(id: string): Promise<ActionResult<{ 
     }
 
     if (res.ok) {
+      await Promise.allSettled(attachments.map((attachment) => tryDeleteStoredFile(attachment.storagePath)));
       await safeWriteAuditLog({
         tenantId: session.user.tenantId,
         userId: session.user.id,
@@ -233,6 +286,7 @@ export async function deletePurchaseInvoice(id: string): Promise<ActionResult<{ 
       });
     }
 
+    revalidatePath("/app/purchases/bills");
     return { ok: true, data: { id } };
   } catch {
     return unknownError("Failed to delete bill.");

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
@@ -12,6 +12,14 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { uploadBillToBlob } from "@/lib/blob-upload";
+
+const attachmentSchema = z.object({
+  url: z.string().url(),
+  name: z.string().min(1),
+  type: z.string().min(1),
+  size: z.number().int().nonnegative(),
+});
 
 const billSchema = z
   .object({
@@ -25,6 +33,7 @@ const billSchema = z
     sgst: z.coerce.number().min(0, "SGST cannot be negative").optional(),
     igst: z.coerce.number().min(0, "IGST cannot be negative").optional(),
     total: z.coerce.number().min(0, "Total must be >= 0"),
+    attachments: z.array(attachmentSchema).optional(),
   })
   .strict();
 
@@ -32,6 +41,7 @@ export type BillFormValues = z.infer<typeof billSchema>;
 
 type BillFormProps = {
   mode: "create" | "edit";
+  tenantId: number;
   initialValues?: Partial<BillFormValues>;
   invoiceId?: string;
   vendors: { id: string; name: string }[];
@@ -40,9 +50,10 @@ type BillFormProps = {
 };
 
 export function BillForm(props: BillFormProps) {
-  const { mode, initialValues, invoiceId, vendors, projects, onSuccess } = props;
+  const { mode, tenantId, initialValues, invoiceId, vendors, projects, onSuccess } = props;
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [files, setFiles] = useState<File[]>([]);
 
   const defaultVendorId = initialValues?.vendorId ?? vendors[0]?.id ?? "";
   const defaultProjectId = initialValues?.projectId ?? projects[0]?.id ?? "";
@@ -52,7 +63,7 @@ export function BillForm(props: BillFormProps) {
   const form = useForm<BillFormValues>({
     // zodResolver (zod v4) types `z.coerce.number()` as `unknown` in the resolver output.
     // Runtime validation is correct; cast keeps TS happy.
-    resolver: zodResolver(billSchema) as any,
+    resolver: zodResolver(billSchema) as Resolver<BillFormValues>,
     defaultValues: {
       vendorId: defaultVendorId,
       projectId: defaultProjectId,
@@ -90,14 +101,33 @@ export function BillForm(props: BillFormProps) {
 
   function handleSubmit(values: BillFormValues) {
     startTransition(async () => {
-      const payload = {
-        ...values,
-        cgst: values.gstType === "INTRA" ? values.cgst ?? 0 : 0,
-        sgst: values.gstType === "INTRA" ? values.sgst ?? 0 : 0,
-        igst: values.gstType === "INTER" ? values.igst ?? 0 : 0,
-      };
-
       try {
+        const attachments = files.length
+          ? await Promise.all(
+              files.map(async (file) => {
+                const blob = await uploadBillToBlob({
+                  tenantId,
+                  entityPath: "purchase-invoices/tmp",
+                  file,
+                });
+                return {
+                  url: blob.url,
+                  name: file.name,
+                  type: file.type || "application/octet-stream",
+                  size: file.size,
+                };
+              }),
+            )
+          : undefined;
+
+        const payload = {
+          ...values,
+          cgst: values.gstType === "INTRA" ? values.cgst ?? 0 : 0,
+          sgst: values.gstType === "INTRA" ? values.sgst ?? 0 : 0,
+          igst: values.gstType === "INTER" ? values.igst ?? 0 : 0,
+          attachments,
+        };
+
         const res =
           mode === "create"
             ? await createPurchaseInvoice(payload)
@@ -120,7 +150,7 @@ export function BillForm(props: BillFormProps) {
         router.refresh();
       } catch (error) {
         console.error(error);
-        toast.error("Failed to save bill.");
+        toast.error(error instanceof Error ? error.message : "Failed to save bill.");
       }
     });
   }
@@ -129,14 +159,14 @@ export function BillForm(props: BillFormProps) {
 
   return (
     <Form {...form}>
-      <form className="space-y-6" onSubmit={form.handleSubmit(handleSubmit)}>
+      <form className="space-y-8" onSubmit={form.handleSubmit(handleSubmit)}>
         {disabled ? (
           <div className="rounded-md border p-4 text-sm text-muted-foreground">
             Add at least one {vendors.length === 0 ? "vendor" : "project"} first.
           </div>
         ) : null}
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-5 xl:grid-cols-2">
           <FormField
             control={form.control}
             name="vendorId"
@@ -216,7 +246,7 @@ export function BillForm(props: BillFormProps) {
           />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           <FormField
             control={form.control}
             name="gstType"
@@ -302,7 +332,7 @@ export function BillForm(props: BillFormProps) {
             control={form.control}
             name="total"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="xl:col-span-1">
                 <FormLabel>Total</FormLabel>
                 <FormControl>
                   <Input type="number" inputMode="decimal" step="0.01" {...field} readOnly />
@@ -311,6 +341,47 @@ export function BillForm(props: BillFormProps) {
               </FormItem>
             )}
           />
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px] xl:items-start">
+          <div className="space-y-3">
+            <div className="text-sm font-medium">Attachments</div>
+            <Input
+              type="file"
+              multiple
+              accept="image/*,application/pdf"
+              onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
+            />
+            <div className="text-sm text-muted-foreground">
+              Upload vendor invoice scans or PDFs now so the bill record keeps its source document attached.
+            </div>
+            {files.length > 0 ? (
+              <div className="space-y-2 rounded-[20px] border border-border/60 bg-background/70 p-4">
+                {files.map((file) => (
+                  <div key={`${file.name}-${file.size}`} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="min-w-0 truncate font-medium">{file.name}</span>
+                    <span className="shrink-0 text-muted-foreground">{Math.max(1, Math.round(file.size / 1024))} KB</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-[22px] border border-border/60 bg-background/70 p-4 text-sm">
+            <div className="font-medium">Bill summary</div>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">Taxable value</span>
+              <span className="font-medium">{Number(taxableValue || 0).toFixed(2)}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">Tax amount</span>
+              <span className="font-medium">{(Number(cgst || 0) + Number(sgst || 0) + Number(igst || 0)).toFixed(2)}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">Grand total</span>
+              <span className="font-semibold">{Number(form.getValues("total") || 0).toFixed(2)}</span>
+            </div>
+          </div>
         </div>
 
         <div className="flex justify-end gap-2">
