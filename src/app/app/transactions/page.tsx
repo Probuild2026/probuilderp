@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { Prisma } from "@prisma/client";
-import { ArrowLeftRight, Landmark, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowLeftRight, Landmark, TrendingDown, TrendingUp, UsersRound } from "lucide-react";
 
 import { ExportLinks } from "@/components/app/export-links";
 import { PageHeader } from "@/components/app/page-header";
@@ -16,7 +16,10 @@ import { buildInclusiveDateRange, parseDateRangeParams } from "@/lib/date-range"
 import { formatINR } from "@/lib/money";
 import { getSelectedProjectId } from "@/lib/project-filter";
 import { authOptions } from "@/server/auth";
+import { getCashLedgerPage } from "@/server/cash-ledger";
 import { prisma } from "@/server/db";
+
+const PAGE_SIZE = 50;
 
 export default async function TransactionsPage({
   searchParams,
@@ -34,19 +37,10 @@ export default async function TransactionsPage({
   const categoryId = Array.isArray(sp.category) ? sp.category[0] : sp.category;
   const sortParam = Array.isArray(sp.sort) ? sp.sort[0] : sp.sort;
   const sort = sortParam || "date-desc";
+  const pageParam = Array.isArray(sp.page) ? sp.page[0] : sp.page;
+  const currentPage = Math.max(1, Number(pageParam) || 1);
 
-  let txns:
-    | Array<{
-        id: string;
-        type: string;
-        date: Date;
-        amount: Prisma.Decimal;
-        project: { name: string } | null;
-        category: { name: string } | null;
-        fromAccount: { name: string; type: string } | null;
-        toAccount: { name: string; type: string } | null;
-      }>
-    | null = null;
+  let ledger: Awaited<ReturnType<typeof getCashLedgerPage>> | null = null;
   let dbUnavailable = false;
   let categories: Array<{ id: string; name: string }> = [];
 
@@ -54,36 +48,24 @@ export default async function TransactionsPage({
     categories = await prisma.txnCategory.findMany({
       where: { tenantId: session.user.tenantId, active: true },
       orderBy: { name: "asc" },
-      select: { id: true, name: true }
+      select: { id: true, name: true },
     });
 
-    let orderBy: Prisma.TransactionOrderByWithRelationInput[] = [{ date: "desc" }, { createdAt: "desc" }];
-    if (sort === "date-asc") orderBy = [{ date: "asc" }, { createdAt: "asc" }];
-    else if (sort === "amount-desc") orderBy = [{ amount: "desc" }];
-    else if (sort === "amount-asc") orderBy = [{ amount: "asc" }];
-
-    txns = await prisma.transaction.findMany({
-      where: {
-        tenantId: session.user.tenantId,
-        ...(projectId ? { projectId } : {}),
-        ...(dateRange ? { date: dateRange } : {}),
-        ...(categoryId ? { categoryId } : {}),
-      },
-      orderBy,
-      take: 200,
-      include: {
-        project: { select: { name: true } },
-        category: { select: { name: true } },
-        fromAccount: { select: { name: true, type: true } },
-        toAccount: { select: { name: true, type: true } },
-      },
+    ledger = await getCashLedgerPage({
+      tenantId: session.user.tenantId,
+      projectId,
+      dateRange,
+      categoryId,
+      sort: sort === "date-asc" || sort === "amount-desc" || sort === "amount-asc" ? sort : "date-desc",
+      limit: PAGE_SIZE,
+      offset: (currentPage - 1) * PAGE_SIZE,
     });
   } catch (e) {
     if (
       (e instanceof Prisma.PrismaClientKnownRequestError && (e.code === "P2021" || e.code === "P2022" || e.code === "P1001")) ||
       (e instanceof Error && e.message.includes("Can't reach database server"))
     ) {
-      txns = null;
+      ledger = null;
       dbUnavailable =
         (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P1001") ||
         (e instanceof Error && e.message.includes("Can't reach database server"));
@@ -92,24 +74,32 @@ export default async function TransactionsPage({
     }
   }
 
-  const totals = (txns ?? []).reduce(
-    (acc, txn) => {
-      const amount = Number(txn.amount);
-      if (txn.type === "INCOME") acc.income += amount;
-      if (txn.type === "EXPENSE") acc.expense += amount;
-      if (txn.type === "TRANSFER") acc.transfer += amount;
-      return acc;
-    },
-    { income: 0, expense: 0, transfer: 0 },
-  );
-  const hasTransferRows = (txns ?? []).some((txn) => txn.type === "TRANSFER");
+  const rows = ledger?.rows ?? [];
+  const totals = ledger?.totals ?? { income: 0, expense: 0, transfer: 0, partner: 0 };
+  const hasTransferRows = rows.some((row) => row.type === "TRANSFER");
+  const sourceCount = ledger?.sourceCount ?? 0;
+  const totalRows = ledger?.totalRows ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+  const firstRow = rows.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const lastRow = rows.length === 0 ? 0 : Math.min(currentPage * PAGE_SIZE, totalRows);
+
+  function pageHref(page: number) {
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    if (categoryId) params.set("category", categoryId);
+    if (sort) params.set("sort", sort);
+    if (page > 1) params.set("page", String(page));
+    const query = params.toString();
+    return query ? `/app/transactions?${query}` : "/app/transactions";
+  }
 
   return (
     <div className="w-full space-y-6 p-4 md:p-6">
       <PageHeader
         eyebrow="Finance / Transactions"
         title="Transactions"
-        description="Use the cashbook ledger for quick income, expense, and transfer entries when a fuller bill or invoice workflow is not required."
+        description="Use this as the full cash movement ledger across receipts, payments made, direct expenses, wages, partner payouts, TDS payments, and manual transfers."
         action={{ label: "New transaction", href: "/app/transactions/new" }}
         actions={<ExportLinks hrefBase="/api/exports/transactions" params={{ from, to }} />}
         actionSecondary={<EntryRoutingHelpModal />}
@@ -140,7 +130,7 @@ export default async function TransactionsPage({
         </div>
       </form>
 
-      {txns === null ? (
+      {ledger === null ? (
         <StatePanel
           tone="warning"
           title={dbUnavailable ? "Database temporarily unreachable" : "Database update required"}
@@ -160,6 +150,7 @@ export default async function TransactionsPage({
           <CardContent className="grid gap-4 pt-6 sm:grid-cols-2 2xl:grid-cols-4">
             <SummaryTile icon={TrendingUp} label="Income" value={formatINR(totals.income)} />
             <SummaryTile icon={TrendingDown} label="Expense" value={formatINR(totals.expense)} />
+            <SummaryTile icon={UsersRound} label="Partner payouts" value={formatINR(totals.partner)} />
             <SummaryTile icon={ArrowLeftRight} label="Transfers" value={formatINR(totals.transfer)} />
             <SummaryTile icon={Landmark} label="Net movement" value={formatINR(totals.income - totals.expense)} />
           </CardContent>
@@ -170,7 +161,9 @@ export default async function TransactionsPage({
             <CardTitle className="text-base">Ledger scope</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 pt-6">
-            <QueuePill label="Rows in current view" value={String((txns ?? []).length)} />
+            <QueuePill label="Rows matching filters" value={String(totalRows)} />
+            <QueuePill label="Page size" value={String(PAGE_SIZE)} />
+            <QueuePill label="Source modules" value={String(sourceCount)} />
             <QueuePill label="Transfer columns" value={hasTransferRows ? "Visible" : "Hidden"} />
             <QueuePill label="Export status" value="CSV / Excel / PDF" />
           </CardContent>
@@ -183,12 +176,14 @@ export default async function TransactionsPage({
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-          <Table className="min-w-[920px]">
+          <Table className="min-w-[1080px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[110px]">Date</TableHead>
+                <TableHead>Source</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead className="hidden lg:table-cell">Category</TableHead>
+                <TableHead className="hidden xl:table-cell">Mode</TableHead>
                 {hasTransferRows ? <TableHead className="hidden md:table-cell">From</TableHead> : null}
                 {hasTransferRows ? <TableHead className="hidden md:table-cell">To</TableHead> : null}
                 <TableHead className="text-right">Amount</TableHead>
@@ -196,33 +191,40 @@ export default async function TransactionsPage({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(txns ?? []).length === 0 ? (
+              {rows.length === 0 ? (
                 <TableEmptyState
-                  colSpan={hasTransferRows ? 7 : 5}
+                  colSpan={hasTransferRows ? 9 : 7}
                   title="No transactions matched this view"
                   description="Try widening the date range or switching the current project filter."
                 />
               ) : (
-                (txns ?? []).map((txn) => (
-                  <TableRow key={txn.id}>
-                    <TableCell>{txn.date.toISOString().slice(0, 10)}</TableCell>
+                rows.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell>{row.date.toISOString().slice(0, 10)}</TableCell>
+                    <TableCell className="min-w-0">
+                      <Link href={row.sourceHref} className="truncate font-semibold hover:underline">
+                        {row.sourceLabel}
+                      </Link>
+                      <div className="mt-1 truncate text-xs text-muted-foreground xl:hidden">
+                        {row.mode ?? "—"}
+                      </div>
+                    </TableCell>
                     <TableCell className="min-w-0">
                       <div className="min-w-0">
-                        <Link href={`/app/transactions/${txn.id}`} className="truncate font-semibold hover:underline">
-                          {txn.type}
-                        </Link>
+                        <span className="truncate font-semibold">{row.type}</span>
                         <div className="mt-1 truncate text-xs text-muted-foreground md:hidden">
-                          {txn.category?.name ?? "—"}
+                          {row.categoryName ?? "—"}
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">{txn.category?.name ?? txn.type}</TableCell>
-                    {hasTransferRows ? <TableCell className="hidden md:table-cell">{txn.type === "TRANSFER" ? txn.fromAccount?.name ?? "—" : "—"}</TableCell> : null}
-                    {hasTransferRows ? <TableCell className="hidden md:table-cell">{txn.type === "TRANSFER" ? txn.toAccount?.name ?? "—" : "—"}</TableCell> : null}
-                    <TableCell className="text-right tabular-nums">{formatINR(Number(txn.amount))}</TableCell>
+                    <TableCell className="hidden lg:table-cell">{row.categoryName ?? row.type}</TableCell>
+                    <TableCell className="hidden xl:table-cell">{row.mode ?? "—"}</TableCell>
+                    {hasTransferRows ? <TableCell className="hidden md:table-cell">{row.type === "TRANSFER" ? row.fromAccountName ?? "—" : "—"}</TableCell> : null}
+                    {hasTransferRows ? <TableCell className="hidden md:table-cell">{row.type === "TRANSFER" ? row.toAccountName ?? "—" : "—"}</TableCell> : null}
+                    <TableCell className="text-right tabular-nums">{formatINR(Number(row.amount))}</TableCell>
                     <TableCell className="text-right">
                       <Button asChild size="sm" variant="outline">
-                        <Link href={`/app/transactions/${txn.id}`}>Open</Link>
+                        <Link href={row.sourceHref}>Open</Link>
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -230,6 +232,28 @@ export default async function TransactionsPage({
               )}
             </TableBody>
           </Table>
+          </div>
+          <div className="flex flex-col gap-3 border-t border-border/60 px-4 py-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              Showing {firstRow}-{lastRow} of {totalRows} rows
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <PaginationButton href={pageHref(1)} disabled={currentPage <= 1}>
+                First
+              </PaginationButton>
+              <PaginationButton href={pageHref(currentPage - 1)} disabled={currentPage <= 1}>
+                Previous
+              </PaginationButton>
+              <span className="px-2 text-xs font-semibold uppercase tracking-[0.14em]">
+                Page {Math.min(currentPage, totalPages)} / {totalPages}
+              </span>
+              <PaginationButton href={pageHref(currentPage + 1)} disabled={currentPage >= totalPages}>
+                Next
+              </PaginationButton>
+              <PaginationButton href={pageHref(totalPages)} disabled={currentPage >= totalPages}>
+                Last
+              </PaginationButton>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -265,5 +289,29 @@ function QueuePill({ label, value }: { label: string; value: string }) {
       <div className="text-sm text-muted-foreground">{label}</div>
       <div className="font-semibold">{value}</div>
     </div>
+  );
+}
+
+function PaginationButton({
+  href,
+  disabled,
+  children,
+}: {
+  href: string;
+  disabled: boolean;
+  children: React.ReactNode;
+}) {
+  if (disabled) {
+    return (
+      <Button size="sm" variant="outline" disabled>
+        {children}
+      </Button>
+    );
+  }
+
+  return (
+    <Button asChild size="sm" variant="outline">
+      <Link href={href}>{children}</Link>
+    </Button>
   );
 }

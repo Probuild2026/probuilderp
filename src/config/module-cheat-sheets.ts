@@ -147,19 +147,20 @@ export const MODULE_CHEAT_SHEETS: Record<ModuleKey, ModuleCheatSheetConfig> = {
   },
   transactions: {
     key: "transactions",
-    title: "What goes in Transactions",
-    summary: "Use this for money movement between accounts or funding movements that are not direct income or project expense entries.",
+    title: "What Transactions Shows",
+    summary: "Use this ledger as the full cash movement roll-up. Receipts, vendor payments, direct paid expenses, wages, partner payouts, TDS payments, and manual transfers appear here together.",
     useWhen: [
-      "Cash withdrawn from bank for site use",
-      "Owner added money into project",
-      "Money transferred between cash and account",
+      "You need one date-range view of money in and money out",
+      "You want to reconcile receipts, payments, expenses, wages, and partner payouts together",
+      "You need to add a transfer or funding movement that does not belong in another module",
     ],
     doNotUseWhen: [
-      "It is a real project cost, use Expenses or Payments Made",
-      "It is money received from the client for work done, use Receipts",
+      "You are entering a vendor bill, receipt, direct expense, wage sheet, or partner payout; enter it in its source module and it will roll up here",
+      "You need the original bill, invoice, or payout details; open the source row from this ledger",
     ],
     examples: [
-      "Withdraw ₹50,000 from bank to site cash",
+      "Review all cash movement for April",
+      "Open a direct expense or receipt from the ledger",
       "Transfer owner funds into business account",
     ],
     relatedLinks: [

@@ -2,6 +2,7 @@ import { type ApprovalStatus, Prisma } from "@prisma/client";
 
 import { buildInclusiveDateRange, buildMonthInterval, formatMonthLabel } from "@/lib/date-range";
 import { type TabularDataset } from "@/lib/tabular-export";
+import { getCashLedgerRows } from "@/server/cash-ledger";
 import { prisma } from "@/server/db";
 
 export type ExportModule =
@@ -36,20 +37,12 @@ function numberValue(value: Prisma.Decimal | number | null | undefined) {
 
 async function buildTransactionsDataset(filters: ModuleFilters): Promise<TabularDataset> {
   const dateRange = buildInclusiveDateRange(filters.from, filters.to);
-  const txns = await prisma.transaction.findMany({
-    where: {
-      tenantId: filters.tenantId,
-      ...(filters.projectId ? { projectId: filters.projectId } : {}),
-      ...(dateRange ? { date: dateRange } : {}),
-      ...(filters.approval ? { approvalStatus: filters.approval } : {}),
-    },
-    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-    include: {
-      project: { select: { name: true } },
-      category: { select: { name: true } },
-      fromAccount: { select: { name: true } },
-      toAccount: { select: { name: true } },
-    },
+  const rows = await getCashLedgerRows({
+    tenantId: filters.tenantId,
+    projectId: filters.projectId,
+    dateRange,
+    approval: filters.approval,
+    sort: "date-desc",
   });
 
   return {
@@ -57,6 +50,7 @@ async function buildTransactionsDataset(filters: ModuleFilters): Promise<Tabular
     filenameBase: "transactions",
     columns: [
       { key: "date", label: "Date", width: 12 },
+      { key: "source", label: "Source", width: 22 },
       { key: "type", label: "Type", width: 14 },
       { key: "project", label: "Project", width: 24 },
       { key: "category", label: "Category", width: 20 },
@@ -69,19 +63,20 @@ async function buildTransactionsDataset(filters: ModuleFilters): Promise<Tabular
       { key: "tdsAmount", label: "TDS", width: 12, align: "right" },
       { key: "narration", label: "Narration", width: 28 },
     ],
-    rows: txns.map((txn) => ({
-      date: dateOnly(txn.date),
-      type: txn.type,
-      project: txn.project?.name ?? "",
-      category: txn.category?.name ?? "",
-      fromAccount: txn.fromAccount?.name ?? "",
-      toAccount: txn.toAccount?.name ?? "",
-      mode: txn.mode ?? "",
-      reference: txn.reference ?? "",
-      approvalStatus: txn.approvalStatus,
-      amount: numberValue(txn.amount),
-      tdsAmount: numberValue(txn.tdsAmount),
-      narration: combinedText(txn.note, txn.description),
+    rows: rows.map((row) => ({
+      date: dateOnly(row.date),
+      source: row.sourceLabel,
+      type: row.type,
+      project: row.projectName ?? "",
+      category: row.categoryName ?? "",
+      fromAccount: row.fromAccountName ?? "",
+      toAccount: row.toAccountName ?? "",
+      mode: row.mode ?? "",
+      reference: row.reference ?? "",
+      approvalStatus: row.approvalStatus ?? "",
+      amount: numberValue(row.amount),
+      tdsAmount: numberValue(row.tdsAmount),
+      narration: combinedText(row.note, row.description),
     })),
   };
 }

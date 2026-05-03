@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 
 import { authOptions } from "@/server/auth";
-import { prisma } from "@/server/db";
+import { getCashLedgerRows } from "@/server/cash-ledger";
 
 function toMonthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -25,20 +25,10 @@ export async function GET(req: NextRequest) {
   const startDate = new Date(today.getFullYear(), today.getMonth() - (monthsBack - 1), 1);
 
   try {
-    const txns = await prisma.transaction.findMany({
-      where: {
-        tenantId,
-        date: { gte: startDate, lte: today },
-        ...(vendorId ? { vendorId } : {}),
-        approvalStatus: { not: "CANCELLED" },
-        ...(filterType === "IN" ? { type: "INCOME" } : filterType === "OUT" ? { type: "EXPENSE" } : { type: { in: ["INCOME", "EXPENSE"] } }),
-      },
-      select: {
-        date: true,
-        type: true,
-        amount: true,
-        tdsAmount: true,
-      },
+    const rows = await getCashLedgerRows({
+      tenantId,
+      vendorId: vendorId ?? undefined,
+      dateRange: { gte: startDate, lte: today },
     });
 
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -55,10 +45,14 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    for (const row of txns) {
+    for (const row of rows) {
+      if (filterType === "IN" && row.type !== "INCOME") continue;
+      if (filterType === "OUT" && row.type !== "EXPENSE") continue;
+      if (row.type !== "INCOME" && row.type !== "EXPENSE") continue;
+
       const key = toMonthKey(row.date);
       if (chartDataMap.has(key)) {
-        const flow = Number(row.amount) + Number(row.tdsAmount ?? 0);
+        const flow = Number(row.amount);
         if (row.type === "INCOME") {
           chartDataMap.get(key)!.in += flow;
         } else if (row.type === "EXPENSE") {
