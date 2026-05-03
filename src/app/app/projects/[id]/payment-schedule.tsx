@@ -48,9 +48,14 @@ function displayDate(v: string) {
 export function PaymentSchedule({
   projectId,
   stages,
+  receiptTotals,
 }: {
   projectId: string;
   stages: Stage[];
+  receiptTotals: {
+    bank: number;
+    cash: number;
+  };
 }) {
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<Stage | null>(null);
@@ -59,29 +64,21 @@ export function PaymentSchedule({
   const totals = useMemo(() => {
     let expBank = 0;
     let expCash = 0;
-    let actBank = 0;
-    let actCash = 0;
-    let excessBank = 0;
-    let excessCash = 0;
     for (const s of stages) {
       expBank += s.expectedBank;
       expCash += s.expectedCash;
-      actBank += s.actualBank;
-      actCash += s.actualCash;
-      excessBank += Math.max(0, s.actualBank - s.expectedBank);
-      excessCash += Math.max(0, s.actualCash - s.expectedCash);
     }
     return {
       expectedBank: expBank,
       expectedCash: expCash,
-      actualBank: actBank,
-      actualCash: actCash,
-      pendingBank: expBank - actBank,
-      pendingCash: expCash - actCash,
-      excessBank,
-      excessCash,
+      actualBank: receiptTotals.bank,
+      actualCash: receiptTotals.cash,
+      pendingBank: expBank - receiptTotals.bank,
+      pendingCash: expCash - receiptTotals.cash,
+      excessBank: Math.max(0, receiptTotals.bank - expBank),
+      excessCash: Math.max(0, receiptTotals.cash - expCash),
     };
-  }, [stages]);
+  }, [receiptTotals.bank, receiptTotals.cash, stages]);
 
   return (
     <div className="space-y-4">

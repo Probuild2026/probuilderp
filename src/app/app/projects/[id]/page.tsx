@@ -49,6 +49,34 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     },
   });
 
+  const receiptRows = await prisma.receipt.groupBy({
+    by: ["mode"],
+    where: {
+      tenantId: session.user.tenantId,
+      approvalStatus: { not: "CANCELLED" },
+      clientInvoice: {
+        is: {
+          tenantId: session.user.tenantId,
+          projectId: project.id,
+        },
+      },
+    },
+    _sum: { amountReceived: true },
+  });
+
+  const receiptTotals = receiptRows.reduce(
+    (acc, row) => {
+      const amount = Number(row._sum.amountReceived ?? 0);
+      if (row.mode === "CASH") {
+        acc.cash += amount;
+      } else {
+        acc.bank += amount;
+      }
+      return acc;
+    },
+    { bank: 0, cash: 0 },
+  );
+
   const stages = paymentStages.map((s) => ({
     id: s.id,
     stageName: s.stageName,
@@ -66,7 +94,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   }));
 
   const expected = stages.reduce((sum, stage) => sum + stage.expectedAmount, 0);
-  const received = stages.reduce((sum, stage) => sum + stage.actualBank + stage.actualCash, 0);
+  const received = receiptTotals.bank + receiptTotals.cash;
   const billed = project.clientInvoices.reduce((sum, row) => sum + Number(row.total), 0);
   const spent =
     project.purchaseInvoices.reduce((sum, row) => sum + Number(row.total), 0) +
@@ -134,7 +162,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         </CardContent>
       </Card>
 
-      <PaymentSchedule projectId={project.id} stages={stages} />
+      <PaymentSchedule projectId={project.id} stages={stages} receiptTotals={receiptTotals} />
     </div>
   );
 }

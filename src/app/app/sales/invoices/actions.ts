@@ -57,10 +57,12 @@ export async function createClientInvoice(formData: FormData) {
       // Status is derived from allocations; keep stored field as legacy for now.
       status: "DUE",
     },
-    select: { id: true },
+    select: { id: true, projectId: true },
   });
 
   revalidatePath("/app/sales/invoices");
+  revalidatePath("/app/projects");
+  revalidatePath(`/app/projects/${invoice.projectId}`);
   return invoice.id;
 }
 
@@ -79,7 +81,12 @@ export async function updateClientInvoice(formData: FormData) {
     throw new Error(msg);
   }
 
-  await prisma.clientInvoice.update({
+  const previous = await prisma.clientInvoice.findFirst({
+    where: { id: parsed.data.id, tenantId: session.user.tenantId },
+    select: { projectId: true },
+  });
+
+  const invoice = await prisma.clientInvoice.update({
     where: { id: parsed.data.id, tenantId: session.user.tenantId },
     data: {
       projectId: parsed.data.projectId,
@@ -100,19 +107,32 @@ export async function updateClientInvoice(formData: FormData) {
       tdsAmountExpected: typeof parsed.data.tdsAmountExpected === "number" ? parsed.data.tdsAmountExpected : null,
       // Status is derived from allocations; do not update stored field.
     },
+    select: { projectId: true },
   });
 
   revalidatePath("/app/sales/invoices");
   revalidatePath(`/app/sales/invoices/${parsed.data.id}`);
+  revalidatePath("/app/projects");
+  revalidatePath(`/app/projects/${invoice.projectId}`);
+  if (previous?.projectId && previous.projectId !== invoice.projectId) {
+    revalidatePath(`/app/projects/${previous.projectId}`);
+  }
 }
 
 export async function deleteClientInvoice(id: string) {
   const session = await getServerSession(authOptions);
   if (!session?.user) throw new Error("Unauthorized");
 
+  const invoice = await prisma.clientInvoice.findFirst({
+    where: { id, tenantId: session.user.tenantId },
+    select: { projectId: true },
+  });
+
   await prisma.clientInvoice.delete({
     where: { id, tenantId: session.user.tenantId },
   });
 
   revalidatePath("/app/sales/invoices");
+  revalidatePath("/app/projects");
+  if (invoice) revalidatePath(`/app/projects/${invoice.projectId}`);
 }

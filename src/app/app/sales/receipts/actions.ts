@@ -52,6 +52,7 @@ export async function createReceipt(formData: FormData) {
   });
 
   const tdsAmount = parsed.tdsDeducted ? Number(parsed.tdsAmount ?? 0) : 0;
+  let projectId: string | null = null;
 
   await prisma.$transaction(async (tx) => {
     const invoice = await tx.clientInvoice.findFirst({
@@ -59,6 +60,7 @@ export async function createReceipt(formData: FormData) {
       select: { id: true, total: true, projectId: true, clientId: true, invoiceNumber: true },
     });
     if (!invoice) throw new Error("Invoice not found.");
+    projectId = invoice.projectId;
 
     // Every money movement is a Transaction (cash/bank inflow).
     const txn = await tx.transaction.create({
@@ -132,6 +134,8 @@ export async function createReceipt(formData: FormData) {
     }
   });
 
+  if (projectId) revalidatePath(`/app/projects/${projectId}`);
+  revalidatePath("/app/projects");
   revalidatePath(`/app/sales/invoices/${parsed.clientInvoiceId}`);
   revalidatePath("/app/sales/receipts");
 }
@@ -140,12 +144,23 @@ export async function deleteReceipt(id: string, clientInvoiceId: string) {
   const session = await getServerSession(authOptions);
   if (!session?.user) throw new Error("Unauthorized");
 
+  let projectId: string | null = null;
+
   await prisma.$transaction(async (tx) => {
     const receipt = await tx.receipt.findFirst({
       where: { id, tenantId: session.user.tenantId },
-      select: { id: true, transactionId: true, projectPaymentStageId: true, amountReceived: true, tdsAmount: true, clientInvoiceId: true },
+      select: {
+        id: true,
+        transactionId: true,
+        projectPaymentStageId: true,
+        amountReceived: true,
+        tdsAmount: true,
+        clientInvoiceId: true,
+        clientInvoice: { select: { projectId: true } },
+      },
     });
     if (!receipt) return;
+    projectId = receipt.clientInvoice.projectId;
 
     await writeAuditLog(tx, {
       tenantId: session.user.tenantId,
@@ -185,6 +200,8 @@ export async function deleteReceipt(id: string, clientInvoiceId: string) {
     }
   });
 
+  if (projectId) revalidatePath(`/app/projects/${projectId}`);
+  revalidatePath("/app/projects");
   revalidatePath(`/app/sales/invoices/${clientInvoiceId}`);
   revalidatePath("/app/sales/receipts");
 }
@@ -206,6 +223,7 @@ export async function updateReceipt(input: unknown): Promise<ActionResult<{ id: 
     const cashAmount = parsed.data.amountReceived;
     const grossAmount = cashAmount + tdsAmount;
     const date = parseDateOnly(parsed.data.date);
+    let projectId: string | null = null;
 
     const res = await prisma.$transaction(async (tx) => {
       const existing = await tx.receipt.findFirst({
@@ -220,6 +238,7 @@ export async function updateReceipt(input: unknown): Promise<ActionResult<{ id: 
         select: { id: true, projectId: true, clientId: true, invoiceNumber: true },
       });
       if (!invoice) return { ok: false as const, code: "NOT_FOUND_INVOICE" as const };
+      projectId = invoice.projectId;
 
       const txnId =
         existing.transactionId ??
@@ -338,6 +357,8 @@ export async function updateReceipt(input: unknown): Promise<ActionResult<{ id: 
     }
 
     revalidatePath(`/app/sales/receipts/${parsed.data.id}`);
+    if (projectId) revalidatePath(`/app/projects/${projectId}`);
+    revalidatePath("/app/projects");
     revalidatePath(`/app/sales/invoices/${parsed.data.clientInvoiceId}`);
     revalidatePath("/app/sales/receipts");
 
