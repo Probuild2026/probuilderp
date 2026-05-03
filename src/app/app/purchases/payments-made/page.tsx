@@ -125,7 +125,7 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
   );
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-6 p-4 md:p-6">
+    <div className="w-full space-y-6 p-4 md:p-6">
       <PageHeader
         eyebrow="Purchases / Payments Made"
         title="Vendor payments"
@@ -206,20 +206,20 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-          <Table className="min-w-[1180px]">
+          <Table className="min-w-[1180px] table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Vendor</TableHead>
-                <TableHead className="hidden lg:table-cell">Project</TableHead>
-                <TableHead className="text-right">Cash</TableHead>
-                <TableHead className="text-right">TDS</TableHead>
-                <TableHead className="text-right">Gross</TableHead>
-                <TableHead className="hidden md:table-cell">Mode</TableHead>
-                <TableHead className="hidden xl:table-cell">Reference</TableHead>
-                <TableHead className="hidden md:table-cell">Review</TableHead>
-                <TableHead className="text-right">Bills</TableHead>
-                <TableHead className="text-right">Open</TableHead>
+                <TableHead className="w-[112px]">Date</TableHead>
+                <TableHead className="w-[260px]">Vendor</TableHead>
+                <TableHead className="hidden w-[240px] lg:table-cell">Project</TableHead>
+                <TableHead className="w-[128px] text-right">Cash</TableHead>
+                <TableHead className="w-[108px] text-right">TDS</TableHead>
+                <TableHead className="w-[128px] text-right">Gross</TableHead>
+                <TableHead className="hidden w-[148px] md:table-cell">Mode</TableHead>
+                <TableHead className="hidden w-[240px] xl:table-cell">Reference</TableHead>
+                <TableHead className="hidden w-[120px] md:table-cell">Review</TableHead>
+                <TableHead className="w-[76px] text-right">Bills</TableHead>
+                <TableHead className="w-[96px] text-right">Open</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -249,12 +249,12 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell max-w-[260px] truncate">{txn.project?.name ?? "-"}</TableCell>
+                      <TableCell className="hidden truncate lg:table-cell">{txn.project?.name ?? "-"}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(cash)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(tds)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(gross)}</TableCell>
-                      <TableCell className="hidden md:table-cell">{txn.mode ?? "-"}</TableCell>
-                      <TableCell className="hidden xl:table-cell max-w-[240px] truncate">{txn.reference ?? "-"}</TableCell>
+                      <TableCell className="hidden truncate md:table-cell">{txn.mode ?? "-"}</TableCell>
+                      <TableCell className="hidden truncate xl:table-cell">{txn.reference ?? "-"}</TableCell>
                       <TableCell className="hidden md:table-cell">
                         <ApprovalStatusBadge status={txn.approvalStatus} />
                       </TableCell>

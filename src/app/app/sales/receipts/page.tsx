@@ -75,7 +75,7 @@ export default async function ReceiptsPage({
   );
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-6 p-4 md:p-6">
+    <div className="w-full space-y-6 p-4 md:p-6">
       <PageHeader
         eyebrow="Sales / Receipts"
         title="Receipts"

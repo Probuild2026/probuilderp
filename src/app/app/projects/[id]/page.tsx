@@ -104,7 +104,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const spendPct = expected > 0 ? Math.max(0, Math.min(100, Math.round((spent / expected) * 100))) : 0;
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-6 p-4 md:p-6">
+    <div className="w-full space-y-6 p-4 md:p-6">
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">

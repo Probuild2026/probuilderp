@@ -14,7 +14,7 @@ export function PageLoadingSkeleton({
   tableRows?: number;
 }) {
   return (
-    <div className="mx-auto max-w-[1440px] space-y-6 p-4 md:p-6">
+    <div className="w-full space-y-6 p-4 md:p-6">
       <section className="rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card)_92%,transparent),color-mix(in_srgb,var(--surface-muted)_55%,transparent))] px-5 py-5 md:px-6 md:py-6">
         <Pulse className="h-3 w-32" />
         <Pulse className="mt-4 h-9 w-64 max-w-full" />
