@@ -28,6 +28,7 @@ export async function createStockMovement(input: unknown) {
       direction: parsed.direction,
       quantity: parsed.quantity,
       unitCost: typeof parsed.unitCost === "number" ? parsed.unitCost : null,
+      stageName: parsed.stageName?.trim() ? parsed.stageName.trim() : null,
       referenceType: "ADJUSTMENT",
       referenceId: null,
       remarks: parsed.remarks?.trim() ? parsed.remarks.trim() : null,
@@ -36,4 +37,3 @@ export async function createStockMovement(input: unknown) {
 
   revalidatePath("/app/inventory");
 }
-

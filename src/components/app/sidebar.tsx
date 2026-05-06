@@ -17,6 +17,7 @@ import {
   HandCoins,
   LayoutDashboard,
   Package,
+  PackageCheck,
   Receipt,
   Settings2,
   Upload,
@@ -47,6 +48,7 @@ export const navGroups = [
   {
     header: "Purchases",
     items: [
+      { href: "/app/purchases/materials", label: "Materials", icon: PackageCheck },
       { href: "/app/purchases/bills", label: "Bills", icon: FileText },
       { href: "/app/purchases/payments-made", label: "Payments Made", icon: Wallet },
       { href: "/app/vendors", label: "Vendors", icon: Truck },

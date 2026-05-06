@@ -46,11 +46,12 @@ type BillFormProps = {
   invoiceId?: string;
   vendors: { id: string; name: string }[];
   projects: { id: string; name: string }[];
+  materialReceiptIds?: string[];
   onSuccess?: () => void;
 };
 
 export function BillForm(props: BillFormProps) {
-  const { mode, tenantId, initialValues, invoiceId, vendors, projects, onSuccess } = props;
+  const { mode, tenantId, initialValues, invoiceId, vendors, projects, materialReceiptIds = [], onSuccess } = props;
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [files, setFiles] = useState<File[]>([]);
@@ -126,6 +127,7 @@ export function BillForm(props: BillFormProps) {
           sgst: values.gstType === "INTRA" ? values.sgst ?? 0 : 0,
           igst: values.gstType === "INTER" ? values.igst ?? 0 : 0,
           attachments,
+          materialReceiptIds: materialReceiptIds.length > 0 ? materialReceiptIds : undefined,
         };
 
         const res =
@@ -163,6 +165,12 @@ export function BillForm(props: BillFormProps) {
         {disabled ? (
           <div className="rounded-md border p-4 text-sm text-muted-foreground">
             Add at least one {vendors.length === 0 ? "vendor" : "project"} first.
+          </div>
+        ) : null}
+
+        {materialReceiptIds.length > 0 ? (
+          <div className="rounded-[20px] border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-900 dark:text-emerald-100">
+            This bill will be linked to {materialReceiptIds.length} material delivery {materialReceiptIds.length === 1 ? "entry" : "entries"} after save.
           </div>
         ) : null}
 

@@ -103,10 +103,18 @@ enum StockDirection {
 
 enum StockReferenceType {
   PURCHASE_INVOICE
+  MATERIAL_RECEIPT
   EXPENSE
   ADJUSTMENT
   ISSUE
   RETURN
+}
+
+enum MaterialOrderStatus {
+  ORDERED
+  PARTIALLY_DELIVERED
+  DELIVERED
+  CANCELLED
 }
 
 enum PayeeType {
@@ -174,8 +182,8 @@ model ProjectPaymentStage {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   receipts Receipt[]
 
   @@index([tenantId])
@@ -189,40 +197,42 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users                  User[]
-  clients                Client[]
-  clientContacts         ClientContact[]
-  vendors                Vendor[]
-  projects               Project[]
-  items                  Item[]
-  itemVendors            ItemVendor[]
-  expenses               Expense[]
-  purchaseInvoices       PurchaseInvoice[]
-  purchaseInvoiceLines   PurchaseInvoiceLine[]
-  clientInvoices         ClientInvoice[]
-  receipts               Receipt[]
-  vendorPayments         VendorPayment[]
-  ledgerAccounts         LedgerAccount[]
-  ledgerEntries          LedgerEntry[]
-  stockMovements         StockMovement[]
-  labourers              Labourer[]
-  paymentVouchers        PaymentVoucher[]
-  attachments            Attachment[]
-  financeAccounts        FinanceAccount[]
-  txnCategories          TxnCategory[]
-  transactions           Transaction[]
-  projectPaymentStages   ProjectPaymentStage[]
-  profile                TenantProfile?
-  transactionAllocations TransactionAllocation[]
-  labourSheets           LabourSheet[]
-  labourSheetLines       LabourSheetLine[]
-  partners               Partner[]
-  partnerRemunerations   PartnerRemuneration[]
-  partnerDrawings        PartnerDrawing[]
-  partnerTdsPayments     PartnerTdsPayment[]
-  vendorTdsPayments      VendorTdsPayment[]
+  users                    User[]
+  clients                  Client[]
+  clientContacts           ClientContact[]
+  vendors                  Vendor[]
+  projects                 Project[]
+  items                    Item[]
+  itemVendors              ItemVendor[]
+  expenses                 Expense[]
+  purchaseInvoices         PurchaseInvoice[]
+  purchaseInvoiceLines     PurchaseInvoiceLine[]
+  materialOrders           MaterialOrder[]
+  materialReceipts         MaterialReceipt[]
+  clientInvoices           ClientInvoice[]
+  receipts                 Receipt[]
+  vendorPayments           VendorPayment[]
+  ledgerAccounts           LedgerAccount[]
+  ledgerEntries            LedgerEntry[]
+  stockMovements           StockMovement[]
+  labourers                Labourer[]
+  paymentVouchers          PaymentVoucher[]
+  attachments              Attachment[]
+  financeAccounts          FinanceAccount[]
+  txnCategories            TxnCategory[]
+  transactions             Transaction[]
+  projectPaymentStages     ProjectPaymentStage[]
+  profile                  TenantProfile?
+  transactionAllocations   TransactionAllocation[]
+  labourSheets             LabourSheet[]
+  labourSheetLines         LabourSheetLine[]
+  partners                 Partner[]
+  partnerRemunerations     PartnerRemuneration[]
+  partnerDrawings          PartnerDrawing[]
+  partnerTdsPayments       PartnerTdsPayment[]
+  vendorTdsPayments        VendorTdsPayment[]
   projectProfitAllocations ProjectProfitAllocation[]
-  auditLogs              AuditLog[]
+  auditLogs                AuditLog[]
 }
 
 model TenantProfile {
@@ -381,26 +391,26 @@ model ClientContact {
 }
 
 model Vendor {
-  id              String          @id @default(cuid())
-  tenantId        Int             @default(1)
-  name            String
-  type            String?
-  trade           String?
-  tags            String[]        @default([])
-  legalType       VendorLegalType @default(OTHER)
-  gstin           String?
-  pan             String?
-  phone           String?
-  email           String?
-  address         String?
+  id                String          @id @default(cuid())
+  tenantId          Int             @default(1)
+  name              String
+  type              String?
+  trade             String?
+  tags              String[]        @default([])
+  legalType         VendorLegalType @default(OTHER)
+  gstin             String?
+  pan               String?
+  phone             String?
+  email             String?
+  address           String?
   beneficiaryName   String?
   bankName          String?
   bankBranch        String?
   bankAccountNumber String?
   ifscCode          String?
   upiId             String?
-  isSubcontractor Boolean         @default(false)
-  active          Boolean         @default(true)
+  isSubcontractor   Boolean         @default(false)
+  active            Boolean         @default(true)
 
   // TDS (defaults per 194C; used for subcontractors by default)
   tdsApplicable      Boolean  @default(false)
@@ -421,6 +431,8 @@ model Vendor {
 
   expenses         Expense[]
   purchaseInvoices PurchaseInvoice[]
+  materialOrders   MaterialOrder[]
+  materialReceipts MaterialReceipt[]
   vendorPayments   VendorPayment[]
   tdsPayments      VendorTdsPayment[]
   transactions     Transaction[]
@@ -454,6 +466,8 @@ model Project {
   expenses               Expense[]
   purchaseInvoices       PurchaseInvoice[]
   purchaseInvoiceLines   PurchaseInvoiceLine[]
+  materialOrders         MaterialOrder[]
+  materialReceipts       MaterialReceipt[]
   clientInvoices         ClientInvoice[]
   ledgerEntries          LedgerEntry[]
   transactions           Transaction[]
@@ -462,14 +476,14 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant          Tenant                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  stockMovements  StockMovement[]
-  paymentVouchers PaymentVoucher[]
-  attachments     Attachment[]
-  paymentStages   ProjectPaymentStage[]
-  labourSheets    LabourSheet[]
-  partnerRemunerations   PartnerRemuneration[]
-  partnerDrawings        PartnerDrawing[]
+  tenant                   Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  stockMovements           StockMovement[]
+  paymentVouchers          PaymentVoucher[]
+  attachments              Attachment[]
+  paymentStages            ProjectPaymentStage[]
+  labourSheets             LabourSheet[]
+  partnerRemunerations     PartnerRemuneration[]
+  partnerDrawings          PartnerDrawing[]
   projectProfitAllocations ProjectProfitAllocation[]
 
   @@index([tenantId])
@@ -479,13 +493,13 @@ model Project {
 }
 
 model Partner {
-  id                  String  @id @default(cuid())
-  tenantId            Int     @default(1)
+  id                  String   @id @default(cuid())
+  tenantId            Int      @default(1)
   name                String
   pan                 String?
-  profitRatio         Decimal @default(0) @db.Decimal(5, 2)
+  profitRatio         Decimal  @default(0) @db.Decimal(5, 2)
   capitalContribution Decimal? @db.Decimal(14, 2)
-  isActive            Boolean @default(true)
+  isActive            Boolean  @default(true)
   notes               String?
 
   remunerations PartnerRemuneration[]
@@ -519,7 +533,7 @@ model PartnerRemuneration {
   fy          String
   note        String?
 
-  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  partner Partner  @relation(fields: [partnerId], references: [id], onDelete: Restrict)
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
@@ -542,7 +556,7 @@ model PartnerDrawing {
   mode      PaymentMode
   note      String?
 
-  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  partner Partner  @relation(fields: [partnerId], references: [id], onDelete: Restrict)
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
@@ -555,16 +569,16 @@ model PartnerDrawing {
 }
 
 model PartnerTdsPayment {
-  id            String   @id @default(cuid())
-  tenantId      Int      @default(1)
+  id            String    @id @default(cuid())
+  tenantId      Int       @default(1)
   partnerId     String
   fy            String
-  section       String   @default("194T")
+  section       String    @default("194T")
   challanNo     String?
   periodFrom    DateTime? @db.Date
   periodTo      DateTime? @db.Date
-  tdsPaidAmount Decimal  @db.Decimal(14, 2)
-  paymentDate   DateTime @db.Date
+  tdsPaidAmount Decimal   @db.Decimal(14, 2)
+  paymentDate   DateTime  @db.Date
   note          String?
 
   partner Partner @relation(fields: [partnerId], references: [id], onDelete: Restrict)
@@ -579,16 +593,16 @@ model PartnerTdsPayment {
 }
 
 model VendorTdsPayment {
-  id            String   @id @default(cuid())
-  tenantId      Int      @default(1)
+  id            String    @id @default(cuid())
+  tenantId      Int       @default(1)
   vendorId      String
   fy            String
-  section       String   @default("194C")
+  section       String    @default("194C")
   challanNo     String?
   periodFrom    DateTime? @db.Date
   periodTo      DateTime? @db.Date
-  tdsPaidAmount Decimal  @db.Decimal(14, 2)
-  paymentDate   DateTime @db.Date
+  tdsPaidAmount Decimal   @db.Decimal(14, 2)
+  paymentDate   DateTime  @db.Date
   note          String?
 
   vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Restrict)
@@ -603,10 +617,10 @@ model VendorTdsPayment {
 }
 
 model ProjectProfitAllocation {
-  id                 String  @id @default(cuid())
-  tenantId           Int     @default(1)
-  projectId          String
-  fy                 String
+  id                  String  @id @default(cuid())
+  tenantId            Int     @default(1)
+  projectId           String
+  fy                  String
   profitBeforePartner Decimal @db.Decimal(14, 2)
   totalPartnerRemu    Decimal @db.Decimal(14, 2)
   profitAfterRemu     Decimal @db.Decimal(14, 2)
@@ -638,6 +652,8 @@ model Item {
 
   purchaseInvoiceLines PurchaseInvoiceLine[]
   itemVendors          ItemVendor[]
+  materialOrders       MaterialOrder[]
+  materialReceipts     MaterialReceipt[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -670,17 +686,17 @@ model ItemVendor {
 
 // --- Transactions ---
 model Expense {
-  id              String       @id @default(cuid())
-  tenantId        Int          @default(1)
+  id              String         @id @default(cuid())
+  tenantId        Int            @default(1)
   projectId       String
   vendorId        String?
   labourerId      String?
-  date            DateTime     @db.Date
-  amountBeforeTax Decimal      @db.Decimal(14, 2)
-  cgst            Decimal      @default(0) @db.Decimal(14, 2)
-  sgst            Decimal      @default(0) @db.Decimal(14, 2)
-  igst            Decimal      @default(0) @db.Decimal(14, 2)
-  totalAmount     Decimal      @db.Decimal(14, 2)
+  date            DateTime       @db.Date
+  amountBeforeTax Decimal        @db.Decimal(14, 2)
+  cgst            Decimal        @default(0) @db.Decimal(14, 2)
+  sgst            Decimal        @default(0) @db.Decimal(14, 2)
+  igst            Decimal        @default(0) @db.Decimal(14, 2)
+  totalAmount     Decimal        @db.Decimal(14, 2)
   paymentStatus   String?
   paymentMode     PaymentMode?
   narration       String?
@@ -734,12 +750,14 @@ model StockMovement {
   direction     StockDirection
   quantity      Decimal            @db.Decimal(14, 3)
   unitCost      Decimal?           @db.Decimal(14, 2)
+  stageName     String?
   referenceType StockReferenceType
   referenceId   String?
   remarks       String?
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  item    Item    @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  item            Item             @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  materialReceipt MaterialReceipt?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -855,26 +873,26 @@ model TxnCategory {
 }
 
 model Transaction {
-  id            String          @id @default(cuid())
-  tenantId      Int             @default(1)
-  type          TransactionType
-  date          DateTime        @db.Date
-  amount        Decimal         @db.Decimal(14, 2)
-  tdsAmount     Decimal         @default(0) @db.Decimal(14, 2)
+  id             String          @id @default(cuid())
+  tenantId       Int             @default(1)
+  type           TransactionType
+  date           DateTime        @db.Date
+  amount         Decimal         @db.Decimal(14, 2)
+  tdsAmount      Decimal         @default(0) @db.Decimal(14, 2)
   // Taxable base amount used for TDS threshold checks (e.g. 194C taxable value).
-  tdsBaseAmount Decimal         @default(0) @db.Decimal(14, 2)
-  projectId     String?
-  clientId      String?
-  vendorId      String?
-  categoryId    String?
-  fromAccountId String?
-  toAccountId   String?
-  mode          PaymentMode?
-  channel       Channel         @default(BANK)
-  reference     String?
-  note          String?
-  description   String?
-  approvalStatus ApprovalStatus @default(APPROVED)
+  tdsBaseAmount  Decimal         @default(0) @db.Decimal(14, 2)
+  projectId      String?
+  clientId       String?
+  vendorId       String?
+  categoryId     String?
+  fromAccountId  String?
+  toAccountId    String?
+  mode           PaymentMode?
+  channel        Channel         @default(BANK)
+  reference      String?
+  note           String?
+  description    String?
+  approvalStatus ApprovalStatus  @default(APPROVED)
 
   project     Project?                @relation(fields: [projectId], references: [id], onDelete: SetNull)
   client      Client?                 @relation(fields: [clientId], references: [id], onDelete: SetNull)
@@ -932,14 +950,14 @@ model TransactionAllocation {
 }
 
 model LabourSheet {
-  id        String      @id @default(cuid())
-  tenantId  Int         @default(1)
-  projectId String
-  date      DateTime    @db.Date
-  mode      PaymentMode
-  reference String?
-  note      String?
-  total     Decimal     @db.Decimal(14, 2)
+  id             String         @id @default(cuid())
+  tenantId       Int            @default(1)
+  projectId      String
+  date           DateTime       @db.Date
+  mode           PaymentMode
+  reference      String?
+  note           String?
+  total          Decimal        @db.Decimal(14, 2)
   approvalStatus ApprovalStatus @default(APPROVED)
 
   transactionId String?      @unique
@@ -993,18 +1011,19 @@ model PurchaseInvoice {
   igst         Decimal @default(0) @db.Decimal(14, 2)
   total        Decimal @db.Decimal(14, 2)
 
-  tdsApplicable Boolean  @default(false)
-  tdsSection    String?
-  tdsRate       Decimal? @db.Decimal(5, 2)
-  tdsAmount     Decimal? @db.Decimal(14, 2)
-  netPayable    Decimal? @db.Decimal(14, 2)
+  tdsApplicable  Boolean        @default(false)
+  tdsSection     String?
+  tdsRate        Decimal?       @db.Decimal(5, 2)
+  tdsAmount      Decimal?       @db.Decimal(14, 2)
+  netPayable     Decimal?       @db.Decimal(14, 2)
   approvalStatus ApprovalStatus @default(APPROVED)
 
   vendor  Vendor  @relation(fields: [vendorId], references: [id], onDelete: Restrict)
   project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
 
-  lines    PurchaseInvoiceLine[]
-  payments VendorPayment[]
+  lines            PurchaseInvoiceLine[]
+  payments         VendorPayment[]
+  materialReceipts MaterialReceipt[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1016,6 +1035,79 @@ model PurchaseInvoice {
   @@index([tenantId, vendorId, invoiceDate])
   @@index([tenantId, projectId, invoiceDate])
   @@index([tenantId, approvalStatus])
+}
+
+model MaterialOrder {
+  id        String @id @default(cuid())
+  tenantId  Int    @default(1)
+  projectId String
+  vendorId  String
+  itemId    String
+
+  orderDate            DateTime            @db.Date
+  expectedDeliveryDate DateTime?           @db.Date
+  quantityOrdered      Decimal             @db.Decimal(14, 3)
+  rate                 Decimal?            @db.Decimal(14, 2)
+  amount               Decimal?            @db.Decimal(14, 2)
+  status               MaterialOrderStatus @default(ORDERED)
+  stageName            String?
+  reference            String?
+  remarks              String?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  vendor  Vendor  @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  item    Item    @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  receipts MaterialReceipt[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, projectId, orderDate])
+  @@index([tenantId, vendorId, orderDate])
+  @@index([tenantId, itemId, orderDate])
+  @@index([tenantId, status])
+}
+
+model MaterialReceipt {
+  id        String @id @default(cuid())
+  tenantId  Int    @default(1)
+  projectId String
+  vendorId  String
+  itemId    String
+
+  materialOrderId   String?
+  purchaseInvoiceId String?
+  stockMovementId   String? @unique
+
+  receiptDate   DateTime @db.Date
+  challanNumber String?
+  quantity      Decimal  @db.Decimal(14, 3)
+  unitCost      Decimal? @db.Decimal(14, 2)
+  amount        Decimal? @db.Decimal(14, 2)
+  stageName     String?
+  vehicleNumber String?
+  remarks       String?
+
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  vendor          Vendor           @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  item            Item             @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  materialOrder   MaterialOrder?   @relation(fields: [materialOrderId], references: [id], onDelete: SetNull)
+  purchaseInvoice PurchaseInvoice? @relation(fields: [purchaseInvoiceId], references: [id], onDelete: SetNull)
+  stockMovement   StockMovement?   @relation(fields: [stockMovementId], references: [id], onDelete: SetNull)
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, projectId, receiptDate])
+  @@index([tenantId, vendorId, receiptDate])
+  @@index([tenantId, itemId, receiptDate])
+  @@index([tenantId, materialOrderId])
+  @@index([tenantId, purchaseInvoiceId])
 }
 
 model PurchaseInvoiceLine {
@@ -1083,23 +1175,23 @@ model ClientInvoice {
 }
 
 model Receipt {
-  id              String      @id @default(cuid())
-  tenantId        Int         @default(1)
-  clientInvoiceId String
-  transactionId   String?
+  id                    String         @id @default(cuid())
+  tenantId              Int            @default(1)
+  clientInvoiceId       String
+  transactionId         String?
   projectPaymentStageId String?
-  date            DateTime    @db.Date
-  amountReceived  Decimal     @db.Decimal(14, 2)
-  mode            PaymentMode
-  channel         Channel     @default(BANK)
-  reference       String?
-  tdsDeducted     Boolean     @default(false)
-  tdsAmount       Decimal?    @db.Decimal(14, 2)
-  remarks         String?
-  approvalStatus  ApprovalStatus @default(APPROVED)
+  date                  DateTime       @db.Date
+  amountReceived        Decimal        @db.Decimal(14, 2)
+  mode                  PaymentMode
+  channel               Channel        @default(BANK)
+  reference             String?
+  tdsDeducted           Boolean        @default(false)
+  tdsAmount             Decimal?       @db.Decimal(14, 2)
+  remarks               String?
+  approvalStatus        ApprovalStatus @default(APPROVED)
 
-  clientInvoice ClientInvoice @relation(fields: [clientInvoiceId], references: [id], onDelete: Cascade)
-  transaction   Transaction?  @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  clientInvoice       ClientInvoice        @relation(fields: [clientInvoiceId], references: [id], onDelete: Cascade)
+  transaction         Transaction?         @relation(fields: [transactionId], references: [id], onDelete: SetNull)
   projectPaymentStage ProjectPaymentStage? @relation(fields: [projectPaymentStageId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())

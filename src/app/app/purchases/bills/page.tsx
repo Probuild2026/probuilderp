@@ -66,6 +66,7 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
       approvalStatus: true,
       vendor: { select: { id: true, name: true } },
       project: { select: { id: true, name: true } },
+      _count: { select: { materialReceipts: true } },
     },
   });
 
@@ -180,13 +181,14 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead className="text-right">Paid</TableHead>
                 <TableHead className="text-right">Balance</TableHead>
+                <TableHead className="text-right">Deliveries</TableHead>
                 <TableHead className="text-right">Open</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {bills.length === 0 ? (
                 <TableEmptyState
-                  colSpan={10}
+                  colSpan={11}
                   title="No bills matched this view"
                   description="Try clearing the search or widening the approval and date filters."
                 />
@@ -218,6 +220,7 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
                       <TableCell className="text-right tabular-nums">{formatINR(total)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(paidGross)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(balance)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{bill._count.materialReceipts}</TableCell>
                       <TableCell className="text-right">
                         <Button asChild size="sm" variant={balance > 1 ? "secondary" : "outline"}>
                           <Link href={`/app/purchases/bills/${bill.id}`}>{balance > 1 ? "Review" : "View"}</Link>

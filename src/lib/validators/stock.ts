@@ -9,8 +9,8 @@ export const stockMovementCreateSchema = z.object({
   direction: stockDirectionSchema,
   quantity: z.coerce.number().positive(),
   unitCost: z.coerce.number().nonnegative().optional(),
+  stageName: z.string().optional(),
   remarks: z.string().optional(),
 });
 
 export type StockMovementCreateInput = z.input<typeof stockMovementCreateSchema>;
-

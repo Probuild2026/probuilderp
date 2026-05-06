@@ -70,6 +70,7 @@ export function NewMovementDialog({
       direction: "IN",
       quantity: 1,
       unitCost: undefined,
+      stageName: "",
       remarks: "",
     },
   });
@@ -93,6 +94,7 @@ export function NewMovementDialog({
           projectId: defaultProjectId || values.projectId,
           quantity: 1,
           unitCost: undefined,
+          stageName: "",
           remarks: "",
         });
       } catch (e) {
@@ -249,6 +251,20 @@ export function NewMovementDialog({
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="stageName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Stage / usage area</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Foundation, slab, plastering, site store..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}

@@ -27,6 +27,7 @@ const createPurchaseInvoiceSchema = z
     igst: z.coerce.number().min(0).optional(),
     total: z.coerce.number().min(0),
     note: z.string().max(2000).optional(),
+    materialReceiptIds: z.array(z.string().min(1)).optional(),
     attachments: z
       .array(
         z.object({
@@ -100,6 +101,21 @@ export async function createPurchaseInvoice(input: unknown): Promise<ActionResul
             gstType: parsed.data.gstType,
           });
 
+    const receiptIds = parsed.data.materialReceiptIds ?? [];
+    if (receiptIds.length > 0) {
+      const receiptCount = await prisma.materialReceipt.count({
+        where: {
+          tenantId: session.user.tenantId,
+          id: { in: receiptIds },
+          vendorId: parsed.data.vendorId,
+          projectId: parsed.data.projectId,
+        },
+      });
+      if (receiptCount !== receiptIds.length) {
+        return { ok: false, error: { code: "VALIDATION", message: "One or more selected material deliveries do not match this bill." } };
+      }
+    }
+
     const created = await prisma.purchaseInvoice.create({
       data: {
         tenantId: session.user.tenantId,
@@ -119,6 +135,17 @@ export async function createPurchaseInvoice(input: unknown): Promise<ActionResul
       },
       select: { id: true },
     });
+    if (receiptIds.length > 0) {
+      await prisma.materialReceipt.updateMany({
+        where: {
+          tenantId: session.user.tenantId,
+          id: { in: receiptIds },
+          vendorId: parsed.data.vendorId,
+          projectId: parsed.data.projectId,
+        },
+        data: { purchaseInvoiceId: created.id },
+      });
+    }
     if (parsed.data.attachments?.length) {
       await prisma.attachment.createMany({
         data: parsed.data.attachments.map((attachment) => ({
@@ -147,10 +174,12 @@ export async function createPurchaseInvoice(input: unknown): Promise<ActionResul
         vendorId: parsed.data.vendorId,
         projectId: parsed.data.projectId,
         total: parsed.data.total,
+        materialReceiptIds: receiptIds,
         attachments: parsed.data.attachments?.length ?? 0,
       },
     });
     revalidatePath("/app/purchases/bills");
+    revalidatePath("/app/purchases/materials");
     return { ok: true, data: created };
   } catch {
     return unknownError("Failed to create bill.");
@@ -178,6 +207,21 @@ export async function updatePurchaseInvoice(input: unknown): Promise<ActionResul
             gstType: parsed.data.gstType,
           });
 
+    const receiptIds = parsed.data.materialReceiptIds ?? [];
+    if (receiptIds.length > 0) {
+      const receiptCount = await prisma.materialReceipt.count({
+        where: {
+          tenantId: session.user.tenantId,
+          id: { in: receiptIds },
+          vendorId: parsed.data.vendorId,
+          projectId: parsed.data.projectId,
+        },
+      });
+      if (receiptCount !== receiptIds.length) {
+        return { ok: false, error: { code: "VALIDATION", message: "One or more selected material deliveries do not match this bill." } };
+      }
+    }
+
     const res = await prisma.purchaseInvoice.updateMany({
       where: { tenantId: session.user.tenantId, id: parsed.data.id },
       data: {
@@ -195,6 +239,17 @@ export async function updatePurchaseInvoice(input: unknown): Promise<ActionResul
       },
     });
     if (res.count === 0) return { ok: false, error: { code: "NOT_FOUND", message: "Bill not found." } };
+    if (receiptIds.length > 0) {
+      await prisma.materialReceipt.updateMany({
+        where: {
+          tenantId: session.user.tenantId,
+          id: { in: receiptIds },
+          vendorId: parsed.data.vendorId,
+          projectId: parsed.data.projectId,
+        },
+        data: { purchaseInvoiceId: parsed.data.id },
+      });
+    }
     if (parsed.data.attachments?.length) {
       await prisma.attachment.createMany({
         data: parsed.data.attachments.map((attachment) => ({
@@ -223,11 +278,13 @@ export async function updatePurchaseInvoice(input: unknown): Promise<ActionResul
         vendorId: parsed.data.vendorId,
         projectId: parsed.data.projectId,
         total: parsed.data.total,
+        materialReceiptIds: receiptIds,
         attachments: parsed.data.attachments?.length ?? 0,
       },
     });
     revalidatePath("/app/purchases/bills");
     revalidatePath(`/app/purchases/bills/${parsed.data.id}`);
+    revalidatePath("/app/purchases/materials");
     return { ok: true, data: { id: parsed.data.id } };
   } catch {
     return unknownError("Failed to update bill.");

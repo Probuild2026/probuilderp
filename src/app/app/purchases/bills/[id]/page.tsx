@@ -31,6 +31,12 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
     include: {
       vendor: { select: { id: true, name: true } },
       project: { select: { id: true, name: true } },
+      materialReceipts: {
+        orderBy: [{ receiptDate: "desc" }, { createdAt: "desc" }],
+        include: {
+          item: { select: { name: true, unit: true } },
+        },
+      },
     },
   });
   if (!bill) notFound();
@@ -112,7 +118,7 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
         <MetricCard label="Bill total" value={formatINR(total)} />
         <MetricCard label="Payments recorded" value={formatINR(paid)} />
         <MetricCard label="Outstanding" value={formatINR(balance)} badge={isSettled ? "Settled" : undefined} />
-        <MetricCard label="Project" value={bill.project.name} />
+        <MetricCard label="Deliveries linked" value={String(bill.materialReceipts.length)} />
       </section>
 
       <Card>
@@ -149,6 +155,42 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
                 projects={projects}
                 vendors={vendors}
               />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="border-b border-border/60">
+              <CardTitle className="flex items-center justify-between gap-3 text-base">
+                <span>Material deliveries</span>
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/app/purchases/materials">Open materials</Link>
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-6">
+              {bill.materialReceipts.length === 0 ? (
+                <InlineEmptyState
+                  title="No deliveries linked"
+                  description="Link delivery challans to this bill from the material tracking page, or create the bill directly from an unbilled delivery."
+                />
+              ) : (
+                bill.materialReceipts.map((receipt) => (
+                  <div key={receipt.id} className="rounded-[18px] border border-border/60 bg-background/70 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">{receipt.item.name}</div>
+                        <div className="mt-1 truncate text-xs text-muted-foreground">
+                          {dateOnly(receipt.receiptDate)} • Challan {receipt.challanNumber ?? "—"} • {receipt.stageName ?? "No stage"}
+                        </div>
+                      </div>
+                      <div className="text-right text-sm font-semibold tabular-nums">
+                        {Number(receipt.quantity).toLocaleString("en-IN", { maximumFractionDigits: 3 })}
+                        {receipt.item.unit ? ` ${receipt.item.unit}` : ""}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
         </div>

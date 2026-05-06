@@ -4,14 +4,24 @@ import { redirect } from "next/navigation";
 
 import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { Button } from "@/components/ui/button";
+import { getSingleSearchParam } from "@/lib/date-range";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
 import { BillForm } from "../_components/bill-form";
 
-export default async function NewBillPage() {
+export default async function NewBillPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/login");
+
+  const sp = (await searchParams) ?? {};
+  const receiptId = getSingleSearchParam(sp, "receiptId");
+  const queryVendorId = getSingleSearchParam(sp, "vendorId");
+  const queryProjectId = getSingleSearchParam(sp, "projectId");
 
   const [projects, vendors] = await Promise.all([
     prisma.project.findMany({
@@ -28,7 +38,23 @@ export default async function NewBillPage() {
     }),
   ]);
 
+  const linkedReceipt = receiptId
+    ? await prisma.materialReceipt.findFirst({
+        where: { tenantId: session.user.tenantId, id: receiptId },
+        select: {
+          id: true,
+          vendorId: true,
+          projectId: true,
+          item: { select: { name: true } },
+          receiptDate: true,
+          challanNumber: true,
+        },
+      })
+    : null;
+
   const today = new Date().toISOString().slice(0, 10);
+  const initialVendorId = linkedReceipt?.vendorId ?? (vendors.some((vendor) => vendor.id === queryVendorId) ? queryVendorId : undefined);
+  const initialProjectId = linkedReceipt?.projectId ?? (projects.some((project) => project.id === queryProjectId) ? queryProjectId : undefined);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
@@ -49,7 +75,8 @@ export default async function NewBillPage() {
             tenantId={session.user.tenantId}
             vendors={vendors}
             projects={projects}
-            initialValues={{ invoiceDate: today }}
+            initialValues={{ invoiceDate: today, vendorId: initialVendorId, projectId: initialProjectId }}
+            materialReceiptIds={linkedReceipt ? [linkedReceipt.id] : []}
           />
         </div>
         <ModuleCheatSheet

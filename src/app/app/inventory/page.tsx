@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth/next";
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getSelectedProjectId } from "@/lib/project-filter";
@@ -49,6 +50,23 @@ export default async function InventoryPage({
         by: ["itemId", "direction"],
         where: { tenantId: session.user.tenantId, projectId: activeProjectId },
         _sum: { quantity: true },
+      })
+    : [];
+  const recentMovements = activeProjectId
+    ? await prisma.stockMovement.findMany({
+        where: { tenantId: session.user.tenantId, projectId: activeProjectId },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        take: 20,
+        select: {
+          id: true,
+          date: true,
+          direction: true,
+          quantity: true,
+          stageName: true,
+          referenceType: true,
+          remarks: true,
+          item: { select: { name: true, unit: true } },
+        },
       })
     : [];
 
@@ -127,6 +145,52 @@ export default async function InventoryPage({
           </TableBody>
           </Table>
         </div>
+      ) : null}
+
+      {activeProjectId ? (
+        <Card>
+          <CardHeader className="border-b border-border/60">
+            <CardTitle className="text-base">Recent stock movements</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Item</TableHead>
+                  <TableHead>Direction</TableHead>
+                  <TableHead>Stage / area</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead className="text-right">Quantity</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recentMovements.map((movement) => (
+                  <TableRow key={movement.id}>
+                    <TableCell>{movement.date.toISOString().slice(0, 10)}</TableCell>
+                    <TableCell className="font-medium">{movement.item.name}</TableCell>
+                    <TableCell>
+                      <Badge variant={movement.direction === "IN" ? "secondary" : "outline"}>{movement.direction}</Badge>
+                    </TableCell>
+                    <TableCell>{movement.stageName ?? "-"}</TableCell>
+                    <TableCell>{movement.referenceType.replace(/_/g, " ")}</TableCell>
+                    <TableCell className="text-right">
+                      {Number(movement.quantity).toFixed(3)}
+                      {movement.item.unit ? ` ${movement.item.unit}` : ""}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {recentMovements.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                      No stock movements yet.
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       ) : null}
     </div>
   );
