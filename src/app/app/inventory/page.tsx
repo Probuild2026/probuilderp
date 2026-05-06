@@ -66,7 +66,7 @@ export default async function InventoryPage({
       <PageHeader
         title="Inventory (Project-wise)"
         description="Material balances per project from stock movements."
-        actions={<NewMovementDialog projects={projects} items={items} />}
+        actions={<NewMovementDialog projects={projects} items={items} selectedProjectId={activeProjectId || undefined} />}
         filters={
           <form className="flex flex-wrap items-end gap-3" action="/app/inventory" method="get">
             <div className="text-sm text-muted-foreground">

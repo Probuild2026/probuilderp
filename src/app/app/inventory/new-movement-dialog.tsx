@@ -1,8 +1,9 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMemo, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -30,21 +31,40 @@ import { createStockMovement } from "./actions";
 
 type Option = { id: string; name: string };
 
+async function showProjectInInventory(projectId: string) {
+  try {
+    const res = await fetch("/api/ui/project", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ projectId }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export function NewMovementDialog({
   projects,
   items,
+  selectedProjectId,
 }: {
   projects: Option[];
   items: Option[];
+  selectedProjectId?: string;
 }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const selectedProject = selectedProjectId ? projects.find((project) => project.id === selectedProjectId) : undefined;
+  const defaultProjectId = selectedProject?.id ?? projects[0]?.id ?? "";
 
   const form = useForm<StockMovementCreateInput>({
     resolver: zodResolver(stockMovementCreateSchema),
     defaultValues: {
-      projectId: projects[0]?.id ?? "",
+      projectId: defaultProjectId,
       itemId: items[0]?.id ?? "",
       date: today,
       direction: "IN",
@@ -54,11 +74,27 @@ export function NewMovementDialog({
     },
   });
 
+  useEffect(() => {
+    if (defaultProjectId) {
+      form.setValue("projectId", defaultProjectId, { shouldDirty: false });
+    }
+  }, [defaultProjectId, form]);
+
   function onSubmit(values: StockMovementCreateInput) {
     startTransition(async () => {
       try {
         await createStockMovement(values);
-        toast.success("Stock movement saved.");
+        const projectIsVisible = values.projectId === selectedProjectId || (await showProjectInInventory(values.projectId));
+        toast.success(projectIsVisible ? "Stock movement saved." : "Stock movement saved. Switch to its project to see it.");
+        router.refresh();
+        setOpen(false);
+        form.reset({
+          ...values,
+          projectId: defaultProjectId || values.projectId,
+          quantity: 1,
+          unitCost: undefined,
+          remarks: "",
+        });
       } catch (e) {
         toast.error("Failed to save stock movement.");
         console.error(e);
@@ -67,7 +103,7 @@ export function NewMovementDialog({
   }
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>Add Stock Movement</Button>
       </DialogTrigger>
@@ -237,4 +273,3 @@ export function NewMovementDialog({
     </Dialog>
   );
 }
-
