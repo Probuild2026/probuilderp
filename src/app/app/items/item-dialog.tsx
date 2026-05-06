@@ -1,8 +1,9 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMemo, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,8 @@ export function ItemDialog({
   initial?: Partial<ItemUpsertFormValues> & { id?: string };
   triggerLabel: string;
 }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const defaultValues: ItemUpsertFormValues = useMemo(
@@ -67,6 +70,8 @@ export function ItemDialog({
       try {
         await upsertItem(values);
         toast.success(values.id ? "Item updated." : "Item created.");
+        setOpen(false);
+        router.refresh();
       } catch (e) {
         toast.error("Failed to save item.");
         console.error(e);
@@ -77,7 +82,7 @@ export function ItemDialog({
   const title = initial?.id ? "Edit Item/Service" : "Add Item/Service";
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant={initial?.id ? "outline" : "default"} size={initial?.id ? "sm" : "default"}>
           {triggerLabel}

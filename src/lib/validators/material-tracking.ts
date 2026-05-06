@@ -37,6 +37,20 @@ export const materialReceiptBillLinkSchema = z.object({
   purchaseInvoiceId: z.string().min(1, "Bill is required"),
 });
 
+export const materialOrderUpdateSchema = materialOrderCreateSchema.extend({
+  id: z.string().min(1),
+});
+
+export const materialReceiptUpdateSchema = materialReceiptCreateSchema.extend({
+  id: z.string().min(1),
+});
+
+export const materialRecordDeleteSchema = z.object({
+  id: z.string().min(1),
+});
+
 export type MaterialOrderCreateInput = z.input<typeof materialOrderCreateSchema>;
 export type MaterialReceiptCreateInput = z.input<typeof materialReceiptCreateSchema>;
 export type MaterialReceiptBillLinkInput = z.input<typeof materialReceiptBillLinkSchema>;
+export type MaterialOrderUpdateInput = z.input<typeof materialOrderUpdateSchema>;
+export type MaterialReceiptUpdateInput = z.input<typeof materialReceiptUpdateSchema>;

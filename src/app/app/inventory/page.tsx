@@ -12,6 +12,7 @@ import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 
 import { NewMovementDialog } from "./new-movement-dialog";
+import { MovementActions } from "./movement-actions";
 
 export default async function InventoryPage({
   searchParams,
@@ -41,6 +42,14 @@ export default async function InventoryPage({
     select: { id: true, name: true, unit: true },
     take: 200,
   });
+  const actionItems = q
+    ? await prisma.item.findMany({
+        where: { tenantId: session.user.tenantId, type: "MATERIAL" },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, unit: true },
+        take: 500,
+      })
+    : items;
 
   const activeProjectId = selectedProjectId || "";
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
@@ -59,9 +68,12 @@ export default async function InventoryPage({
         take: 20,
         select: {
           id: true,
+          projectId: true,
+          itemId: true,
           date: true,
           direction: true,
           quantity: true,
+          unitCost: true,
           stageName: true,
           referenceType: true,
           remarks: true,
@@ -162,6 +174,7 @@ export default async function InventoryPage({
                   <TableHead>Stage / area</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead className="text-right">Quantity</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -178,11 +191,29 @@ export default async function InventoryPage({
                       {Number(movement.quantity).toFixed(3)}
                       {movement.item.unit ? ` ${movement.item.unit}` : ""}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <MovementActions
+                        projects={projects}
+                        items={actionItems}
+                        movement={{
+                          id: movement.id,
+                          projectId: movement.projectId,
+                          itemId: movement.itemId,
+                          date: movement.date.toISOString().slice(0, 10),
+                          direction: movement.direction,
+                          quantity: Number(movement.quantity).toString(),
+                          unitCost: movement.unitCost == null ? "" : Number(movement.unitCost).toString(),
+                          stageName: movement.stageName ?? "",
+                          remarks: movement.remarks ?? "",
+                          locked: movement.referenceType === "MATERIAL_RECEIPT",
+                        }}
+                      />
+                    </TableCell>
                   </TableRow>
                 ))}
                 {recentMovements.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                    <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
                       No stock movements yet.
                     </TableCell>
                   </TableRow>

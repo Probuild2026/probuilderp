@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { deleteItem } from "./actions";
 
 export function DeleteItemButton({ id }: { id: string }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   return (
@@ -21,6 +23,7 @@ export function DeleteItemButton({ id }: { id: string }) {
           try {
             await deleteItem(id);
             toast.success("Item deleted.");
+            router.refresh();
           } catch (e) {
             toast.error("Failed to delete item (it may be referenced).");
             console.error(e);
@@ -32,4 +35,3 @@ export function DeleteItemButton({ id }: { id: string }) {
     </Button>
   );
 }
-

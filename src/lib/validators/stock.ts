@@ -13,4 +13,13 @@ export const stockMovementCreateSchema = z.object({
   remarks: z.string().optional(),
 });
 
+export const stockMovementUpdateSchema = stockMovementCreateSchema.extend({
+  id: z.string().min(1),
+});
+
+export const stockMovementDeleteSchema = z.object({
+  id: z.string().min(1),
+});
+
 export type StockMovementCreateInput = z.input<typeof stockMovementCreateSchema>;
+export type StockMovementUpdateInput = z.input<typeof stockMovementUpdateSchema>;

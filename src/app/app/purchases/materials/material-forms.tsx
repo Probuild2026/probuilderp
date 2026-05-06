@@ -5,7 +5,15 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { createMaterialOrder, createMaterialReceipt, linkMaterialReceiptToBill } from "@/app/actions/material-tracking";
+import {
+  createMaterialOrder,
+  createMaterialReceipt,
+  deleteMaterialOrder,
+  deleteMaterialReceipt,
+  linkMaterialReceiptToBill,
+  updateMaterialOrder,
+  updateMaterialReceipt,
+} from "@/app/actions/material-tracking";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,6 +35,35 @@ type OrderOption = {
   itemId: string;
   stageName?: string | null;
   rate?: number | null;
+};
+type MaterialOrderEditValue = {
+  id: string;
+  projectId: string;
+  vendorId: string;
+  itemId: string;
+  orderDate: string;
+  expectedDeliveryDate: string;
+  quantityOrdered: string;
+  rate: string;
+  stageName: string;
+  reference: string;
+  remarks: string;
+  receiptCount: number;
+};
+type MaterialReceiptEditValue = {
+  id: string;
+  projectId: string;
+  vendorId: string;
+  itemId: string;
+  materialOrderId: string;
+  purchaseInvoiceId: string;
+  receiptDate: string;
+  challanNumber: string;
+  quantity: string;
+  unitCost: string;
+  stageName: string;
+  vehicleNumber: string;
+  remarks: string;
 };
 export type BillOption = {
   id: string;
@@ -319,6 +356,272 @@ export function NewMaterialReceiptDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function MaterialOrderActions({
+  order,
+  projects,
+  vendors,
+  items,
+}: {
+  order: MaterialOrderEditValue;
+  projects: Option[];
+  vendors: Option[];
+  items: ItemOption[];
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <div className="inline-flex items-center justify-end gap-2">
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button size="sm" variant="outline">Edit</Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit material order</DialogTitle>
+            <DialogDescription>Update ordered quantity, vendor, project, expected delivery, or stage.</DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const form = event.currentTarget;
+              startTransition(async () => {
+                const res = await updateMaterialOrder({ id: order.id, ...formPayload(form) });
+                if (!res.ok) {
+                  toast.error(res.error.message);
+                  return;
+                }
+                toast.success("Material order updated.");
+                setOpen(false);
+                router.refresh();
+              });
+            }}
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Project">
+                <select name="projectId" defaultValue={order.projectId} required className="h-10 w-full rounded-md border bg-background px-3 text-sm">
+                  {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+                </select>
+              </Field>
+              <Field label="Vendor">
+                <select name="vendorId" defaultValue={order.vendorId} required className="h-10 w-full rounded-md border bg-background px-3 text-sm">
+                  {vendors.map((vendor) => <option key={vendor.id} value={vendor.id}>{vendor.name}</option>)}
+                </select>
+              </Field>
+              <Field label="Material">
+                <select name="itemId" defaultValue={order.itemId} required className="h-10 w-full rounded-md border bg-background px-3 text-sm">
+                  {items.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                      {item.unit ? ` (${item.unit})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Order date">
+                <Input name="orderDate" type="date" defaultValue={order.orderDate} required />
+              </Field>
+              <Field label="Expected delivery">
+                <Input name="expectedDeliveryDate" type="date" defaultValue={order.expectedDeliveryDate} />
+              </Field>
+              <Field label="Quantity ordered">
+                <Input name="quantityOrdered" type="number" inputMode="decimal" step="0.001" defaultValue={order.quantityOrdered} required />
+              </Field>
+              <Field label="Rate">
+                <Input name="rate" type="number" inputMode="decimal" step="0.01" defaultValue={order.rate} />
+              </Field>
+              <Field label="Reference">
+                <Input name="reference" defaultValue={order.reference} />
+              </Field>
+            </div>
+            <Field label="Stage / area">
+              <Input name="stageName" defaultValue={order.stageName} />
+            </Field>
+            <Field label="Remarks">
+              <Input name="remarks" defaultValue={order.remarks} />
+            </Field>
+            <div className="flex justify-end">
+              <Button type="submit" disabled={pending}>{pending ? "Saving..." : "Save"}</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <Button
+        size="sm"
+        variant="destructive"
+        disabled={pending}
+        onClick={() => {
+          const warning = order.receiptCount > 0
+            ? "This order has deliveries. Delete those deliveries first."
+            : "Delete this material order?";
+          if (!confirm(warning)) return;
+          startTransition(async () => {
+            const res = await deleteMaterialOrder({ id: order.id });
+            if (!res.ok) {
+              toast.error(res.error.message);
+              return;
+            }
+            toast.success("Material order deleted.");
+            router.refresh();
+          });
+        }}
+      >
+        Delete
+      </Button>
+    </div>
+  );
+}
+
+export function MaterialReceiptActions({
+  receipt,
+  projects,
+  vendors,
+  items,
+  orders,
+  bills,
+}: {
+  receipt: MaterialReceiptEditValue;
+  projects: Option[];
+  vendors: Option[];
+  items: ItemOption[];
+  orders: OrderOption[];
+  bills: BillOption[];
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [projectId, setProjectId] = useState(receipt.projectId);
+  const [vendorId, setVendorId] = useState(receipt.vendorId);
+  const [itemId, setItemId] = useState(receipt.itemId);
+  const [orderId, setOrderId] = useState(receipt.materialOrderId);
+  const matchingBills = bills.filter((bill) => bill.projectId === projectId && bill.vendorId === vendorId);
+
+  function applyOrder(nextOrderId: string) {
+    setOrderId(nextOrderId);
+    const order = orders.find((entry) => entry.id === nextOrderId);
+    if (!order) return;
+    setProjectId(order.projectId);
+    setVendorId(order.vendorId);
+    setItemId(order.itemId);
+  }
+
+  return (
+    <div className="inline-flex items-center justify-end gap-2">
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button size="sm" variant="outline">Edit</Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit material delivery</DialogTitle>
+            <DialogDescription>Updating delivery quantity or material also updates the linked stock IN movement.</DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const form = event.currentTarget;
+              startTransition(async () => {
+                const res = await updateMaterialReceipt({ id: receipt.id, ...formPayload(form) });
+                if (!res.ok) {
+                  toast.error(res.error.message);
+                  return;
+                }
+                toast.success("Material delivery updated.");
+                setOpen(false);
+                router.refresh();
+              });
+            }}
+          >
+            <Field label="Against order">
+              <select name="materialOrderId" value={orderId} onChange={(event) => applyOrder(event.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm">
+                <option value="">No linked order</option>
+                {orders.map((order) => <option key={order.id} value={order.id}>{order.label}</option>)}
+              </select>
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Project">
+                <select name="projectId" value={projectId} onChange={(event) => setProjectId(event.target.value)} required className="h-10 w-full rounded-md border bg-background px-3 text-sm">
+                  {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+                </select>
+              </Field>
+              <Field label="Vendor">
+                <select name="vendorId" value={vendorId} onChange={(event) => setVendorId(event.target.value)} required className="h-10 w-full rounded-md border bg-background px-3 text-sm">
+                  {vendors.map((vendor) => <option key={vendor.id} value={vendor.id}>{vendor.name}</option>)}
+                </select>
+              </Field>
+              <Field label="Material">
+                <select name="itemId" value={itemId} onChange={(event) => setItemId(event.target.value)} required className="h-10 w-full rounded-md border bg-background px-3 text-sm">
+                  {items.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                      {item.unit ? ` (${item.unit})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Delivery date">
+                <Input name="receiptDate" type="date" defaultValue={receipt.receiptDate} required />
+              </Field>
+              <Field label="Challan number">
+                <Input name="challanNumber" defaultValue={receipt.challanNumber} />
+              </Field>
+              <Field label="Quantity delivered">
+                <Input name="quantity" type="number" inputMode="decimal" step="0.001" defaultValue={receipt.quantity} required />
+              </Field>
+              <Field label="Unit cost">
+                <Input name="unitCost" type="number" inputMode="decimal" step="0.01" defaultValue={receipt.unitCost} />
+              </Field>
+              <Field label="Vehicle number">
+                <Input name="vehicleNumber" defaultValue={receipt.vehicleNumber} />
+              </Field>
+            </div>
+            <Field label="Bill link">
+              <select name="purchaseInvoiceId" defaultValue={receipt.purchaseInvoiceId} className="h-10 w-full rounded-md border bg-background px-3 text-sm">
+                <option value="">Unbilled for now</option>
+                {matchingBills.map((bill) => <option key={bill.id} value={bill.id}>{bill.label}</option>)}
+                {receipt.purchaseInvoiceId && !matchingBills.some((bill) => bill.id === receipt.purchaseInvoiceId) ? (
+                  <option value={receipt.purchaseInvoiceId}>Current linked bill</option>
+                ) : null}
+              </select>
+            </Field>
+            <Field label="Stage / area">
+              <Input name="stageName" defaultValue={receipt.stageName} />
+            </Field>
+            <Field label="Remarks">
+              <Input name="remarks" defaultValue={receipt.remarks} />
+            </Field>
+            <div className="flex justify-end">
+              <Button type="submit" disabled={pending}>{pending ? "Saving..." : "Save"}</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <Button
+        size="sm"
+        variant="destructive"
+        disabled={pending}
+        onClick={() => {
+          if (!confirm("Delete this delivery? This also removes the linked stock IN movement.")) return;
+          startTransition(async () => {
+            const res = await deleteMaterialReceipt({ id: receipt.id });
+            if (!res.ok) {
+              toast.error(res.error.message);
+              return;
+            }
+            toast.success("Material delivery deleted.");
+            router.refresh();
+          });
+        }}
+      >
+        Delete
+      </Button>
+    </div>
   );
 }
 

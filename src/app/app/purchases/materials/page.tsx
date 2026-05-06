@@ -18,6 +18,8 @@ import { prisma } from "@/server/db";
 
 import {
   LinkReceiptBillForm,
+  MaterialOrderActions,
+  MaterialReceiptActions,
   NewMaterialOrderDialog,
   NewMaterialReceiptDialog,
   type BillOption,
@@ -246,9 +248,7 @@ export default async function MaterialTrackingPage({ searchParams }: MaterialPag
   const deliveredThisView = receipts.reduce((acc, receipt) => acc + Number(receipt.quantity), 0);
   const orderedThisView = orders.reduce((acc, order) => acc + Number(order.quantityOrdered), 0);
 
-  const orderOptions = orders
-    .filter((order) => order.status !== "DELIVERED" && order.status !== "CANCELLED")
-    .map((order) => ({
+  const allOrderOptions = orders.map((order) => ({
       id: order.id,
       projectId: order.projectId,
       vendorId: order.vendorId,
@@ -257,6 +257,10 @@ export default async function MaterialTrackingPage({ searchParams }: MaterialPag
       rate: order.rate == null ? null : Number(order.rate),
       label: `${dateOnly(order.orderDate)} • ${order.item.name} • ${order.vendor.name} • ${qty(Number(order.quantityOrdered), order.item.unit)}`,
     }));
+  const orderOptions = allOrderOptions.filter((order) => {
+    const source = orders.find((entry) => entry.id === order.id);
+    return source?.status !== "DELIVERED" && source?.status !== "CANCELLED";
+  });
 
   return (
     <div className="w-full space-y-6 p-4 md:p-6">
@@ -367,11 +371,12 @@ export default async function MaterialTrackingPage({ searchParams }: MaterialPag
                     <TableHead className="text-right">Qty</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead>Bill</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {receipts.length === 0 ? (
-                    <TableEmptyState colSpan={9} title="No deliveries recorded" description="Record delivery challans to create stock IN and keep vendor billing traceable." />
+                    <TableEmptyState colSpan={10} title="No deliveries recorded" description="Record delivery challans to create stock IN and keep vendor billing traceable." />
                   ) : (
                     receipts.map((receipt) => {
                       const billBalance = receipt.purchaseInvoiceId ? (billBalanceById.get(receipt.purchaseInvoiceId) ?? 0) : 0;
@@ -396,6 +401,30 @@ export default async function MaterialTrackingPage({ searchParams }: MaterialPag
                             ) : (
                               <LinkReceiptBillForm receiptId={receipt.id} projectId={receipt.projectId} vendorId={receipt.vendorId} bills={openBills} />
                             )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <MaterialReceiptActions
+                              projects={projects}
+                              vendors={vendors}
+                              items={items}
+                              orders={allOrderOptions}
+                              bills={openBills}
+                              receipt={{
+                                id: receipt.id,
+                                projectId: receipt.projectId,
+                                vendorId: receipt.vendorId,
+                                itemId: receipt.itemId,
+                                materialOrderId: receipt.materialOrderId ?? "",
+                                purchaseInvoiceId: receipt.purchaseInvoiceId ?? "",
+                                receiptDate: dateOnly(receipt.receiptDate),
+                                challanNumber: receipt.challanNumber ?? "",
+                                quantity: Number(receipt.quantity).toString(),
+                                unitCost: receipt.unitCost == null ? "" : Number(receipt.unitCost).toString(),
+                                stageName: receipt.stageName ?? "",
+                                vehicleNumber: receipt.vehicleNumber ?? "",
+                                remarks: receipt.remarks ?? "",
+                              }}
+                            />
                           </TableCell>
                         </TableRow>
                       );
@@ -452,11 +481,12 @@ export default async function MaterialTrackingPage({ searchParams }: MaterialPag
                   <TableHead className="text-right">Ordered</TableHead>
                   <TableHead className="text-right">Delivered</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {orders.length === 0 ? (
-                  <TableEmptyState colSpan={9} title="No material orders recorded" description="Add an order when material is requested from a vendor before the delivery arrives." />
+                  <TableEmptyState colSpan={10} title="No material orders recorded" description="Add an order when material is requested from a vendor before the delivery arrives." />
                 ) : (
                   orders.map((order) => {
                     const delivered = order.receipts.reduce((acc, receipt) => acc + Number(receipt.quantity), 0);
@@ -472,6 +502,27 @@ export default async function MaterialTrackingPage({ searchParams }: MaterialPag
                         <TableCell className="text-right tabular-nums">{qty(delivered, order.item.unit)}</TableCell>
                         <TableCell>
                           <Badge variant={statusTone(order.status)}>{order.status.replace(/_/g, " ")}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <MaterialOrderActions
+                            projects={projects}
+                            vendors={vendors}
+                            items={items}
+                            order={{
+                              id: order.id,
+                              projectId: order.projectId,
+                              vendorId: order.vendorId,
+                              itemId: order.itemId,
+                              orderDate: dateOnly(order.orderDate),
+                              expectedDeliveryDate: order.expectedDeliveryDate ? dateOnly(order.expectedDeliveryDate) : "",
+                              quantityOrdered: Number(order.quantityOrdered).toString(),
+                              rate: order.rate == null ? "" : Number(order.rate).toString(),
+                              stageName: order.stageName ?? "",
+                              reference: order.reference ?? "",
+                              remarks: order.remarks ?? "",
+                              receiptCount: order.receipts.length,
+                            }}
+                          />
                         </TableCell>
                       </TableRow>
                     );
