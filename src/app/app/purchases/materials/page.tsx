@@ -245,8 +245,8 @@ export default async function MaterialTrackingPage({ searchParams }: MaterialPag
     .slice(0, 24);
 
   const unbilledReceipts = receipts.filter((receipt) => !receipt.purchaseInvoiceId);
-  const deliveredThisView = receipts.reduce((acc, receipt) => acc + Number(receipt.quantity), 0);
-  const orderedThisView = orders.reduce((acc, order) => acc + Number(order.quantityOrdered), 0);
+  const deliveredThisView = receipts.redreceiptAgg.reduce((acc, row) => acc + Number(row._sum.quantity ?? 0), 0);
+  const orderedThisView = orderAgg.reduce((acc, row) => acc + Number(row._sum.quantityOrdered ?? 0), 0);
 
   const allOrderOptions = orders.map((order) => ({
       id: order.id,
@@ -488,7 +488,7 @@ export default async function MaterialTrackingPage({ searchParams }: MaterialPag
                 {orders.length === 0 ? (
                   <TableEmptyState colSpan={10} title="No material orders recorded" description="Add an order when material is requested from a vendor before the delivery arrives." />
                 ) : (
-                  orders.map((order) => {
+                  orders.filter(o => o.status !== "DELIVERED" && o.status !== "CANCELLED").map((order) => {
                     const delivered = order.receipts.reduce((acc, receipt) => acc + Number(receipt.quantity), 0);
                     return (
                       <TableRow key={order.id}>
