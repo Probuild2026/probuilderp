@@ -245,7 +245,7 @@ export default async function MaterialTrackingPage({ searchParams }: MaterialPag
     .slice(0, 24);
 
   const unbilledReceipts = receipts.filter((receipt) => !receipt.purchaseInvoiceId);
-  const deliveredThisView = receipts.redreceiptAgg.reduce((acc, row) => acc + Number(row._sum.quantity ?? 0), 0);
+  const deliveredThisView = receiptAgg.reduce((acc, row) => acc + Number(row._sum.quantity ?? 0), 0);
   const orderedThisView = orderAgg.reduce((acc, row) => acc + Number(row._sum.quantityOrdered ?? 0), 0);
 
   const allOrderOptions = orders.map((order) => ({

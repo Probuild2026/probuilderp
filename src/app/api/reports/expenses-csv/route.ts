@@ -1,11 +1,12 @@
 import { getServerSession } from "next-auth/next";
 import { NextResponse } from "next/server";
 
+import { parseApprovalStatus } from "@/lib/approval-status";
 import { getSingleSearchParam } from "@/lib/date-range";
 import { createTabularExportResponse, type ExportFormat } from "@/lib/tabular-export";
 import { getSelectedProjectId } from "@/lib/project-filter";
 import { safeWriteAuditLog } from "@/server/audit";
-import { buildMonthlyOutflowDataset } from "@/server/exports/module-datasets";
+import { buildMonthlyOutflowDataset, isMonthlyOutflowEntryType } from "@/server/exports/module-datasets";
 import { authOptions } from "@/server/auth";
 
 export const runtime = "nodejs";
@@ -25,11 +26,18 @@ export async function GET(request: Request) {
   }
   const formatRaw = getSingleSearchParam(url.searchParams, "format");
   const format: ExportFormat = isExportFormat(formatRaw) ? formatRaw : "csv";
+  const q = getSingleSearchParam(url.searchParams, "q");
+  const approval = parseApprovalStatus(getSingleSearchParam(url.searchParams, "approval"));
+  const entryTypeRaw = getSingleSearchParam(url.searchParams, "entryType");
+  const entryType = isMonthlyOutflowEntryType(entryTypeRaw) ? entryTypeRaw : undefined;
 
   const dataset = await buildMonthlyOutflowDataset({
     tenantId: session.user.tenantId,
     projectId: await getSelectedProjectId(),
     month,
+    q,
+    approval,
+    entryType,
   });
 
   await safeWriteAuditLog({

@@ -1,7 +1,7 @@
 import { type ApprovalStatus, Prisma } from "@prisma/client";
 
 import { buildInclusiveDateRange, buildMonthInterval, formatMonthLabel } from "@/lib/date-range";
-import { type TabularDataset } from "@/lib/tabular-export";
+import { type TabularDataset, type TabularRow } from "@/lib/tabular-export";
 import { getCashLedgerRows } from "@/server/cash-ledger";
 import { prisma } from "@/server/db";
 
@@ -23,6 +23,39 @@ type ModuleFilters = {
   approval?: ApprovalStatus;
 };
 
+export const monthlyOutflowEntryTypes = ["BILL_BOOKED", "EXPENSE_ADDED", "WAGE_SHEET", "PAYMENT_MADE"] as const;
+
+export type MonthlyOutflowEntryType = (typeof monthlyOutflowEntryTypes)[number];
+
+export const monthlyOutflowEntryTypeLabels: Record<MonthlyOutflowEntryType, string> = {
+  BILL_BOOKED: "Bills booked",
+  EXPENSE_ADDED: "Expenses added",
+  WAGE_SHEET: "Wage sheets",
+  PAYMENT_MADE: "Payments made",
+};
+
+export type MonthlyOutflowFilters = {
+  tenantId: number;
+  projectId?: string;
+  month: string;
+  q?: string;
+  approval?: ApprovalStatus;
+  entryType?: MonthlyOutflowEntryType;
+};
+
+export type MonthlyOutflowRow = {
+  id: string;
+  entryType: MonthlyOutflowEntryType;
+  editHref: string;
+  sortDate: Date;
+  createdAt: Date;
+  values: TabularRow;
+};
+
+export function isMonthlyOutflowEntryType(value?: string): value is MonthlyOutflowEntryType {
+  return monthlyOutflowEntryTypes.includes(value as MonthlyOutflowEntryType);
+}
+
 function dateOnly(value: Date) {
   return value.toISOString().slice(0, 10);
 }
@@ -33,6 +66,15 @@ function combinedText(...parts: Array<string | null | undefined>) {
 
 function numberValue(value: Prisma.Decimal | number | null | undefined) {
   return Number(value ?? 0);
+}
+
+function normalizedSearch(value?: string) {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+function rowMatchesSearch(row: MonthlyOutflowRow, query: string) {
+  if (!query) return true;
+  return Object.values(row.values).some((value) => String(value ?? "").toLowerCase().includes(query));
 }
 
 async function buildTransactionsDataset(filters: ModuleFilters): Promise<TabularDataset> {
@@ -556,17 +598,15 @@ export async function buildModuleDataset(module: ExportModule, filters: ModuleFi
   return buildBillsDataset(filters);
 }
 
-export async function buildMonthlyOutflowDataset({
+export async function buildMonthlyOutflowRows({
   tenantId,
   projectId,
   month,
-}: {
-  tenantId: number;
-  projectId?: string;
-  month: string;
-}): Promise<TabularDataset> {
+  q,
+  approval,
+  entryType,
+}: MonthlyOutflowFilters): Promise<MonthlyOutflowRow[]> {
   const { start, end } = buildMonthInterval(month);
-  const monthLabel = formatMonthLabel(month);
 
   const [bills, expenses, wages, payments] = await Promise.all([
     prisma.purchaseInvoice.findMany({
@@ -574,6 +614,7 @@ export async function buildMonthlyOutflowDataset({
         tenantId,
         invoiceDate: { gte: start, lt: end },
         ...(projectId ? { projectId } : {}),
+        ...(approval ? { approvalStatus: approval } : {}),
       },
       include: {
         vendor: { select: { name: true } },
@@ -586,6 +627,7 @@ export async function buildMonthlyOutflowDataset({
         tenantId,
         date: { gte: start, lt: end },
         ...(projectId ? { projectId } : {}),
+        ...(approval ? { approvalStatus: approval } : {}),
       },
       include: {
         project: { select: { name: true } },
@@ -599,6 +641,7 @@ export async function buildMonthlyOutflowDataset({
         tenantId,
         date: { gte: start, lt: end },
         ...(projectId ? { projectId } : {}),
+        ...(approval ? { approvalStatus: approval } : {}),
       },
       include: {
         project: { select: { name: true } },
@@ -612,6 +655,7 @@ export async function buildMonthlyOutflowDataset({
         vendorId: { not: null },
         date: { gte: start, lt: end },
         ...(projectId ? { projectId } : {}),
+        ...(approval ? { approvalStatus: approval } : {}),
       },
       include: {
         project: { select: { name: true } },
@@ -657,8 +701,11 @@ export async function buildMonthlyOutflowDataset({
   const paymentCountByBillId = new Map(billPayments.map((row) => [row.documentId, row._count._all]));
   const billCountByPaymentId = new Map(paymentBills.map((row) => [row.transactionId, row._count._all]));
 
-  const rows = [
+  const rows: MonthlyOutflowRow[] = [
     ...bills.map((bill) => ({
+      id: bill.id,
+      entryType: "BILL_BOOKED" as const,
+      editHref: `/app/purchases/bills/${bill.id}`,
       sortDate: bill.invoiceDate,
       createdAt: bill.createdAt,
       values: {
@@ -684,6 +731,9 @@ export async function buildMonthlyOutflowDataset({
       },
     })),
     ...expenses.map((expense) => ({
+      id: expense.id,
+      entryType: "EXPENSE_ADDED" as const,
+      editHref: `/app/expenses/${expense.id}`,
       sortDate: expense.date,
       createdAt: expense.createdAt,
       values: {
@@ -709,6 +759,9 @@ export async function buildMonthlyOutflowDataset({
       },
     })),
     ...wages.map((sheet) => ({
+      id: sheet.id,
+      entryType: "WAGE_SHEET" as const,
+      editHref: `/app/wages/${sheet.id}`,
       sortDate: sheet.date,
       createdAt: sheet.createdAt,
       values: {
@@ -737,6 +790,9 @@ export async function buildMonthlyOutflowDataset({
       const cash = numberValue(payment.amount);
       const tds = numberValue(payment.tdsAmount);
       return {
+        id: payment.id,
+        entryType: "PAYMENT_MADE" as const,
+        editHref: `/app/purchases/payments-made/${payment.id}`,
         sortDate: payment.date,
         createdAt: payment.createdAt,
         values: {
@@ -768,9 +824,17 @@ export async function buildMonthlyOutflowDataset({
     return left.createdAt.getTime() - right.createdAt.getTime();
   });
 
+  const query = normalizedSearch(q);
+  return rows.filter((row) => (!entryType || row.entryType === entryType) && rowMatchesSearch(row, query));
+}
+
+export async function buildMonthlyOutflowDataset(filters: MonthlyOutflowFilters): Promise<TabularDataset> {
+  const monthLabel = formatMonthLabel(filters.month);
+  const rows = await buildMonthlyOutflowRows(filters);
+
   return {
     title: `Monthly Outflow Register - ${monthLabel}`,
-    filenameBase: `monthly-outflows-${month}`,
+    filenameBase: `monthly-outflows-${filters.month}`,
     columns: [
       { key: "entryType", label: "EntryType", width: 16 },
       { key: "approvalStatus", label: "Approval", width: 18 },
