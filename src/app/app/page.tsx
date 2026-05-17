@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
-import { AlertTriangle, ArrowRight, BriefcaseBusiness, CircleDollarSign, Clock3, FileWarning, HandCoins, Landmark, Plus, ReceiptText, WalletCards } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bell, BriefcaseBusiness, CircleDollarSign, Clock3, FileWarning, HandCoins, Landmark, Plus, ReceiptText, WalletCards } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import type { ComponentType } from "react";
 
@@ -43,6 +43,20 @@ function pct(value: number, total: number) {
   return Math.max(0, Math.min(100, Math.round((value / total) * 100)));
 }
 
+type PendingTdsMonth = {
+  month: string; // "YYYY-MM"
+  totalPending: number;
+  deadline: string; // "YYYY-MM-DD"
+  isOverdue: boolean;
+};
+
+type ComplianceAlert = {
+  label: string;
+  detail: string;
+  tone: "danger" | "warning" | "info";
+  href: string;
+};
+
 type ProjectHealthRow = {
   id: string;
   name: string;
@@ -62,6 +76,7 @@ export default async function AppHomePage() {
   const from = startOfMonth(today);
 
   let dbUnavailable = false;
+  let complianceAlerts: ComplianceAlert[] = [];
   let metrics = {
     cashInMonth: 0,
     billValueMonth: 0,
@@ -75,6 +90,7 @@ export default async function AppHomePage() {
     pendingWages: 0,
     activeProjects: 0,
     totalProjects: 0,
+    lowStockCount: 0,
   };
   let projectHealth: ProjectHealthRow[] = [];
   let recentInvoices: Array<{
@@ -101,6 +117,9 @@ export default async function AppHomePage() {
       stageRows,
       receiptAllocations,
       purchaseAllocations,
+      pendingTdsTxns,
+      reorderItems,
+      allStockMovements,
     ] = await Promise.all([
       prisma.receipt.aggregate({
         where: { tenantId: session.user.tenantId, date: { gte: from, lte: today } },
@@ -182,6 +201,21 @@ export default async function AppHomePage() {
         where: { tenantId: session.user.tenantId, documentType: "PURCHASE_INVOICE" },
         _sum: { grossAmount: true },
       }),
+      prisma.transaction.findMany({
+        where: { tenantId: session.user.tenantId, tdsAmount: { gt: 0 }, tdsDepositStatus: "PENDING" },
+        select: { date: true, tdsAmount: true },
+        orderBy: { date: "desc" },
+        take: 200,
+      }),
+      prisma.item.findMany({
+        where: { tenantId: session.user.tenantId, type: "MATERIAL", reorderLevel: { not: null } },
+        select: { id: true, reorderLevel: true },
+      }),
+      prisma.stockMovement.groupBy({
+        by: ["itemId", "direction"],
+        where: { tenantId: session.user.tenantId },
+        _sum: { quantity: true },
+      }),
     ]);
 
     const receiptMap = new Map(receiptAllocations.map((row) => [row.documentId, Number(row._sum.grossAmount ?? 0)]));
@@ -237,6 +271,55 @@ export default async function AppHomePage() {
       .filter((invoice) => invoice.outstanding > 1)
       .slice(0, 6);
 
+    // Low-stock count
+    const stockByItem = new Map<string, { inQty: number; outQty: number }>();
+    for (const m of allStockMovements) {
+      const entry = stockByItem.get(m.itemId) ?? { inQty: 0, outQty: 0 };
+      const sum = Number(m._sum.quantity?.toString() ?? 0);
+      if (m.direction === "IN") entry.inQty += sum;
+      else entry.outQty += sum;
+      stockByItem.set(m.itemId, entry);
+    }
+    const lowStockCount = reorderItems.filter((item) => {
+      const entry = stockByItem.get(item.id) ?? { inQty: 0, outQty: 0 };
+      const balance = entry.inQty - entry.outQty;
+      return balance <= Number(item.reorderLevel);
+    }).length;
+
+    // TDS compliance alerts
+    const pendingTdsByMonth = new Map<string, number>();
+    for (const txn of pendingTdsTxns) {
+      const month = txn.date.toISOString().slice(0, 7);
+      pendingTdsByMonth.set(month, (pendingTdsByMonth.get(month) ?? 0) + Number(txn.tdsAmount));
+    }
+    const pendingTdsMonths: PendingTdsMonth[] = [...pendingTdsByMonth.entries()].map(([month, total]) => {
+      const [yr, mo] = month.split("-").map(Number);
+      const deadlineDate = new Date(mo === 12 ? yr + 1 : yr, mo === 12 ? 0 : mo, 7);
+      const deadline = deadlineDate.toISOString().slice(0, 10);
+      return { month, totalPending: total, deadline, isOverdue: deadlineDate < today };
+    }).sort((a, b) => a.month.localeCompare(b.month));
+
+    complianceAlerts = pendingTdsMonths.map((m) => ({
+      label: `TDS deposit due — ${m.month}`,
+      detail: `₹${m.totalPending.toLocaleString("en-IN", { maximumFractionDigits: 0 })} pending. Deadline: ${m.deadline}`,
+      tone: m.isOverdue ? "danger" as const : "warning" as const,
+      href: "/app/purchases/payments-made",
+    }));
+
+    // 26Q filing reminder: due 31 Jul, 31 Oct, 31 Jan, 31 May
+    const q26Dates = [
+      { label: "26Q Q1 filing (Apr–Jun)", date: new Date(today.getFullYear(), 6, 31) },
+      { label: "26Q Q2 filing (Jul–Sep)", date: new Date(today.getFullYear(), 9, 31) },
+      { label: "26Q Q3 filing (Oct–Dec)", date: new Date(today.getFullYear(), 0, 31) },
+      { label: "26Q Q4 filing (Jan–Mar)", date: new Date(today.getFullYear(), 4, 31) },
+    ];
+    for (const q of q26Dates) {
+      const daysUntil = Math.ceil((q.date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysUntil >= 0 && daysUntil <= 21) {
+        complianceAlerts.push({ label: q.label, detail: `Due ${q.date.toISOString().slice(0, 10)} — ${daysUntil} days away`, tone: daysUntil <= 7 ? "danger" : "warning", href: "/app/reports/tds-dashboard" });
+      }
+    }
+
     metrics = {
       cashInMonth: Number(receiptsAgg._sum.amountReceived ?? 0),
       billValueMonth: Number(billsAgg._sum.total ?? 0),
@@ -250,6 +333,7 @@ export default async function AppHomePage() {
       pendingWages,
       activeProjects,
       totalProjects,
+      lowStockCount,
     };
   } catch (e) {
     if (isDbUnavailable(e)) {
@@ -266,6 +350,7 @@ export default async function AppHomePage() {
     { label: "Invoices awaiting collection", value: String(metrics.unpaidInvoices), href: "/app/sales/invoices", tone: metrics.unpaidInvoices > 0 ? "warning" : "neutral" },
     { label: "Payables outstanding", value: formatCompactINR(metrics.payablesOutstanding), href: "/app/purchases/payments-made", tone: metrics.payablesOutstanding > 0 ? "warning" : "neutral" },
     { label: "Receivables outstanding", value: formatCompactINR(metrics.receivablesOutstanding), href: "/app/sales/receipts", tone: metrics.receivablesOutstanding > 0 ? "info" : "neutral" },
+    { label: "Low-stock items", value: String(metrics.lowStockCount), href: "/app/inventory", tone: metrics.lowStockCount > 0 ? "warning" : "neutral" },
   ] as const;
 
   return (
@@ -312,7 +397,7 @@ export default async function AppHomePage() {
         </div>
       ) : null}
 
-      <section className="grid gap-3 lg:grid-cols-4">
+      <section className="grid gap-3 lg:grid-cols-5">
         {attentionItems.map((item) => (
           <Link
             key={item.label}
@@ -460,6 +545,40 @@ export default async function AppHomePage() {
           </CardContent>
         </Card>
       </section>
+
+      {complianceAlerts.length > 0 ? (
+        <section>
+          <Card>
+            <CardHeader className="border-b border-border/60">
+              <div className="flex items-center gap-2">
+                <Bell className="size-4 text-muted-foreground" />
+                <CardTitle className="text-base">Compliance alerts</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2 pt-4">
+              {complianceAlerts.map((alert) => (
+                <Link
+                  key={alert.label}
+                  href={alert.href}
+                  className={`flex items-start justify-between gap-4 rounded-[18px] border px-4 py-3 text-sm transition-colors hover:opacity-90 ${
+                    alert.tone === "danger"
+                      ? "border-red-200 bg-red-50 text-red-900 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200"
+                      : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200"
+                  }`}
+                >
+                  <div>
+                    <div className="font-semibold">{alert.label}</div>
+                    <div className="mt-0.5 text-xs opacity-80">{alert.detail}</div>
+                  </div>
+                  <Badge variant={alert.tone === "danger" ? "destructive" : "secondary"} className="shrink-0">
+                    {alert.tone === "danger" ? "Overdue" : "Due soon"}
+                  </Badge>
+                </Link>
+              ))}
+            </CardContent>
+          </Card>
+        </section>
+      ) : null}
 
       <section className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
         <Card>

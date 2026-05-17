@@ -39,7 +39,7 @@ export default async function InventoryPage({
       ...(q ? { name: { contains: q, mode: "insensitive" } } : {}),
     },
     orderBy: { name: "asc" },
-    select: { id: true, name: true, unit: true },
+    select: { id: true, name: true, unit: true, reorderLevel: true },
     take: 200,
   });
   const actionItems = q
@@ -127,6 +127,7 @@ export default async function InventoryPage({
               <TableHead className="text-right">IN</TableHead>
               <TableHead className="text-right">OUT</TableHead>
               <TableHead className="text-right">Balance</TableHead>
+              <TableHead className="text-right">Reorder Level</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
@@ -134,22 +135,31 @@ export default async function InventoryPage({
             {items.map((i) => {
               const qty = qtyByItem.get(i.id) ?? { inQty: 0, outQty: 0 };
               const balance = qty.inQty - qty.outQty;
+              const reorder = i.reorderLevel != null ? Number(i.reorderLevel) : null;
+              const isLowStock = reorder != null && balance <= reorder && balance >= 0;
               return (
-                <TableRow key={i.id}>
+                <TableRow key={i.id} className={isLowStock ? "bg-amber-50/60 dark:bg-amber-950/20" : ""}>
                   <TableCell className="font-medium">{i.name}</TableCell>
                   <TableCell>{i.unit ?? "-"}</TableCell>
                   <TableCell className="text-right">{qty.inQty.toFixed(3)}</TableCell>
                   <TableCell className="text-right">{qty.outQty.toFixed(3)}</TableCell>
-                  <TableCell className="text-right">{balance.toFixed(3)}</TableCell>
+                  <TableCell className="text-right font-medium">{balance.toFixed(3)}</TableCell>
+                  <TableCell className="text-right text-muted-foreground">{reorder != null ? reorder.toFixed(3) : "—"}</TableCell>
                   <TableCell>
-                    {balance < 0 ? <Badge variant="destructive">Negative</Badge> : <Badge variant="secondary">OK</Badge>}
+                    {balance < 0 ? (
+                      <Badge variant="destructive">Negative</Badge>
+                    ) : isLowStock ? (
+                      <Badge variant="secondary" className="border-amber-400 bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Low stock</Badge>
+                    ) : (
+                      <Badge variant="outline">OK</Badge>
+                    )}
                   </TableCell>
                 </TableRow>
               );
             })}
             {items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
                   No materials found.
                 </TableCell>
               </TableRow>

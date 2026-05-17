@@ -48,6 +48,7 @@ export const navGroups = [
   {
     header: "Purchases",
     items: [
+      { href: "/app/purchases/orders", label: "Purchase Orders", icon: ClipboardList },
       { href: "/app/purchases/materials", label: "Materials", icon: PackageCheck },
       { href: "/app/purchases/bills", label: "Bills", icon: FileText },
       { href: "/app/purchases/payments-made", label: "Payments Made", icon: Wallet },

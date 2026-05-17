@@ -56,6 +56,13 @@ export default function ReportsHomePage() {
       tone: "from-[rgba(255,225,217,0.48)] to-white",
     },
     {
+      title: "Monthly ITC Summary",
+      description: "Month-wise Input Tax Credit vs. Output Tax liability for GSTR-3B reconciliation.",
+      href: "/app/reports/gst-itc-summary",
+      cta: "Open ITC Summary",
+      tone: "from-[rgba(209,250,229,0.5)] to-white",
+    },
+    {
       title: "TDS Dashboard",
       description: "Review FY-wide TDS deducted, paid, and pending across Section 194C and Section 194T.",
       href: "/app/reports/tds-dashboard",

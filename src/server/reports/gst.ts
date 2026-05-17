@@ -157,6 +157,92 @@ async function buildGstLiabilitySummary({
   return { inputTaxCredit, outputTax, netPayable, excessItc };
 }
 
+export type MonthlyItcRow = {
+  month: string; // "YYYY-MM"
+  inputTaxCredit: number;
+  outputTax: number;
+  netPayable: number;
+  excessItc: number;
+};
+
+export async function buildMonthlyItcReport({
+  tenantId,
+  projectId,
+  fy,
+}: {
+  tenantId: number;
+  projectId?: string;
+  fy?: string; // "2025-26"
+}): Promise<MonthlyItcRow[]> {
+  const currentYear = new Date().getFullYear();
+  const fyYear = fy ? parseInt(fy.split("-")[0]) : currentYear - (new Date().getMonth() < 3 ? 1 : 0);
+  const fromDate = new Date(fyYear, 3, 1); // April 1
+  const toDate = new Date(fyYear + 1, 2, 31); // March 31
+
+  const [purchaseBills, purchaseExpenses, salesInvoices] = await Promise.all([
+    prisma.purchaseInvoice.findMany({
+      where: {
+        tenantId,
+        ...(projectId ? { projectId } : {}),
+        invoiceDate: { gte: fromDate, lte: toDate },
+      },
+      select: { invoiceDate: true, cgst: true, sgst: true, igst: true, vendor: { select: { gstin: true } } },
+    }),
+    prisma.expense.findMany({
+      where: {
+        tenantId,
+        ...(projectId ? { projectId } : {}),
+        date: { gte: fromDate, lte: toDate },
+      },
+      select: { date: true, cgst: true, sgst: true, igst: true, vendor: { select: { gstin: true } } },
+    }),
+    prisma.clientInvoice.findMany({
+      where: {
+        tenantId,
+        ...(projectId ? { projectId } : {}),
+        invoiceDate: { gte: fromDate, lte: toDate },
+      },
+      select: { invoiceDate: true, cgst: true, sgst: true, igst: true },
+    }),
+  ]);
+
+  const monthMap = new Map<string, { itc: number; output: number }>();
+
+  for (const bill of purchaseBills) {
+    const month = bill.invoiceDate.toISOString().slice(0, 7);
+    const entry = monthMap.get(month) ?? { itc: 0, output: 0 };
+    entry.itc = round2(entry.itc + (isLikelyValidGstin(bill.vendor?.gstin) ? sumTaxAmounts(bill) : 0));
+    monthMap.set(month, entry);
+  }
+  for (const expense of purchaseExpenses) {
+    const month = expense.date.toISOString().slice(0, 7);
+    const entry = monthMap.get(month) ?? { itc: 0, output: 0 };
+    entry.itc = round2(entry.itc + (isLikelyValidGstin(expense.vendor?.gstin) ? sumTaxAmounts(expense) : 0));
+    monthMap.set(month, entry);
+  }
+  for (const invoice of salesInvoices) {
+    const month = invoice.invoiceDate.toISOString().slice(0, 7);
+    const entry = monthMap.get(month) ?? { itc: 0, output: 0 };
+    entry.output = round2(entry.output + sumTaxAmounts(invoice));
+    monthMap.set(month, entry);
+  }
+
+  const rows: MonthlyItcRow[] = [];
+  for (let m = 0; m < 12; m++) {
+    const d = new Date(fyYear, 3 + m, 1);
+    const month = d.toISOString().slice(0, 7);
+    const entry = monthMap.get(month) ?? { itc: 0, output: 0 };
+    rows.push({
+      month,
+      inputTaxCredit: entry.itc,
+      outputTax: entry.output,
+      netPayable: round2(Math.max(0, entry.output - entry.itc)),
+      excessItc: round2(Math.max(0, entry.itc - entry.output)),
+    });
+  }
+  return rows;
+}
+
 export async function buildGstRegisterReport({
   tenantId,
   projectId,

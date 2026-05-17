@@ -217,6 +217,9 @@ model Tenant {
   expenses                 Expense[]
   purchaseInvoices         PurchaseInvoice[]
   purchaseInvoiceLines     PurchaseInvoiceLine[]
+  purchaseOrders           PurchaseOrder[]
+  purchaseOrderLines       PurchaseOrderLine[]
+  debitNotes               DebitNote[]
   materialOrders           MaterialOrder[]
   materialReceipts         MaterialReceipt[]
   clientInvoices           ClientInvoice[]
@@ -441,6 +444,7 @@ model Vendor {
 
   expenses         Expense[]
   purchaseInvoices PurchaseInvoice[]
+  purchaseOrders   PurchaseOrder[]
   materialOrders   MaterialOrder[]
   materialReceipts MaterialReceipt[]
   vendorPayments   VendorPayment[]
@@ -476,6 +480,7 @@ model Project {
   expenses               Expense[]
   purchaseInvoices       PurchaseInvoice[]
   purchaseInvoiceLines   PurchaseInvoiceLine[]
+  purchaseOrders         PurchaseOrder[]
   materialOrders         MaterialOrder[]
   materialReceipts       MaterialReceipt[]
   clientInvoices         ClientInvoice[]
@@ -658,6 +663,7 @@ model Item {
   defaultGstRate Decimal? @db.Decimal(5, 2)
   gstRate        Decimal  @db.Decimal(5, 2)
   trackInventory Boolean  @default(false)
+  reorderLevel   Decimal? @db.Decimal(14, 3)
   description    String?
 
   purchaseInvoiceLines PurchaseInvoiceLine[]
@@ -1040,9 +1046,13 @@ model PurchaseInvoice {
   vendor  Vendor  @relation(fields: [vendorId], references: [id], onDelete: Restrict)
   project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
 
+  purchaseOrderId String?
+
+  purchaseOrder    PurchaseOrder?       @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
   lines            PurchaseInvoiceLine[]
   payments         VendorPayment[]
   materialReceipts MaterialReceipt[]
+  debitNotes       DebitNote[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1055,6 +1065,7 @@ model PurchaseInvoice {
   @@index([tenantId, projectId, invoiceDate])
   @@index([tenantId, approvalStatus])
   @@index([tenantId, invoiceStatus])
+  @@index([tenantId, purchaseOrderId])
 }
 
 model MaterialOrder {
@@ -1320,4 +1331,88 @@ model LedgerEntry {
   @@index([tenantId, date])
   @@index([tenantId, voucherType, voucherId])
   @@index([tenantId, projectId, date])
+}
+
+// ─── Debit Notes ─────────────────────────────────────────────────────────────
+
+model DebitNote {
+  id                String   @id @default(cuid())
+  tenantId          Int      @default(1)
+  purchaseInvoiceId String
+  debitNoteNumber   String
+  date              DateTime @db.Date
+  reason            String
+  taxableValue      Decimal  @db.Decimal(14, 2)
+  cgst              Decimal  @default(0) @db.Decimal(14, 2)
+  sgst              Decimal  @default(0) @db.Decimal(14, 2)
+  igst              Decimal  @default(0) @db.Decimal(14, 2)
+  total             Decimal  @db.Decimal(14, 2)
+
+  purchaseInvoice PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id], onDelete: Cascade)
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, purchaseInvoiceId])
+  @@index([tenantId, date])
+}
+
+// ─── Purchase Orders ──────────────────────────────────────────────────────────
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SENT
+  PARTIALLY_BILLED
+  FULLY_BILLED
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id          String              @id @default(cuid())
+  tenantId    Int                 @default(1)
+  vendorId    String
+  projectId   String
+  orderNumber String
+  orderDate   DateTime            @db.Date
+  status      PurchaseOrderStatus @default(DRAFT)
+  notes       String?
+
+  vendor   Vendor   @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  lines            PurchaseOrderLine[]
+  purchaseInvoices PurchaseInvoice[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, orderNumber])
+  @@index([tenantId])
+  @@index([tenantId, vendorId, orderDate])
+  @@index([tenantId, projectId, orderDate])
+  @@index([tenantId, status])
+}
+
+model PurchaseOrderLine {
+  id              String  @id @default(cuid())
+  tenantId        Int     @default(1)
+  purchaseOrderId String
+  description     String
+  unit            String?
+  quantity        Decimal @db.Decimal(14, 3)
+  rate            Decimal @db.Decimal(14, 2)
+  amount          Decimal @db.Decimal(14, 2)
+  sortOrder       Int     @default(0)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, purchaseOrderId])
 }

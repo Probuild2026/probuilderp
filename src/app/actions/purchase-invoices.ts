@@ -435,3 +435,74 @@ export async function deletePurchaseInvoiceLine(input: unknown): Promise<ActionR
     return unknownError("Failed to delete line item.");
   }
 }
+
+// ─── Debit Notes ─────────────────────────────────────────────────────────────
+
+const createDebitNoteSchema = z
+  .object({
+    purchaseInvoiceId: z.string().min(1),
+    debitNoteNumber: z.string().min(1).max(50),
+    date: z.string().min(1),
+    reason: z.string().min(1).max(500),
+    taxableValue: z.coerce.number().min(0),
+    cgst: z.coerce.number().min(0).default(0),
+    sgst: z.coerce.number().min(0).default(0),
+    igst: z.coerce.number().min(0).default(0),
+    total: z.coerce.number().min(0),
+  })
+  .strict();
+
+export async function createDebitNote(input: unknown): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return { ok: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } };
+
+  const parsed = createDebitNoteSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: { code: "VALIDATION", message: "Invalid input", fieldErrors: zodToFieldErrors(parsed.error) } };
+
+  try {
+    const bill = await prisma.purchaseInvoice.findFirst({
+      where: { tenantId: session.user.tenantId, id: parsed.data.purchaseInvoiceId },
+      select: { id: true, invoiceNumber: true },
+    });
+    if (!bill) return { ok: false, error: { code: "NOT_FOUND", message: "Bill not found." } };
+
+    const created = await prisma.debitNote.create({
+      data: {
+        tenantId: session.user.tenantId,
+        purchaseInvoiceId: bill.id,
+        debitNoteNumber: parsed.data.debitNoteNumber.trim(),
+        date: new Date(parsed.data.date),
+        reason: parsed.data.reason.trim(),
+        taxableValue: new Prisma.Decimal(parsed.data.taxableValue),
+        cgst: new Prisma.Decimal(parsed.data.cgst),
+        sgst: new Prisma.Decimal(parsed.data.sgst),
+        igst: new Prisma.Decimal(parsed.data.igst),
+        total: new Prisma.Decimal(parsed.data.total),
+      },
+      select: { id: true },
+    });
+    revalidatePath(`/app/purchases/bills/${bill.id}`);
+    return { ok: true, data: { id: created.id } };
+  } catch {
+    return unknownError("Failed to create debit note.");
+  }
+}
+
+export async function deleteDebitNote(input: unknown): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return { ok: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } };
+
+  const parsed = z.object({ id: z.string().min(1), purchaseInvoiceId: z.string().min(1) }).safeParse(input);
+  if (!parsed.success) return { ok: false, error: { code: "VALIDATION", message: "Invalid input" } };
+
+  try {
+    const deleted = await prisma.debitNote.deleteMany({
+      where: { tenantId: session.user.tenantId, id: parsed.data.id, purchaseInvoiceId: parsed.data.purchaseInvoiceId },
+    });
+    if (deleted.count === 0) return { ok: false, error: { code: "NOT_FOUND", message: "Debit note not found." } };
+    revalidatePath(`/app/purchases/bills/${parsed.data.purchaseInvoiceId}`);
+    return { ok: true, data: { id: parsed.data.id } };
+  } catch {
+    return unknownError("Failed to delete debit note.");
+  }
+}

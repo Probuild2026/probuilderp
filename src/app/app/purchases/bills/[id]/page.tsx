@@ -15,6 +15,7 @@ import { prisma } from "@/server/db";
 
 import { BillEditForm } from "./bill-edit-form";
 import { DeleteBillButton } from "./delete-bill-button";
+import { DebitNoteSection } from "./debit-note-section";
 
 function dateOnly(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -64,6 +65,12 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
   const total = Number(bill.total);
   const paid = allocations.reduce((acc, a) => acc + Number(a.grossAmount), 0);
   const balance = Math.max(0, total - paid);
+
+  const debitNotes = await prisma.debitNote.findMany({
+    where: { tenantId: session.user.tenantId, purchaseInvoiceId: bill.id },
+    orderBy: { date: "desc" },
+    select: { id: true, debitNoteNumber: true, date: true, reason: true, taxableValue: true, cgst: true, sgst: true, igst: true, total: true },
+  });
 
   const [projects, vendors] = await Promise.all([
     prisma.project.findMany({
@@ -206,6 +213,21 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
               )}
             </CardContent>
           </Card>
+
+          <DebitNoteSection
+            purchaseInvoiceId={bill.id}
+            initialNotes={debitNotes.map((n) => ({
+              id: n.id,
+              debitNoteNumber: n.debitNoteNumber,
+              date: n.date.toISOString().slice(0, 10),
+              reason: n.reason,
+              taxableValue: Number(n.taxableValue),
+              cgst: Number(n.cgst),
+              sgst: Number(n.sgst),
+              igst: Number(n.igst),
+              total: Number(n.total),
+            }))}
+          />
         </div>
 
         <div className="space-y-6">
