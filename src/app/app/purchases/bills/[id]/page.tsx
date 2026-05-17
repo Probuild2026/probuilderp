@@ -29,7 +29,7 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
   const bill = await prisma.purchaseInvoice.findFirst({
     where: { tenantId: session.user.tenantId, id },
     include: {
-      vendor: { select: { id: true, name: true } },
+      vendor: { select: { id: true, name: true, gstin: true } },
       project: { select: { id: true, name: true } },
       materialReceipts: {
         orderBy: [{ receiptDate: "desc" }, { createdAt: "desc" }],
@@ -75,7 +75,7 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
     prisma.vendor.findMany({
       where: { tenantId: session.user.tenantId },
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, gstin: true },
       take: 500,
     }),
   ]);
@@ -91,6 +91,11 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
           <p className="mt-1 text-base font-medium text-foreground/80">
             {bill.vendor.name} • {bill.invoiceNumber} • {dateOnly(bill.invoiceDate)}
           </p>
+          <div className="mt-2">
+            <Badge variant={bill.invoiceStatus === "PENDING" ? "secondary" : "outline"}>
+              {bill.invoiceStatus === "PENDING" ? "Invoice pending / unconfirmed" : "Supplier invoice confirmed"}
+            </Badge>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
@@ -111,6 +116,13 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
           tone="warning"
           title="Delete disabled"
           description="This bill already has payments applied. Remove payment allocations first before deleting the bill."
+        />
+      ) : null}
+      {bill.invoiceStatus === "PENDING" ? (
+        <StatePanel
+          tone="warning"
+          title="Supplier invoice pending"
+          description="Follow up with the vendor, then update the bill number/reference and mark the invoice confirmed."
         />
       ) : null}
 
@@ -145,6 +157,7 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
                   projectId: bill.projectId,
                   invoiceNumber: bill.invoiceNumber,
                   invoiceDate: dateOnly(bill.invoiceDate),
+                  invoiceStatus: bill.invoiceStatus,
                   gstType: bill.gstType,
                   taxableValue: Number(bill.taxableValue).toFixed(2),
                   cgst: Number(bill.cgst).toFixed(2),

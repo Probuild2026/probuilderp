@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { TableEmptyState } from "@/components/app/state-panels";
 import { EntryRoutingHelpModal } from "@/components/help/entry-routing-help-modal";
 import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,15 @@ type BillsPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
+const invoiceStatusLabels = {
+  PENDING: "Invoice pending",
+  CONFIRMED: "Invoice confirmed",
+} as const;
+
+function parseInvoiceStatus(value?: string | null) {
+  return value === "PENDING" || value === "CONFIRMED" ? value : undefined;
+}
+
 export default async function BillsPage({ searchParams }: BillsPageProps) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
@@ -32,6 +42,7 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
   const sp = (await searchParams) ?? {};
   const q = getSingleSearchParam(sp, "q");
   const approval = parseApprovalStatus(getSingleSearchParam(sp, "approval"));
+  const invoiceStatus = parseInvoiceStatus(getSingleSearchParam(sp, "invoiceStatus"));
   const { from, to } = parseDateRangeParams(sp);
   const dateRange = buildInclusiveDateRange(from, to);
 
@@ -40,6 +51,7 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
     tenantId: session.user.tenantId,
     ...(projectId ? { projectId } : {}),
     ...(approval ? { approvalStatus: approval } : {}),
+    ...(invoiceStatus ? { invoiceStatus } : {}),
   };
 
   if (q) {
@@ -64,6 +76,7 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
       total: true,
       taxableValue: true,
       approvalStatus: true,
+      invoiceStatus: true,
       vendor: { select: { id: true, name: true } },
       project: { select: { id: true, name: true } },
       _count: { select: { materialReceipts: true } },
@@ -94,10 +107,11 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
       acc.balance += balance;
       if (balance > 1) acc.openCount += 1;
       if (bill.approvalStatus === "PENDING_APPROVAL") acc.pendingApproval += 1;
+      if (bill.invoiceStatus === "PENDING") acc.pendingInvoices += 1;
       if (paidGross >= total && total > 0) acc.closedCount += 1;
       return acc;
     },
-    { total: 0, paid: 0, balance: 0, openCount: 0, pendingApproval: 0, closedCount: 0 },
+    { total: 0, paid: 0, balance: 0, openCount: 0, pendingApproval: 0, pendingInvoices: 0, closedCount: 0 },
   );
 
   return (
@@ -107,7 +121,7 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
         title="Vendor bills"
         description="Review payable exposure, outstanding settlement load, and approval state before dropping into the bill register."
         action={{ label: "New bill", href: "/app/purchases/bills/new" }}
-        actions={<ExportLinks hrefBase="/api/exports/bills" params={{ q, from, to, approval }} />}
+        actions={<ExportLinks hrefBase="/api/exports/bills" params={{ q, from, to, approval, invoiceStatus }} />}
         actionSecondary={<EntryRoutingHelpModal />}
       />
 
@@ -132,13 +146,14 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
           </CardHeader>
           <CardContent className="space-y-3 pt-6">
             <QueuePill label="Pending approval" value={String(totals.pendingApproval)} />
+            <QueuePill label="Invoice pending" value={String(totals.pendingInvoices)} />
             <QueuePill label="Fully closed bills" value={String(totals.closedCount)} />
             <QueuePill label="Bills in current view" value={String(bills.length)} />
           </CardContent>
         </Card>
       </section>
 
-      <form className="grid gap-3 rounded-[24px] border border-border/70 bg-card px-4 py-4 md:grid-cols-[1fr_auto_auto_auto_auto]" method="get">
+      <form className="grid gap-3 rounded-[24px] border border-border/70 bg-card px-4 py-4 md:grid-cols-[1fr_auto_auto_auto_auto_auto]" method="get">
         <Input name="q" defaultValue={q} placeholder="Search bill #, vendor, project…" className="md:max-w-xl" />
         <select
           name="approval"
@@ -151,6 +166,15 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
               {approvalStatusLabels[status]}
             </option>
           ))}
+        </select>
+        <select
+          name="invoiceStatus"
+          defaultValue={invoiceStatus ?? ""}
+          className="h-10 rounded-xl border border-border/80 bg-background/80 px-3 text-sm shadow-sm"
+        >
+          <option value="">All invoice states</option>
+          <option value="CONFIRMED">Invoice confirmed</option>
+          <option value="PENDING">Invoice pending</option>
         </select>
         <Input name="from" type="date" defaultValue={from} />
         <Input name="to" type="date" defaultValue={to} />
@@ -169,13 +193,14 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
           <CardTitle className="text-base">Bill register</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table className="min-w-[980px]">
+          <Table className="min-w-[1080px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
                 <TableHead>Bill</TableHead>
                 <TableHead>Vendor</TableHead>
                 <TableHead className="hidden lg:table-cell">Project</TableHead>
+                <TableHead className="hidden md:table-cell">Invoice</TableHead>
                 <TableHead className="hidden md:table-cell">Review</TableHead>
                 <TableHead className="text-right">Taxable</TableHead>
                 <TableHead className="text-right">Total</TableHead>
@@ -188,7 +213,7 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
             <TableBody>
               {bills.length === 0 ? (
                 <TableEmptyState
-                  colSpan={11}
+                  colSpan={12}
                   title="No bills matched this view"
                   description="Try clearing the search or widening the approval and date filters."
                 />
@@ -213,6 +238,11 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
                       </TableCell>
                       <TableCell className="max-w-[260px] truncate">{bill.vendor.name}</TableCell>
                       <TableCell className="hidden lg:table-cell max-w-[260px] truncate">{bill.project.name}</TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <Badge variant={bill.invoiceStatus === "PENDING" ? "secondary" : "outline"}>
+                          {invoiceStatusLabels[bill.invoiceStatus]}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="hidden md:table-cell">
                         <ApprovalStatusBadge status={bill.approvalStatus} />
                       </TableCell>

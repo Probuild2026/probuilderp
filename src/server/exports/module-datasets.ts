@@ -21,6 +21,7 @@ type ModuleFilters = {
   to?: string;
   q?: string;
   approval?: ApprovalStatus;
+  invoiceStatus?: "PENDING" | "CONFIRMED";
 };
 
 export const monthlyOutflowEntryTypes = ["BILL_BOOKED", "EXPENSE_ADDED", "WAGE_SHEET", "PAYMENT_MADE"] as const;
@@ -436,6 +437,12 @@ async function buildPaymentsMadeDataset(filters: ModuleFilters): Promise<Tabular
       tdsAmount: true,
       mode: true,
       reference: true,
+      tdsSection: true,
+      tdsDepositStatus: true,
+      tdsChallanCin: true,
+      tdsChallanBsrCode: true,
+      tdsChallanNumber: true,
+      tdsChallanDate: true,
       note: true,
       description: true,
       approvalStatus: true,
@@ -464,6 +471,12 @@ async function buildPaymentsMadeDataset(filters: ModuleFilters): Promise<Tabular
       { key: "cashPaid", label: "Cash", width: 14, align: "right" },
       { key: "tdsAmount", label: "TDS", width: 12, align: "right" },
       { key: "grossAmount", label: "Gross", width: 14, align: "right" },
+      { key: "tdsSection", label: "TDS Section", width: 12 },
+      { key: "tdsDepositStatus", label: "TDS Deposit", width: 14 },
+      { key: "tdsChallanCin", label: "TDS CIN", width: 20 },
+      { key: "tdsChallanBsrCode", label: "BSR Code", width: 12 },
+      { key: "tdsChallanNumber", label: "Challan #", width: 14 },
+      { key: "tdsChallanDate", label: "Deposit Date", width: 12 },
       { key: "mode", label: "Mode", width: 14 },
       { key: "reference", label: "Reference", width: 18 },
       { key: "approvalStatus", label: "Approval", width: 18 },
@@ -480,6 +493,12 @@ async function buildPaymentsMadeDataset(filters: ModuleFilters): Promise<Tabular
         cashPaid: cash,
         tdsAmount: tds,
         grossAmount: cash + tds,
+        tdsSection: txn.tdsSection ?? "",
+        tdsDepositStatus: tds > 0 ? txn.tdsDepositStatus : "",
+        tdsChallanCin: txn.tdsChallanCin ?? "",
+        tdsChallanBsrCode: txn.tdsChallanBsrCode ?? "",
+        tdsChallanNumber: txn.tdsChallanNumber ?? "",
+        tdsChallanDate: txn.tdsChallanDate ? dateOnly(txn.tdsChallanDate) : "",
         mode: txn.mode ?? "",
         reference: txn.reference ?? "",
         approvalStatus: txn.approvalStatus,
@@ -497,6 +516,7 @@ async function buildBillsDataset(filters: ModuleFilters): Promise<TabularDataset
     ...(filters.projectId ? { projectId: filters.projectId } : {}),
     ...(dateRange ? { invoiceDate: dateRange } : {}),
     ...(filters.approval ? { approvalStatus: filters.approval } : {}),
+    ...(filters.invoiceStatus ? { invoiceStatus: filters.invoiceStatus } : {}),
   };
 
   if (filters.q) {
@@ -525,6 +545,7 @@ async function buildBillsDataset(filters: ModuleFilters): Promise<TabularDataset
       tdsAmount: true,
       netPayable: true,
       approvalStatus: true,
+      invoiceStatus: true,
       vendor: { select: { name: true } },
       project: { select: { name: true } },
     },
@@ -560,6 +581,7 @@ async function buildBillsDataset(filters: ModuleFilters): Promise<TabularDataset
       { key: "tdsApplicable", label: "TDS?", width: 10 },
       { key: "tdsAmount", label: "Bill TDS", width: 12, align: "right" },
       { key: "netPayable", label: "Net Payable", width: 14, align: "right" },
+      { key: "invoiceStatus", label: "Invoice Status", width: 18 },
       { key: "approvalStatus", label: "Approval", width: 18 },
       { key: "paid", label: "Paid", width: 14, align: "right" },
       { key: "balance", label: "Balance", width: 14, align: "right" },
@@ -580,6 +602,7 @@ async function buildBillsDataset(filters: ModuleFilters): Promise<TabularDataset
         tdsApplicable: bill.tdsApplicable ? "YES" : "NO",
         tdsAmount: numberValue(bill.tdsAmount),
         netPayable: numberValue(bill.netPayable),
+        invoiceStatus: bill.invoiceStatus,
         approvalStatus: bill.approvalStatus,
         paid,
         balance: Math.max(0, total - paid),

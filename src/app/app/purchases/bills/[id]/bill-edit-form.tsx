@@ -9,8 +9,11 @@ import { updatePurchaseInvoice } from "@/app/actions/purchase-invoices";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { uploadBillToBlob } from "@/lib/blob-upload";
+import { isLikelyValidGstin, normalizeGstin } from "@/lib/gst-compliance";
+import { formatINR } from "@/lib/money";
 
 type Opt = { id: string; name: string };
+type VendorOpt = Opt & { gstin?: string | null };
 
 function n(val: string) {
   const num = Number(val || 0);
@@ -30,6 +33,7 @@ export function BillEditForm({
     projectId: string;
     invoiceNumber: string;
     invoiceDate: string;
+    invoiceStatus: "PENDING" | "CONFIRMED";
     gstType: "INTRA" | "INTER" | "NOGST";
     taxableValue: string;
     cgst: string;
@@ -38,7 +42,7 @@ export function BillEditForm({
     total: string;
   };
   projects: Opt[];
-  vendors: Opt[];
+  vendors: VendorOpt[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -50,6 +54,7 @@ export function BillEditForm({
   const [projectId, setProjectId] = useState(bill.projectId);
   const [invoiceNumber, setInvoiceNumber] = useState(bill.invoiceNumber);
   const [invoiceDate, setInvoiceDate] = useState(bill.invoiceDate);
+  const [invoiceStatus, setInvoiceStatus] = useState<"PENDING" | "CONFIRMED">(bill.invoiceStatus);
   const [gstType, setGstType] = useState<"INTRA" | "INTER" | "NOGST">(bill.gstType);
 
   const [taxableValue, setTaxableValue] = useState(bill.taxableValue);
@@ -59,6 +64,10 @@ export function BillEditForm({
 
   const totalTax = useMemo(() => n(cgst) + n(sgst) + n(igst), [cgst, sgst, igst]);
   const total = useMemo(() => n(taxableValue) + totalTax, [taxableValue, totalTax]);
+  const selectedVendor = useMemo(() => vendors.find((vendor) => vendor.id === vendorId), [vendorId, vendors]);
+  const normalizedVendorGstin = normalizeGstin(selectedVendor?.gstin);
+  const hasVendorGstin = normalizedVendorGstin.length > 0;
+  const isVendorGstinValid = hasVendorGstin ? isLikelyValidGstin(normalizedVendorGstin) : false;
   const effectiveRatePct = useMemo(() => {
     const base = n(taxableValue);
     if (base <= 0) return 0;
@@ -152,6 +161,7 @@ export function BillEditForm({
             projectId,
             invoiceNumber,
             invoiceDate,
+            invoiceStatus,
             gstType,
             taxableValue: n(taxableValue),
             cgst: gstType === "INTRA" ? n(cgst) : 0,
@@ -215,6 +225,18 @@ export function BillEditForm({
           <label className="space-y-2 text-sm">
             <div className="text-muted-foreground">Bill date</div>
             <Input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} required />
+          </label>
+
+          <label className="space-y-2 text-sm">
+            <div className="text-muted-foreground">Invoice status</div>
+            <select
+              className="h-10 w-full rounded-md border bg-background px-3"
+              value={invoiceStatus}
+              onChange={(e) => setInvoiceStatus(e.target.value as "PENDING" | "CONFIRMED")}
+            >
+              <option value="CONFIRMED">Supplier invoice confirmed</option>
+              <option value="PENDING">Invoice pending / unconfirmed</option>
+            </select>
           </label>
 
           <label className="space-y-2 text-sm">
@@ -300,6 +322,20 @@ export function BillEditForm({
           </div>
         </div>
       </div>
+
+      {totalTax > 0 ? (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+          <div className="font-medium">GST invoice and ITC check</div>
+          <div className="mt-2 text-muted-foreground">
+            {hasVendorGstin
+              ? `Vendor GSTIN ${normalizedVendorGstin} ${isVendorGstinValid ? "matches the GSTIN format" : "does not match the expected GSTIN format"}.`
+              : "This vendor has no GSTIN on file."}
+          </div>
+          <div className="mt-1 text-muted-foreground">
+            Collect the supplier GST invoice before claiming ITC. Claimable ITC preview: {formatINR(totalTax)}.
+          </div>
+        </div>
+      ) : null}
 
       <div className="rounded-[20px] border border-border/60 bg-background/70 p-4">
         <div className="text-sm font-medium">Attach more files</div>

@@ -23,6 +23,12 @@ const schema = z.object({
   reference: z.union([z.string(), z.literal("")]).optional(),
   note: z.union([z.string(), z.literal("")]).optional(),
   description: z.union([z.string(), z.literal("")]).optional(),
+  tdsSection: z.union([z.string(), z.literal("")]).optional(),
+  tdsDepositStatus: z.enum(["PENDING", "DEPOSITED"]),
+  tdsChallanCin: z.union([z.string(), z.literal("")]).optional(),
+  tdsChallanBsrCode: z.union([z.string(), z.literal("")]).optional(),
+  tdsChallanNumber: z.union([z.string(), z.literal("")]).optional(),
+  tdsChallanDate: z.union([z.string(), z.literal("")]).optional(),
 });
 
 type FormInput = z.infer<typeof schema>;
@@ -39,6 +45,12 @@ export function PaymentEditForm({
     reference: string | null;
     note: string | null;
     description: string | null;
+    tdsSection: string | null;
+    tdsDepositStatus: "PENDING" | "DEPOSITED";
+    tdsChallanCin: string | null;
+    tdsChallanBsrCode: string | null;
+    tdsChallanNumber: string | null;
+    tdsChallanDate: string | null;
   };
   projects: Array<{ id: string; name: string }>;
 }) {
@@ -56,6 +68,12 @@ export function PaymentEditForm({
       reference: payment.reference ?? "",
       note: payment.note ?? "",
       description: payment.description ?? "",
+      tdsSection: payment.tdsSection ?? "194C",
+      tdsDepositStatus: payment.tdsDepositStatus,
+      tdsChallanCin: payment.tdsChallanCin ?? "",
+      tdsChallanBsrCode: payment.tdsChallanBsrCode ?? "",
+      tdsChallanNumber: payment.tdsChallanNumber ?? "",
+      tdsChallanDate: payment.tdsChallanDate ?? "",
     },
   });
 
@@ -69,6 +87,12 @@ export function PaymentEditForm({
         reference: values.reference?.trim() ? values.reference.trim() : undefined,
         note: values.note?.trim() ? values.note.trim() : undefined,
         description: values.description?.trim() ? values.description.trim() : undefined,
+        tdsSection: values.tdsSection?.trim() ? values.tdsSection.trim() : undefined,
+        tdsDepositStatus: values.tdsDepositStatus,
+        tdsChallanCin: values.tdsChallanCin?.trim() ? values.tdsChallanCin.trim() : undefined,
+        tdsChallanBsrCode: values.tdsChallanBsrCode?.trim() ? values.tdsChallanBsrCode.trim() : undefined,
+        tdsChallanNumber: values.tdsChallanNumber?.trim() ? values.tdsChallanNumber.trim() : undefined,
+        tdsChallanDate: values.tdsChallanDate?.trim() ? values.tdsChallanDate.trim() : undefined,
       });
 
       if (!res.ok) {
@@ -164,6 +188,107 @@ export function PaymentEditForm({
             </FormItem>
           )}
         />
+
+        <details open className="space-y-4 rounded-md border p-4">
+          <summary className="cursor-pointer text-sm font-medium">TDS challan details</summary>
+          <div className="mt-1 text-xs text-muted-foreground">
+            Keep CIN, BSR, challan number, and deposit status out of the free-text reference field.
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="tdsSection"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Section</FormLabel>
+                  <FormControl>
+                    <Input placeholder="194C" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="tdsDepositStatus"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Deposit status</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select deposit status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="PENDING">Pending deposit</SelectItem>
+                      <SelectItem value="DEPOSITED">Deposited</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="tdsChallanCin"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>CIN number</FormLabel>
+                  <FormControl>
+                    <Input placeholder="26051700001956IDFB" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="tdsChallanBsrCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>BSR code</FormLabel>
+                  <FormControl>
+                    <Input placeholder="2010003" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="tdsChallanNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Challan number</FormLabel>
+                  <FormControl>
+                    <Input placeholder="00007" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="tdsChallanDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Date of deposit</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </details>
 
         <FormField
           control={form.control}

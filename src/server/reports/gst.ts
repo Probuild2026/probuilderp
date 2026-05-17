@@ -1,4 +1,5 @@
 import { buildInclusiveDateRange } from "@/lib/date-range";
+import { isLikelyValidGstin } from "@/lib/gst-compliance";
 import { type TabularDataset } from "@/lib/tabular-export";
 import { prisma } from "@/server/db";
 
@@ -20,6 +21,8 @@ export type GstRegisterRow = {
   sgst: number;
   igst: number;
   total: number;
+  inputTaxCredit?: number;
+  outputTax?: number;
   settledAmount?: number;
   linkedCount?: number;
   note: string;
@@ -32,7 +35,16 @@ export type GstRegisterSummary = {
   sgst: number;
   igst: number;
   total: number;
+  inputTaxCredit: number;
+  outputTax: number;
   settledAmount?: number;
+};
+
+export type GstLiabilitySummary = {
+  inputTaxCredit: number;
+  outputTax: number;
+  netPayable: number;
+  excessItc: number;
 };
 
 export type GstRegisterReport = {
@@ -43,6 +55,7 @@ export type GstRegisterReport = {
   note?: string;
   rows: GstRegisterRow[];
   summary: GstRegisterSummary;
+  liabilitySummary: GstLiabilitySummary;
   dataset: TabularDataset;
 };
 
@@ -80,10 +93,68 @@ function buildBaseSummary(rows: GstRegisterRow[]): GstRegisterSummary {
       acc.sgst = round2(acc.sgst + row.sgst);
       acc.igst = round2(acc.igst + row.igst);
       acc.total = round2(acc.total + row.total);
+      acc.inputTaxCredit = round2(acc.inputTaxCredit + (row.inputTaxCredit ?? 0));
+      acc.outputTax = round2(acc.outputTax + (row.outputTax ?? 0));
       return acc;
     },
-    { rowCount: 0, taxableValue: 0, cgst: 0, sgst: 0, igst: 0, total: 0 },
+    { rowCount: 0, taxableValue: 0, cgst: 0, sgst: 0, igst: 0, total: 0, inputTaxCredit: 0, outputTax: 0 },
   );
+}
+
+function sumTaxAmounts(row: { cgst: unknown; sgst: unknown; igst: unknown }) {
+  return round2(Number(row.cgst ?? 0) + Number(row.sgst ?? 0) + Number(row.igst ?? 0));
+}
+
+async function buildGstLiabilitySummary({
+  tenantId,
+  projectId,
+  from,
+  to,
+}: {
+  tenantId: number;
+  projectId?: string;
+  from?: string;
+  to?: string;
+}): Promise<GstLiabilitySummary> {
+  const dateRange = buildInclusiveDateRange(from, to);
+
+  const [purchaseBills, purchaseExpenses, salesInvoices] = await Promise.all([
+    prisma.purchaseInvoice.findMany({
+      where: {
+        tenantId,
+        ...(projectId ? { projectId } : {}),
+        ...(dateRange ? { invoiceDate: dateRange } : {}),
+      },
+      select: { cgst: true, sgst: true, igst: true, vendor: { select: { gstin: true } } },
+    }),
+    prisma.expense.findMany({
+      where: {
+        tenantId,
+        ...(projectId ? { projectId } : {}),
+        ...(dateRange ? { date: dateRange } : {}),
+      },
+      select: { cgst: true, sgst: true, igst: true, vendor: { select: { gstin: true } } },
+    }),
+    prisma.clientInvoice.findMany({
+      where: {
+        tenantId,
+        ...(projectId ? { projectId } : {}),
+        ...(dateRange ? { invoiceDate: dateRange } : {}),
+      },
+      select: { cgst: true, sgst: true, igst: true },
+    }),
+  ]);
+
+  const inputTaxCredit = round2(
+    [...purchaseBills, ...purchaseExpenses].reduce((acc, row) => {
+      return acc + (isLikelyValidGstin(row.vendor?.gstin) ? sumTaxAmounts(row) : 0);
+    }, 0),
+  );
+  const outputTax = round2(salesInvoices.reduce((acc, row) => acc + sumTaxAmounts(row), 0));
+  const netPayable = round2(Math.max(0, outputTax - inputTaxCredit));
+  const excessItc = round2(Math.max(0, inputTaxCredit - outputTax));
+
+  return { inputTaxCredit, outputTax, netPayable, excessItc };
 }
 
 export async function buildGstRegisterReport({
@@ -102,6 +173,7 @@ export async function buildGstRegisterReport({
   const dateRange = buildInclusiveDateRange(from, to);
   const fromValue = from?.trim() ?? "";
   const toValue = to?.trim() ?? "";
+  const liabilitySummary = await buildGstLiabilitySummary({ tenantId, projectId, from, to });
 
   if (kind === "purchase") {
     const [bills, expenses] = await Promise.all([
@@ -155,36 +227,44 @@ export async function buildGstRegisterReport({
     ]);
 
     const rows = [
-      ...bills.map((bill) => ({
-        id: bill.id,
-        date: dateOnly(bill.invoiceDate),
-        sourceType: "BILL" as const,
-        projectName: bill.project.name,
-        partyName: bill.vendor.name,
-        partyGstin: bill.vendor.gstin ?? "",
-        documentNumber: bill.invoiceNumber,
-        gstType: bill.gstType,
-        gstRateLabel: rateLabel(bill.gstRate ? Number(bill.gstRate) : null),
-        taxableValue: round2(Number(bill.taxableValue)),
-        cgst: round2(Number(bill.cgst)),
-        sgst: round2(Number(bill.sgst)),
-        igst: round2(Number(bill.igst)),
-        total: round2(Number(bill.total)),
-        note: [bill.tdsSection, bill.tdsAmount ? `TDS ${round2(Number(bill.tdsAmount))}` : ""].filter(Boolean).join(" • "),
-      } satisfies GstRegisterRow)),
+      ...bills.map((bill) => {
+        const cgst = round2(Number(bill.cgst));
+        const sgst = round2(Number(bill.sgst));
+        const igst = round2(Number(bill.igst));
+        const partyGstin = bill.vendor.gstin ?? "";
+        return {
+          id: bill.id,
+          date: dateOnly(bill.invoiceDate),
+          sourceType: "BILL" as const,
+          projectName: bill.project.name,
+          partyName: bill.vendor.name,
+          partyGstin,
+          documentNumber: bill.invoiceNumber,
+          gstType: bill.gstType,
+          gstRateLabel: rateLabel(bill.gstRate ? Number(bill.gstRate) : null),
+          taxableValue: round2(Number(bill.taxableValue)),
+          cgst,
+          sgst,
+          igst,
+          total: round2(Number(bill.total)),
+          inputTaxCredit: isLikelyValidGstin(partyGstin) ? round2(cgst + sgst + igst) : 0,
+          note: [bill.tdsSection, bill.tdsAmount ? `TDS ${round2(Number(bill.tdsAmount))}` : ""].filter(Boolean).join(" • "),
+        } satisfies GstRegisterRow;
+      }),
       ...expenses.map((expense) => {
         const taxableValue = round2(Number(expense.amountBeforeTax));
         const cgst = round2(Number(expense.cgst));
         const sgst = round2(Number(expense.sgst));
         const igst = round2(Number(expense.igst));
         const inferredRate = inferredExpenseGstRate({ taxableValue, cgst, sgst, igst });
+        const partyGstin = expense.vendor?.gstin ?? "";
         return {
           id: expense.id,
           date: dateOnly(expense.date),
           sourceType: "EXPENSE" as const,
           projectName: expense.project.name,
           partyName: expense.vendor?.name ?? expense.labourer?.name ?? expense.expenseType,
-          partyGstin: expense.vendor?.gstin ?? "",
+          partyGstin,
           documentNumber: `Expense ${expense.id.slice(-6).toUpperCase()}`,
           gstType: inferredExpenseGstType({ cgst, sgst, igst }),
           gstRateLabel: rateLabel(inferredRate),
@@ -193,6 +273,7 @@ export async function buildGstRegisterReport({
           sgst,
           igst,
           total: round2(Number(expense.totalAmount)),
+          inputTaxCredit: isLikelyValidGstin(partyGstin) ? round2(cgst + sgst + igst) : 0,
           note: [expense.expenseType, expense.paymentMode ?? "", expense.narration ?? ""].filter(Boolean).join(" • "),
         } satisfies GstRegisterRow;
       }),
@@ -205,9 +286,10 @@ export async function buildGstRegisterReport({
       title: "GST Purchase Register",
       from: fromValue,
       to: toValue,
-      note: "Combines purchase bills and direct expenses. Expense GST type/rate is inferred from stored tax amounts because the expense model stores components, not GST classification.",
+      note: "Combines purchase bills and direct expenses. ITC is counted only where a valid GSTIN is on the vendor/payee row. Expense GST type/rate is inferred from stored tax amounts because the expense model stores components, not GST classification.",
       rows,
       summary,
+      liabilitySummary,
       dataset: {
         title: "GST Purchase Register",
         filenameBase: `gst-purchase-register-${fromValue || "start"}-to-${toValue || "today"}`,
@@ -228,6 +310,7 @@ export async function buildGstRegisterReport({
           { key: "cgst", label: "CGST", width: 12, align: "right" },
           { key: "sgst", label: "SGST", width: 12, align: "right" },
           { key: "igst", label: "IGST", width: 12, align: "right" },
+          { key: "inputTaxCredit", label: "ITC", width: 12, align: "right" },
           { key: "total", label: "Total", width: 14, align: "right" },
           { key: "note", label: "Note", width: 30 },
         ],
@@ -280,6 +363,9 @@ export async function buildGstRegisterReport({
 
   const rows = invoices.map((invoice) => {
     const receiptStats = receiptStatsByInvoiceId.get(invoice.id) ?? { gross: 0, count: 0 };
+    const cgst = round2(Number(invoice.cgst));
+    const sgst = round2(Number(invoice.sgst));
+    const igst = round2(Number(invoice.igst));
     return {
       id: invoice.id,
       date: dateOnly(invoice.invoiceDate),
@@ -291,10 +377,11 @@ export async function buildGstRegisterReport({
       gstType: invoice.gstType,
       gstRateLabel: rateLabel(invoice.gstRate ? Number(invoice.gstRate) : null),
       taxableValue: round2(Number(invoice.basicValue)),
-      cgst: round2(Number(invoice.cgst)),
-      sgst: round2(Number(invoice.sgst)),
-      igst: round2(Number(invoice.igst)),
+      cgst,
+      sgst,
+      igst,
       total: round2(Number(invoice.total)),
+      outputTax: round2(cgst + sgst + igst),
       settledAmount: receiptStats.gross,
       linkedCount: receiptStats.count,
       note: [invoice.sacCode ? `SAC ${invoice.sacCode}` : "", invoice.tdsRate ? `Expected TDS ${Number(invoice.tdsRate)}%` : "", invoice.tdsAmountExpected ? `TDS ${round2(Number(invoice.tdsAmountExpected))}` : ""].filter(Boolean).join(" • "),
@@ -312,6 +399,7 @@ export async function buildGstRegisterReport({
     note: "Receipt linkage shows total recorded receipts against the listed invoices, regardless of receipt date.",
     rows,
     summary,
+    liabilitySummary,
     dataset: {
       title: "GST Sales Register",
       filenameBase: `gst-sales-register-${fromValue || "start"}-to-${toValue || "today"}`,

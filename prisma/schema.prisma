@@ -28,6 +28,16 @@ enum ApprovalStatus {
   CANCELLED
 }
 
+enum PurchaseInvoiceStatus {
+  PENDING
+  CONFIRMED
+}
+
+enum TdsDepositStatus {
+  PENDING
+  DEPOSITED
+}
+
 enum ItemType {
   MATERIAL
   LABOUR
@@ -873,26 +883,32 @@ model TxnCategory {
 }
 
 model Transaction {
-  id             String          @id @default(cuid())
-  tenantId       Int             @default(1)
-  type           TransactionType
-  date           DateTime        @db.Date
-  amount         Decimal         @db.Decimal(14, 2)
-  tdsAmount      Decimal         @default(0) @db.Decimal(14, 2)
+  id                String           @id @default(cuid())
+  tenantId          Int              @default(1)
+  type              TransactionType
+  date              DateTime         @db.Date
+  amount            Decimal          @db.Decimal(14, 2)
+  tdsAmount         Decimal          @default(0) @db.Decimal(14, 2)
   // Taxable base amount used for TDS threshold checks (e.g. 194C taxable value).
-  tdsBaseAmount  Decimal         @default(0) @db.Decimal(14, 2)
-  projectId      String?
-  clientId       String?
-  vendorId       String?
-  categoryId     String?
-  fromAccountId  String?
-  toAccountId    String?
-  mode           PaymentMode?
-  channel        Channel         @default(BANK)
-  reference      String?
-  note           String?
-  description    String?
-  approvalStatus ApprovalStatus  @default(APPROVED)
+  tdsBaseAmount     Decimal          @default(0) @db.Decimal(14, 2)
+  projectId         String?
+  clientId          String?
+  vendorId          String?
+  categoryId        String?
+  fromAccountId     String?
+  toAccountId       String?
+  mode              PaymentMode?
+  channel           Channel          @default(BANK)
+  reference         String?
+  note              String?
+  description       String?
+  approvalStatus    ApprovalStatus   @default(APPROVED)
+  tdsSection        String?
+  tdsDepositStatus  TdsDepositStatus @default(PENDING)
+  tdsChallanCin     String?
+  tdsChallanBsrCode String?
+  tdsChallanNumber  String?
+  tdsChallanDate    DateTime?        @db.Date
 
   project     Project?                @relation(fields: [projectId], references: [id], onDelete: SetNull)
   client      Client?                 @relation(fields: [clientId], references: [id], onDelete: SetNull)
@@ -920,6 +936,8 @@ model Transaction {
   @@index([tenantId, categoryId, date])
   @@index([tenantId, mode, date])
   @@index([tenantId, approvalStatus])
+  @@index([tenantId, tdsDepositStatus])
+  @@index([tenantId, tdsChallanDate])
 }
 
 model TransactionAllocation {
@@ -1011,12 +1029,13 @@ model PurchaseInvoice {
   igst         Decimal @default(0) @db.Decimal(14, 2)
   total        Decimal @db.Decimal(14, 2)
 
-  tdsApplicable  Boolean        @default(false)
+  tdsApplicable  Boolean               @default(false)
   tdsSection     String?
-  tdsRate        Decimal?       @db.Decimal(5, 2)
-  tdsAmount      Decimal?       @db.Decimal(14, 2)
-  netPayable     Decimal?       @db.Decimal(14, 2)
-  approvalStatus ApprovalStatus @default(APPROVED)
+  tdsRate        Decimal?              @db.Decimal(5, 2)
+  tdsAmount      Decimal?              @db.Decimal(14, 2)
+  netPayable     Decimal?              @db.Decimal(14, 2)
+  approvalStatus ApprovalStatus        @default(APPROVED)
+  invoiceStatus  PurchaseInvoiceStatus @default(CONFIRMED)
 
   vendor  Vendor  @relation(fields: [vendorId], references: [id], onDelete: Restrict)
   project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
@@ -1035,6 +1054,7 @@ model PurchaseInvoice {
   @@index([tenantId, vendorId, invoiceDate])
   @@index([tenantId, projectId, invoiceDate])
   @@index([tenantId, approvalStatus])
+  @@index([tenantId, invoiceStatus])
 }
 
 model MaterialOrder {

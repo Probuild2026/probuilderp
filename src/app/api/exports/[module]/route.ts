@@ -25,6 +25,10 @@ function isExportFormat(value: string): value is ExportFormat {
   return value === "csv" || value === "xlsx" || value === "pdf";
 }
 
+function parseInvoiceStatus(value?: string | null) {
+  return value === "PENDING" || value === "CONFIRMED" ? value : undefined;
+}
+
 export async function GET(request: Request, { params }: { params: Promise<{ module: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
@@ -38,6 +42,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ modu
   const { from, to } = parseDateRangeParams(url.searchParams);
   const q = getSingleSearchParam(url.searchParams, "q");
   const approval = parseApprovalStatus(getSingleSearchParam(url.searchParams, "approval"));
+  const invoiceStatus = parseInvoiceStatus(getSingleSearchParam(url.searchParams, "invoiceStatus"));
   const formatRaw = getSingleSearchParam(url.searchParams, "format");
   const format: ExportFormat = isExportFormat(formatRaw) ? formatRaw : "csv";
 
@@ -48,6 +53,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ modu
     to,
     q,
     approval,
+    invoiceStatus,
   });
 
   await safeWriteAuditLog({
@@ -64,6 +70,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ modu
       to: to || null,
       q: q || null,
       approval: approval || null,
+      invoiceStatus: invoiceStatus || null,
     },
   });
 

@@ -33,7 +33,7 @@ export default async function NewBillPage({
     prisma.vendor.findMany({
       where: { tenantId: session.user.tenantId },
       orderBy: { createdAt: "desc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, gstin: true },
       take: 200,
     }),
   ]);

@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { StatePanel, TableEmptyState } from "@/components/app/state-panels";
 import { EntryRoutingHelpModal } from "@/components/help/entry-routing-help-modal";
 import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,10 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
         tdsAmount: Prisma.Decimal;
         mode: string | null;
         reference: string | null;
+        tdsSection: string | null;
+        tdsDepositStatus: "PENDING" | "DEPOSITED";
+        tdsChallanNumber: string | null;
+        tdsChallanDate: Date | null;
         approvalStatus: "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "CANCELLED";
         vendor: { id: string; name: string } | null;
         project: { id: string; name: string } | null;
@@ -79,6 +84,10 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
         tdsAmount: true,
         mode: true,
         reference: true,
+        tdsSection: true,
+        tdsDepositStatus: true,
+        tdsChallanNumber: true,
+        tdsChallanDate: true,
         approvalStatus: true,
         vendor: { select: { id: true, name: true } },
         project: { select: { id: true, name: true } },
@@ -119,9 +128,10 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
       acc.gross += cash + tds;
       if ((allocationCountByTxnId.get(row.id) ?? 0) > 0) acc.billLinked += 1;
       if (row.approvalStatus === "PENDING_APPROVAL") acc.pendingApproval += 1;
+      if (tds > 0 && row.tdsDepositStatus !== "DEPOSITED") acc.pendingTdsChallans += 1;
       return acc;
     },
-    { cash: 0, tds: 0, gross: 0, billLinked: 0, pendingApproval: 0 },
+    { cash: 0, tds: 0, gross: 0, billLinked: 0, pendingApproval: 0, pendingTdsChallans: 0 },
   );
 
   return (
@@ -168,6 +178,7 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
           </CardHeader>
           <CardContent className="space-y-3 pt-6">
             <QueuePill label="Pending approval" value={String(totals.pendingApproval)} />
+            <QueuePill label="TDS challans pending" value={String(totals.pendingTdsChallans)} />
             <QueuePill label="Payments in current view" value={String((txns ?? []).length)} />
             <QueuePill label="Exports ready" value="CSV / Excel / PDF" />
           </CardContent>
@@ -206,7 +217,7 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-          <Table className="min-w-[1180px] table-fixed">
+          <Table className="min-w-[1280px] table-fixed">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[112px]">Date</TableHead>
@@ -214,6 +225,7 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
                 <TableHead className="hidden w-[240px] lg:table-cell">Project</TableHead>
                 <TableHead className="w-[128px] text-right">Cash</TableHead>
                 <TableHead className="w-[108px] text-right">TDS</TableHead>
+                <TableHead className="w-[140px]">TDS deposit</TableHead>
                 <TableHead className="w-[128px] text-right">Gross</TableHead>
                 <TableHead className="hidden w-[148px] md:table-cell">Mode</TableHead>
                 <TableHead className="hidden w-[240px] xl:table-cell">Reference</TableHead>
@@ -225,7 +237,7 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
             <TableBody>
               {(txns ?? []).length === 0 ? (
                 <TableEmptyState
-                  colSpan={11}
+                  colSpan={12}
                   title="No payments matched this view"
                   description="Try widening the date range, clearing filters, or switching the active project context."
                 />
@@ -252,6 +264,9 @@ export default async function PaymentsMadePage({ searchParams }: PaymentsMadePag
                       <TableCell className="hidden truncate lg:table-cell">{txn.project?.name ?? "-"}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(cash)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(tds)}</TableCell>
+                      <TableCell>
+                        <TdsDepositBadge tds={tds} status={txn.tdsDepositStatus} />
+                      </TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(gross)}</TableCell>
                       <TableCell className="hidden truncate md:table-cell">{txn.mode ?? "-"}</TableCell>
                       <TableCell className="hidden truncate xl:table-cell">{txn.reference ?? "-"}</TableCell>
@@ -307,5 +322,14 @@ function QueuePill({ label, value }: { label: string; value: string }) {
       <div className="text-sm text-muted-foreground">{label}</div>
       <div className="font-semibold">{value}</div>
     </div>
+  );
+}
+
+function TdsDepositBadge({ tds, status }: { tds: number; status: "PENDING" | "DEPOSITED" }) {
+  if (tds <= 0) return <span className="text-sm text-muted-foreground">No TDS</span>;
+  return (
+    <Badge variant={status === "DEPOSITED" ? "default" : "secondary"}>
+      {status === "DEPOSITED" ? "Deposited" : "Pending"}
+    </Badge>
   );
 }

@@ -19,19 +19,35 @@ const allocationSchema = z
   })
   .strict();
 
+const optionalTrimmed = (max = 200) =>
+  z
+    .string()
+    .max(max)
+    .optional()
+    .transform((value) => {
+      const trimmed = value?.trim();
+      return trimmed ? trimmed : undefined;
+    });
+
 const createVendorPaymentSchema = z
   .object({
     date: z.string().min(1),
     mode: z.enum(["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "CARD", "OTHER"]),
-    reference: z.string().max(200).optional(),
+    reference: optionalTrimmed(200),
     vendorId: z.string().min(1),
     projectId: z.string().optional(),
     // If allocations are empty, this grossAmount is used (lump-sum subcontractor payment).
     grossAmount: z.coerce.number().positive().optional(),
     allocations: z.array(allocationSchema).optional(),
     hasTransporterDeclaration: z.coerce.boolean().optional(),
-    note: z.string().max(2000).optional(),
-    description: z.string().max(5000).optional(),
+    note: optionalTrimmed(2000),
+    description: optionalTrimmed(5000),
+    tdsSection: optionalTrimmed(20),
+    tdsDepositStatus: z.enum(["PENDING", "DEPOSITED"]).default("PENDING"),
+    tdsChallanCin: optionalTrimmed(50),
+    tdsChallanBsrCode: optionalTrimmed(20),
+    tdsChallanNumber: optionalTrimmed(30),
+    tdsChallanDate: z.string().optional(),
   })
   .strict()
   .superRefine((val, ctx) => {
@@ -47,6 +63,11 @@ function parseDateOnly(value: string) {
   return date;
 }
 
+function parseOptionalDateOnly(value?: string) {
+  const trimmed = value?.trim();
+  return trimmed ? parseDateOnly(trimmed) : null;
+}
+
 function fyStartForIndia(date: Date) {
   // India FY: Apr 1 → Mar 31
   const year = date.getFullYear();
@@ -60,10 +81,16 @@ const updateVendorPaymentMetaSchema = z
     id: z.string().min(1),
     date: z.string().min(1),
     mode: z.enum(["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "CARD", "OTHER"]),
-    reference: z.string().max(200).optional(),
+    reference: optionalTrimmed(200),
     projectId: z.string().optional(),
-    note: z.string().max(2000).optional(),
-    description: z.string().max(5000).optional(),
+    note: optionalTrimmed(2000),
+    description: optionalTrimmed(5000),
+    tdsSection: optionalTrimmed(20),
+    tdsDepositStatus: z.enum(["PENDING", "DEPOSITED"]).default("PENDING"),
+    tdsChallanCin: optionalTrimmed(50),
+    tdsChallanBsrCode: optionalTrimmed(20),
+    tdsChallanNumber: optionalTrimmed(30),
+    tdsChallanDate: z.string().optional(),
   })
   .strict();
 
@@ -122,6 +149,7 @@ export async function createVendorPayment(input: unknown): Promise<
           tdsThresholdSingle: true,
           tdsThresholdAnnual: true,
           tdsThreshold: true,
+          tdsSection: true,
         },
       });
       if (!vendor) return { ok: false, error: { code: "VALIDATION", message: "Vendor not found." } };
@@ -205,6 +233,7 @@ export async function createVendorPayment(input: unknown): Promise<
 
       const totalTds = shouldApplyTds && tdsCalc.applicable ? tdsCalc.tdsAmount : new Prisma.Decimal(0);
       const tdsReason = shouldApplyTds ? tdsCalc.reason : "TDS not applicable for this vendor.";
+      const tdsSection = parsed.data.tdsSection ?? (shouldApplyTds ? vendor.tdsSection : undefined);
 
       // Distribute TDS across bills proportional to taxable ratio; cash = gross - tds.
       const allocationRows = allocations.length
@@ -260,6 +289,12 @@ export async function createVendorPayment(input: unknown): Promise<
           reference: parsed.data.reference?.trim() || null,
           note: parsed.data.note?.trim() || null,
           description: parsed.data.description?.trim() || null,
+          tdsSection: tdsSection ?? null,
+          tdsDepositStatus: parsed.data.tdsDepositStatus,
+          tdsChallanCin: parsed.data.tdsChallanCin ?? null,
+          tdsChallanBsrCode: parsed.data.tdsChallanBsrCode ?? null,
+          tdsChallanNumber: parsed.data.tdsChallanNumber ?? null,
+          tdsChallanDate: parseOptionalDateOnly(parsed.data.tdsChallanDate),
         },
         select: { id: true, projectId: true },
       });
@@ -293,6 +328,12 @@ export async function createVendorPayment(input: unknown): Promise<
           grossAmount: Number(grossTotal),
           cashPaid: Number(cashPaid),
           tdsAmount: Number(totalTds),
+          tdsSection,
+          tdsDepositStatus: parsed.data.tdsDepositStatus,
+          tdsChallanCin: parsed.data.tdsChallanCin ?? null,
+          tdsChallanBsrCode: parsed.data.tdsChallanBsrCode ?? null,
+          tdsChallanNumber: parsed.data.tdsChallanNumber ?? null,
+          tdsChallanDate: parsed.data.tdsChallanDate?.trim() || null,
           mode: parsed.data.mode,
           billCount: allocationRows.length,
         },
@@ -360,6 +401,12 @@ export async function updateVendorPaymentMeta(input: unknown): Promise<ActionRes
           projectId,
           note: parsed.data.note?.trim() || null,
           description: parsed.data.description?.trim() || null,
+          tdsSection: parsed.data.tdsSection ?? null,
+          tdsDepositStatus: parsed.data.tdsDepositStatus,
+          tdsChallanCin: parsed.data.tdsChallanCin ?? null,
+          tdsChallanBsrCode: parsed.data.tdsChallanBsrCode ?? null,
+          tdsChallanNumber: parsed.data.tdsChallanNumber ?? null,
+          tdsChallanDate: parseOptionalDateOnly(parsed.data.tdsChallanDate),
         },
         select: { id: true },
       });
@@ -383,6 +430,12 @@ export async function updateVendorPaymentMeta(input: unknown): Promise<ActionRes
           mode: parsed.data.mode,
           projectId,
           reference: parsed.data.reference?.trim() || null,
+          tdsSection: parsed.data.tdsSection ?? null,
+          tdsDepositStatus: parsed.data.tdsDepositStatus,
+          tdsChallanCin: parsed.data.tdsChallanCin ?? null,
+          tdsChallanBsrCode: parsed.data.tdsChallanBsrCode ?? null,
+          tdsChallanNumber: parsed.data.tdsChallanNumber ?? null,
+          tdsChallanDate: parsed.data.tdsChallanDate?.trim() || null,
         },
       });
     });

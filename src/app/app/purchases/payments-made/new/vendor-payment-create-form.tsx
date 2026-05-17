@@ -11,6 +11,24 @@ import { formatINR } from "@/lib/money";
 
 type Opt = { id: string; name: string };
 type VendorOpt = Opt & { isSubcontractor: boolean };
+type PaymentMode = "CASH" | "UPI" | "BANK_TRANSFER" | "CHEQUE" | "CARD" | "OTHER";
+type TdsDepositStatus = "PENDING" | "DEPOSITED";
+type VendorPaymentPayload = {
+  date: string;
+  mode: PaymentMode;
+  reference?: string;
+  vendorId: string;
+  projectId?: string;
+  hasTransporterDeclaration: boolean;
+  tdsSection: string;
+  tdsDepositStatus: TdsDepositStatus;
+  tdsChallanCin?: string;
+  tdsChallanBsrCode?: string;
+  tdsChallanNumber?: string;
+  tdsChallanDate?: string;
+  allocations?: Array<{ purchaseInvoiceId: string; grossAmount: number }>;
+  grossAmount?: number;
+};
 
 type OpenBill = {
   id: string;
@@ -36,15 +54,21 @@ export function VendorPaymentCreateForm({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [initialDate] = useState(() => today);
 
   const [vendorId, setVendorId] = useState(initial?.vendorId ?? vendors[0]?.id ?? "");
   const [bills, setBills] = useState<OpenBill[]>([]);
   const [loadingBills, setLoadingBills] = useState(false);
-  const [mode, setMode] = useState<"CASH" | "UPI" | "BANK_TRANSFER" | "CHEQUE" | "CARD" | "OTHER">("BANK_TRANSFER");
+  const [mode, setMode] = useState<PaymentMode>("BANK_TRANSFER");
   const [reference, setReference] = useState("");
-  const [date, setDate] = useState(today);
   const [projectId, setProjectId] = useState(initial?.projectId ?? projects[0]?.id ?? "");
   const [hasTransporterDeclaration, setHasTransporterDeclaration] = useState(false);
+  const [tdsSection, setTdsSection] = useState("194C");
+  const [tdsDepositStatus, setTdsDepositStatus] = useState<TdsDepositStatus>("PENDING");
+  const [tdsChallanCin, setTdsChallanCin] = useState("");
+  const [tdsChallanBsrCode, setTdsChallanBsrCode] = useState("");
+  const [tdsChallanNumber, setTdsChallanNumber] = useState("");
+  const [tdsChallanDate, setTdsChallanDate] = useState("");
 
   const [flow, setFlow] = useState<"BILLS" | "LUMP_SUM">(initial?.billId ? "BILLS" : "BILLS");
   const [lumpGross, setLumpGross] = useState("0");
@@ -114,18 +138,26 @@ export function VendorPaymentCreateForm({
         if (saving) return;
         setSaving(true);
         try {
+          const fd = new FormData(e.currentTarget);
+          const paymentDate = String(fd.get("date") ?? initialDate);
           const allocations =
             flow === "BILLS"
               ? selectedRows.map((r) => ({ purchaseInvoiceId: r.id, grossAmount: r.gross }))
               : [];
 
-          const payload: any = {
-            date,
+          const payload: VendorPaymentPayload = {
+            date: paymentDate,
             mode,
             reference: reference.trim() || undefined,
             vendorId,
             projectId: projectId || undefined,
             hasTransporterDeclaration,
+            tdsSection: tdsSection.trim() || "194C",
+            tdsDepositStatus,
+            tdsChallanCin: tdsChallanCin.trim() || undefined,
+            tdsChallanBsrCode: tdsChallanBsrCode.trim() || undefined,
+            tdsChallanNumber: tdsChallanNumber.trim() || undefined,
+            tdsChallanDate: tdsChallanDate || undefined,
             allocations: allocations.length ? allocations : undefined,
             grossAmount: flow === "LUMP_SUM" ? Number(lumpGross || 0) : undefined,
           };
@@ -187,7 +219,7 @@ export function VendorPaymentCreateForm({
 
         <label className="space-y-2 text-sm">
           <div className="text-muted-foreground">Date</div>
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+          <Input name="date" type="date" defaultValue={initialDate} required />
         </label>
 
         <label className="space-y-2 text-sm">
@@ -195,7 +227,7 @@ export function VendorPaymentCreateForm({
           <select
             className="h-10 w-full rounded-md border bg-background px-3"
             value={mode}
-            onChange={(e) => setMode(e.target.value as any)}
+            onChange={(e) => setMode(e.target.value as PaymentMode)}
           >
             <option value="BANK_TRANSFER">Bank Transfer</option>
             <option value="UPI">UPI</option>
@@ -325,6 +357,52 @@ export function VendorPaymentCreateForm({
           </div>
         </div>
       )}
+
+      <details open className="space-y-4 rounded-md border p-4">
+        <summary className="cursor-pointer text-sm font-medium">TDS challan details</summary>
+        <div className="mt-1 text-xs text-muted-foreground">
+          Store 26QB/27EQ challan details separately from payment references.
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label className="space-y-2 text-sm">
+            <div className="text-muted-foreground">Section</div>
+            <Input value={tdsSection} onChange={(e) => setTdsSection(e.target.value)} placeholder="194C" />
+          </label>
+
+          <label className="space-y-2 text-sm">
+            <div className="text-muted-foreground">Deposit status</div>
+            <select
+              className="h-10 w-full rounded-md border bg-background px-3"
+              value={tdsDepositStatus}
+              onChange={(e) => setTdsDepositStatus(e.target.value as "PENDING" | "DEPOSITED")}
+            >
+              <option value="PENDING">Pending deposit</option>
+              <option value="DEPOSITED">Deposited</option>
+            </select>
+          </label>
+
+          <label className="space-y-2 text-sm">
+            <div className="text-muted-foreground">CIN number</div>
+            <Input value={tdsChallanCin} onChange={(e) => setTdsChallanCin(e.target.value)} placeholder="26051700001956IDFB" />
+          </label>
+
+          <label className="space-y-2 text-sm">
+            <div className="text-muted-foreground">BSR code</div>
+            <Input value={tdsChallanBsrCode} onChange={(e) => setTdsChallanBsrCode(e.target.value)} placeholder="2010003" />
+          </label>
+
+          <label className="space-y-2 text-sm">
+            <div className="text-muted-foreground">Challan number</div>
+            <Input value={tdsChallanNumber} onChange={(e) => setTdsChallanNumber(e.target.value)} placeholder="00007" />
+          </label>
+
+          <label className="space-y-2 text-sm">
+            <div className="text-muted-foreground">Date of deposit</div>
+            <Input type="date" value={tdsChallanDate} onChange={(e) => setTdsChallanDate(e.target.value)} />
+          </label>
+        </div>
+      </details>
 
       <div className="flex items-center justify-end gap-3">
         <Button type="submit" disabled={saving || grossTotal <= 0}>

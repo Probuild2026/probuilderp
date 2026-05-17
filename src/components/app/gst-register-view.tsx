@@ -101,6 +101,33 @@ export function GstRegisterView({
         </Card>
       ) : null}
 
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Input tax credit</CardTitle>
+          </CardHeader>
+          <CardContent className="text-xl font-semibold">{formatINR(report.liabilitySummary.inputTaxCredit)}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Output tax</CardTitle>
+          </CardHeader>
+          <CardContent className="text-xl font-semibold">{formatINR(report.liabilitySummary.outputTax)}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Net GST payable</CardTitle>
+          </CardHeader>
+          <CardContent className="text-xl font-semibold">{formatINR(report.liabilitySummary.netPayable)}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Excess ITC</CardTitle>
+          </CardHeader>
+          <CardContent className="text-xl font-semibold">{formatINR(report.liabilitySummary.excessItc)}</CardContent>
+        </Card>
+      </section>
+
       {report.note ? <div className="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">{report.note}</div> : null}
 
       <Card>
@@ -121,6 +148,7 @@ export function GstRegisterView({
                   <TableHead className="text-right">CGST</TableHead>
                   <TableHead className="text-right">SGST</TableHead>
                   <TableHead className="text-right">IGST</TableHead>
+                  {report.kind === "purchase" ? <TableHead className="text-right">ITC</TableHead> : null}
                   <TableHead className="text-right">Total</TableHead>
                   {isSales ? <TableHead className="text-right">Receipts</TableHead> : null}
                   {isSales ? <TableHead className="text-right">Count</TableHead> : null}
@@ -130,7 +158,7 @@ export function GstRegisterView({
               <TableBody>
                 {report.rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isSales ? 16 : 14} className="py-10 text-center text-sm text-muted-foreground">
+                    <TableCell colSpan={isSales ? 16 : 15} className="py-10 text-center text-sm text-muted-foreground">
                       No rows for this period.
                     </TableCell>
                   </TableRow>
@@ -149,6 +177,7 @@ export function GstRegisterView({
                       <TableCell className="text-right tabular-nums">{formatINR(row.cgst)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(row.sgst)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(row.igst)}</TableCell>
+                      {report.kind === "purchase" ? <TableCell className="text-right tabular-nums">{formatINR(row.inputTaxCredit ?? 0)}</TableCell> : null}
                       <TableCell className="text-right tabular-nums">{formatINR(row.total)}</TableCell>
                       {isSales ? <TableCell className="text-right tabular-nums">{formatINR(row.settledAmount ?? 0)}</TableCell> : null}
                       {isSales ? <TableCell className="text-right tabular-nums">{row.linkedCount ?? 0}</TableCell> : null}

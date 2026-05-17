@@ -6,6 +6,7 @@ import { deleteVendorPayment } from "@/app/actions/vendor-payments";
 import { ApprovalStatusControl } from "@/components/app/approval-status-control";
 import { ModuleCheatSheet } from "@/components/help/module-cheat-sheet";
 import { InlineEmptyState } from "@/components/app/state-panels";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatINR } from "@/lib/money";
@@ -116,6 +117,12 @@ export default async function VendorPaymentDetailPage({ params }: { params: Prom
                   reference: payment.reference ?? null,
                   note: payment.note ?? null,
                   description: payment.description ?? null,
+                  tdsSection: payment.tdsSection ?? null,
+                  tdsDepositStatus: payment.tdsDepositStatus,
+                  tdsChallanCin: payment.tdsChallanCin ?? null,
+                  tdsChallanBsrCode: payment.tdsChallanBsrCode ?? null,
+                  tdsChallanNumber: payment.tdsChallanNumber ?? null,
+                  tdsChallanDate: payment.tdsChallanDate ? dateOnly(payment.tdsChallanDate) : null,
                 }}
                 projects={projects}
               />
@@ -127,6 +134,32 @@ export default async function VendorPaymentDetailPage({ params }: { params: Prom
         </div>
 
         <div className="space-y-6">
+          <Card>
+            <CardHeader className="border-b border-border/60">
+              <CardTitle className="flex items-center justify-between gap-3 text-base">
+                <span>TDS challan</span>
+                {tds > 0 ? (
+                  <Badge variant={payment.tdsDepositStatus === "DEPOSITED" ? "default" : "secondary"}>
+                    {payment.tdsDepositStatus === "DEPOSITED" ? "Deposited" : "Pending"}
+                  </Badge>
+                ) : null}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-6 text-sm">
+              {tds <= 0 ? (
+                <InlineEmptyState title="No TDS deducted" description="Challan details are only needed when TDS is withheld on this payment." />
+              ) : (
+                <>
+                  <DetailRow label="Section" value={payment.tdsSection ?? "194C"} />
+                  <DetailRow label="CIN" value={payment.tdsChallanCin ?? "—"} />
+                  <DetailRow label="BSR code" value={payment.tdsChallanBsrCode ?? "—"} />
+                  <DetailRow label="Challan no." value={payment.tdsChallanNumber ?? "—"} />
+                  <DetailRow label="Date of deposit" value={payment.tdsChallanDate ? dateOnly(payment.tdsChallanDate) : "—"} />
+                </>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="border-b border-border/60">
               <CardTitle className="text-base">Bills applied</CardTitle>
@@ -188,5 +221,14 @@ function MetricCard({ label, value }: { label: string; value: string }) {
       </CardHeader>
       <CardContent className="text-lg font-semibold tracking-tight [overflow-wrap:anywhere]">{value}</CardContent>
     </Card>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium">{value}</span>
+    </div>
   );
 }

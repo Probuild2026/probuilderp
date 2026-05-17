@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
-import { useForm, type Resolver } from "react-hook-form";
+import { useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
@@ -13,6 +13,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { uploadBillToBlob } from "@/lib/blob-upload";
+import { isLikelyValidGstin, normalizeGstin } from "@/lib/gst-compliance";
+import { formatINR } from "@/lib/money";
 
 const attachmentSchema = z.object({
   url: z.string().url(),
@@ -27,6 +29,7 @@ const billSchema = z
     projectId: z.string().min(1, "Project is required"),
     invoiceDate: z.string().min(1, "Bill date is required"),
     invoiceNumber: z.string().min(1, "Bill number is required").max(50),
+    invoiceStatus: z.enum(["PENDING", "CONFIRMED"]),
     gstType: z.enum(["INTRA", "INTER"]),
     taxableValue: z.coerce.number().min(0, "Taxable value must be >= 0"),
     cgst: z.coerce.number().min(0, "CGST cannot be negative").optional(),
@@ -44,7 +47,7 @@ type BillFormProps = {
   tenantId: number;
   initialValues?: Partial<BillFormValues>;
   invoiceId?: string;
-  vendors: { id: string; name: string }[];
+  vendors: { id: string; name: string; gstin?: string | null }[];
   projects: { id: string; name: string }[];
   materialReceiptIds?: string[];
   onSuccess?: () => void;
@@ -58,25 +61,25 @@ export function BillForm(props: BillFormProps) {
 
   const defaultVendorId = initialValues?.vendorId ?? vendors[0]?.id ?? "";
   const defaultProjectId = initialValues?.projectId ?? projects[0]?.id ?? "";
-
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const [defaultValues] = useState<BillFormValues>(() => ({
+    vendorId: defaultVendorId,
+    projectId: defaultProjectId,
+    invoiceDate: initialValues?.invoiceDate ?? new Date().toISOString().slice(0, 10),
+    invoiceNumber: initialValues?.invoiceNumber ?? "",
+    invoiceStatus: initialValues?.invoiceStatus ?? "CONFIRMED",
+    gstType: initialValues?.gstType ?? "INTRA",
+    taxableValue: initialValues?.taxableValue ?? 0,
+    cgst: initialValues?.cgst ?? 0,
+    sgst: initialValues?.sgst ?? 0,
+    igst: initialValues?.igst ?? 0,
+    total: initialValues?.total ?? 0,
+  }));
 
   const form = useForm<BillFormValues>({
     // zodResolver (zod v4) types `z.coerce.number()` as `unknown` in the resolver output.
     // Runtime validation is correct; cast keeps TS happy.
     resolver: zodResolver(billSchema) as Resolver<BillFormValues>,
-    defaultValues: {
-      vendorId: defaultVendorId,
-      projectId: defaultProjectId,
-      invoiceDate: initialValues?.invoiceDate ?? today,
-      invoiceNumber: initialValues?.invoiceNumber ?? "",
-      gstType: initialValues?.gstType ?? "INTRA",
-      taxableValue: initialValues?.taxableValue ?? 0,
-      cgst: initialValues?.cgst ?? 0,
-      sgst: initialValues?.sgst ?? 0,
-      igst: initialValues?.igst ?? 0,
-      total: initialValues?.total ?? 0,
-    },
+    defaultValues,
   });
 
   useEffect(() => {
@@ -84,21 +87,30 @@ export function BillForm(props: BillFormProps) {
     if (!form.getValues("projectId") && defaultProjectId) form.setValue("projectId", defaultProjectId);
   }, [defaultProjectId, defaultVendorId, form]);
 
-  const gstType = form.watch("gstType");
-  const taxableValue = form.watch("taxableValue");
-  const cgst = form.watch("cgst");
-  const sgst = form.watch("sgst");
-  const igst = form.watch("igst");
+  const gstType = useWatch({ control: form.control, name: "gstType" });
+  const vendorId = useWatch({ control: form.control, name: "vendorId" });
+  const taxableValue = useWatch({ control: form.control, name: "taxableValue" });
+  const cgst = useWatch({ control: form.control, name: "cgst" });
+  const sgst = useWatch({ control: form.control, name: "sgst" });
+  const igst = useWatch({ control: form.control, name: "igst" });
+
+  const selectedVendor = useMemo(() => vendors.find((vendor) => vendor.id === vendorId), [vendorId, vendors]);
+
+  const taxableAmount = toAmount(taxableValue);
+  const activeCgst = gstType === "INTRA" ? toAmount(cgst) : 0;
+  const activeSgst = gstType === "INTRA" ? toAmount(sgst) : 0;
+  const activeIgst = gstType === "INTER" ? toAmount(igst) : 0;
+  const gstAmount = activeCgst + activeSgst + activeIgst;
+  const computedTotal = Number((taxableAmount + gstAmount).toFixed(2));
+  const normalizedVendorGstin = normalizeGstin(selectedVendor?.gstin);
+  const hasVendorGstin = normalizedVendorGstin.length > 0;
+  const hasTax = gstAmount > 0;
+  const isVendorGstinValid = hasVendorGstin ? isLikelyValidGstin(normalizedVendorGstin) : false;
 
   useEffect(() => {
-    const safeTaxable = Number.isFinite(taxableValue) ? taxableValue : 0;
-    const safeCgst = Number.isFinite(cgst ?? 0) ? (cgst ?? 0) : 0;
-    const safeSgst = Number.isFinite(sgst ?? 0) ? (sgst ?? 0) : 0;
-    const safeIgst = Number.isFinite(igst ?? 0) ? (igst ?? 0) : 0;
-    const nextTotal = safeTaxable + safeCgst + safeSgst + safeIgst;
-    form.setValue("total", Number(nextTotal.toFixed(2)), { shouldValidate: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taxableValue, cgst, sgst, igst, form.setValue]);
+    if (toAmount(form.getValues("total")) === computedTotal) return;
+    form.setValue("total", computedTotal, { shouldValidate: true });
+  }, [computedTotal, form]);
 
   function handleSubmit(values: BillFormValues) {
     startTransition(async () => {
@@ -123,6 +135,7 @@ export function BillForm(props: BillFormProps) {
 
         const payload = {
           ...values,
+          total: computedTotal,
           cgst: values.gstType === "INTRA" ? values.cgst ?? 0 : 0,
           sgst: values.gstType === "INTRA" ? values.sgst ?? 0 : 0,
           igst: values.gstType === "INTER" ? values.igst ?? 0 : 0,
@@ -232,7 +245,7 @@ export function BillForm(props: BillFormProps) {
               <FormItem>
                 <FormLabel>Bill date</FormLabel>
                 <FormControl>
-                  <Input type="date" {...field} />
+                  <Input type="date" value={field.value ?? ""} onChange={field.onChange} onBlur={field.onBlur} name={field.name} ref={field.ref} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -246,8 +259,30 @@ export function BillForm(props: BillFormProps) {
               <FormItem>
                 <FormLabel>Bill no / Reference</FormLabel>
                 <FormControl>
-                  <Input placeholder="Supplier invoice no." {...field} />
+                  <Input placeholder="Supplier invoice no. or internal reference" {...field} />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="invoiceStatus"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Invoice status</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select invoice status" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="CONFIRMED">Supplier invoice confirmed</SelectItem>
+                    <SelectItem value="PENDING">Invoice pending / unconfirmed</SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
@@ -336,19 +371,12 @@ export function BillForm(props: BillFormProps) {
             />
           )}
 
-          <FormField
-            control={form.control}
-            name="total"
-            render={({ field }) => (
-              <FormItem className="xl:col-span-1">
-                <FormLabel>Total</FormLabel>
-                <FormControl>
-                  <Input type="number" inputMode="decimal" step="0.01" {...field} readOnly />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="space-y-2 text-sm xl:col-span-1">
+            <div className="text-muted-foreground">Total</div>
+            <div className="flex h-10 items-center rounded-md border bg-muted/30 px-3 font-medium tabular-nums">
+              {formatINR(computedTotal)}
+            </div>
+          </div>
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px] xl:items-start">
@@ -379,18 +407,32 @@ export function BillForm(props: BillFormProps) {
             <div className="font-medium">Bill summary</div>
             <div className="mt-3 flex items-center justify-between gap-3">
               <span className="text-muted-foreground">Taxable value</span>
-              <span className="font-medium">{Number(taxableValue || 0).toFixed(2)}</span>
+              <span className="font-medium">{formatINR(taxableAmount)}</span>
             </div>
             <div className="mt-2 flex items-center justify-between gap-3">
               <span className="text-muted-foreground">Tax amount</span>
-              <span className="font-medium">{(Number(cgst || 0) + Number(sgst || 0) + Number(igst || 0)).toFixed(2)}</span>
+              <span className="font-medium">{formatINR(gstAmount)}</span>
             </div>
             <div className="mt-2 flex items-center justify-between gap-3">
               <span className="text-muted-foreground">Grand total</span>
-              <span className="font-semibold">{Number(form.getValues("total") || 0).toFixed(2)}</span>
+              <span className="font-semibold">{formatINR(computedTotal)}</span>
             </div>
           </div>
         </div>
+
+        {hasTax ? (
+          <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+            <div className="font-medium">GST invoice and ITC check</div>
+            <div className="mt-2 text-muted-foreground">
+              {hasVendorGstin
+                ? `Vendor GSTIN ${normalizedVendorGstin} ${isVendorGstinValid ? "matches the GSTIN format" : "does not match the expected GSTIN format"}.`
+                : "This vendor has no GSTIN on file."}
+            </div>
+            <div className="mt-1 text-muted-foreground">
+              Collect the supplier GST invoice before claiming ITC. Claimable ITC preview: {formatINR(gstAmount)}.
+            </div>
+          </div>
+        ) : null}
 
         <div className="flex justify-end gap-2">
           <Button type="submit" disabled={isPending || disabled}>
@@ -400,4 +442,9 @@ export function BillForm(props: BillFormProps) {
       </form>
     </Form>
   );
+}
+
+function toAmount(value: unknown) {
+  const amount = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(amount) ? amount : 0;
 }
